@@ -34,25 +34,12 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 	var root *repoRoot
 	var err error
 
-	//var (
-	//	provider       vcsProvider
-	//	root           *repoRoot
-	//	repo, rootPath string
-	//	err            error
-	//)
-
 	if p.Build.SrcRoot != "" {
 		// Directory exists. Look for checkout along path to src.
 		root, err = c.vcsFromDir(p.Dir, p.Build.SrcRoot)
 		if err != nil {
 			return err
 		}
-		//provider = root.vcs
-		//repo = "<local>" // should be unused; make distinctive
-
-		//if update {
-		//	repo = root.repo
-		//}
 	} else {
 		// Analyze the import path to determine the version control system,
 		// repository, and the import path for the root of the repository.
@@ -60,7 +47,6 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		if err != nil {
 			return err
 		}
-		//provider, repo, rootPath = root.vcs, root.repo, root.rootPath
 	}
 	if !isSecure(root.url) && !insecure {
 		return fmt.Errorf("cannot download, %v uses insecure protocol", root.url)
@@ -90,12 +76,11 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		return fmt.Errorf("path disagreement, calculated %s, expected %s", dir, root.dir)
 	}
 
-	// TODO: replace this with c.repoRoots?
 	// If we've considered this repository already, don't do it again.
-	if c.downloadRootCache[root.dir] {
+	if _, ok := c.repoRoots[root.dir]; ok {
 		return nil
 	}
-	c.downloadRootCache[root.dir] = true
+	c.repoRoots[root.dir] = root
 
 	//if cfg.BuildV {
 	//	fmt.Fprintf(os.Stderr, "%s (download)\n", rootPath)
@@ -562,11 +547,15 @@ type repoRoot struct {
 }
 
 func (r *repoRoot) create(fs billy.Filesystem) error {
-	return r.vcs.create(r, fs)
+	if err := r.vcs.create(r.url, r.dir, fs); err != nil {
+		return err
+	}
+	r.exists = true
+	return nil
 }
 
 func (r *repoRoot) download() error {
-	return r.vcs.download(r)
+	return r.vcs.download()
 }
 
 var httpPrefixRE = regexp.MustCompile(`^https?:`)
@@ -778,8 +767,8 @@ type vcsProvider interface {
 	cmd() string
 	ping(scheme, repo string) error
 	schemes() []string
-	create(root *repoRoot, fs billy.Filesystem) error
-	download(root *repoRoot) error
+	create(url, dir string, fs billy.Filesystem) error
+	download() error
 }
 
 type gitProvider struct {
@@ -788,17 +777,16 @@ type gitProvider struct {
 	worktree *git.Worktree
 }
 
-func (g *gitProvider) create(root *repoRoot, fs billy.Filesystem) error {
+func (g *gitProvider) create(url, dir string, fs billy.Filesystem) error {
 	// git clone {repo} {dir}
 	// git -go-internal-cd {dir} submodule update --init --recursive
-	root.exists = true
 	g.store = memory.NewStorage()
-	dirfs, err := fs.Chroot(root.dir)
+	dirfs, err := fs.Chroot(dir)
 	if err != nil {
 		return err
 	}
 	repo, err := git.Clone(g.store, dirfs, &git.CloneOptions{
-		URL:               root.url,
+		URL:               url,
 		SingleBranch:      true,
 		Depth:             1,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
@@ -815,7 +803,7 @@ func (g *gitProvider) create(root *repoRoot, fs billy.Filesystem) error {
 	return nil
 }
 
-func (g *gitProvider) download(root *repoRoot) error {
+func (g *gitProvider) download() error {
 	// git pull --ff-only
 	// git submodule update --init --recursive
 	err := g.worktree.Pull(&git.PullOptions{

@@ -26,16 +26,17 @@ func New(fs billy.Filesystem) *Cache {
 	c.downloadCache = make(map[string]bool)
 	c.repoRoots = make(map[string]*repoRoot)
 	c.fetchCache = make(map[string]fetchResult)
-	c.downloadRootCache = make(map[string]bool)
 	c.buildContext = build.Context{
 		GOARCH:   "js",               // target architecture
 		GOOS:     build.Default.GOOS, // target operating system
 		GOROOT:   "/goroot",          // Go root
 		GOPATH:   "/gopath",          // Go path
 		Compiler: "gc",               // compiler to assume when computing target paths
+
 		// JoinPath joins the sequence of path fragments into a single path.
 		// If JoinPath is nil, Import uses filepath.Join.
 		JoinPath: pathpkg.Join,
+
 		// SplitPathList splits the path list into a slice of individual paths.
 		// If SplitPathList is nil, Import uses filepath.SplitList.
 		SplitPathList: func(list string) []string {
@@ -44,6 +45,7 @@ func New(fs billy.Filesystem) *Cache {
 			}
 			return strings.Split(list, "/")
 		},
+
 		// IsAbsPath reports whether path is an absolute path.
 		// If IsAbsPath is nil, Import uses filepath.IsAbs.
 		IsAbsPath: pathpkg.IsAbs,
@@ -98,12 +100,6 @@ type Cache struct {
 	fetchGroup    singleflight.Group
 	fetchCacheMu  sync.Mutex
 	fetchCache    map[string]fetchResult // key is metaImportsForPrefix's importPrefix
-	// downloadRootCache records the version control repository
-	// root directories we have already considered during the download.
-	// For example, all the packages in the github.com/google/codesearch repo
-	// share the same root (the directory for that path), and we only need
-	// to run the hg commands to consider each repository once.
-	downloadRootCache map[string]bool
 }
 
 func (c *Cache) Get(path string, update bool, insecure bool) error {
