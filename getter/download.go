@@ -76,6 +76,8 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		return fmt.Errorf("path disagreement, calculated %s, expected %s", dir, root.dir)
 	}
 
+	c.repoPackages[p.ImportPath] = root
+
 	// If we've considered this repository already, don't do it again.
 	if _, ok := c.repoRoots[root.dir]; ok {
 		return nil
@@ -114,11 +116,19 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		//	fmt.Fprintf(os.Stderr, "created GOPATH=%s; see 'go help gopath'\n", p.Internal.Build.Root)
 		//}
 
+		if c.log != nil {
+			fmt.Fprintf(c.log, "cloning %s\n", root.path)
+		}
 		if err = root.create(c.fs); err != nil {
 			return err
 		}
 	} else {
 		// Metadata directory does exist; download incremental updates.
+
+		if c.log != nil {
+			fmt.Fprintf(c.log, "pulling %s\n", root.path)
+		}
+
 		if err = root.download(); err != nil {
 			return err
 		}
@@ -544,6 +554,13 @@ type repoRoot struct {
 
 	// exists is true once the repo has been downloaded
 	exists bool
+
+	// hash is the latest commit hash
+	hash string
+}
+
+func (r *repoRoot) Hash() string {
+	return r.hash
 }
 
 func (r *repoRoot) create(fs billy.Filesystem) error {
@@ -551,11 +568,16 @@ func (r *repoRoot) create(fs billy.Filesystem) error {
 		return err
 	}
 	r.exists = true
+	r.hash = r.vcs.hash()
 	return nil
 }
 
 func (r *repoRoot) download() error {
-	return r.vcs.download()
+	if err := r.vcs.download(); err != nil {
+		return err
+	}
+	r.hash = r.vcs.hash()
+	return nil
 }
 
 var httpPrefixRE = regexp.MustCompile(`^https?:`)
@@ -769,12 +791,18 @@ type vcsProvider interface {
 	schemes() []string
 	create(url, dir string, fs billy.Filesystem) error
 	download() error
+	hash() string
 }
 
 type gitProvider struct {
-	store    storage.Storer
-	repo     *git.Repository
-	worktree *git.Worktree
+	store      storage.Storer
+	repo       *git.Repository
+	worktree   *git.Worktree
+	hashString string
+}
+
+func (g *gitProvider) hash() string {
+	return g.hashString
 }
 
 func (g *gitProvider) create(url, dir string, fs billy.Filesystem) error {
@@ -795,11 +823,32 @@ func (g *gitProvider) create(url, dir string, fs billy.Filesystem) error {
 		return err
 	}
 	g.repo = repo
+
 	worktree, err := g.repo.Worktree()
 	if err != nil {
 		return err
 	}
 	g.worktree = worktree
+
+	// ... retrieves the branch pointed by HEAD
+	ref, err := repo.Head()
+	if err != nil {
+		return err
+	}
+
+	// ... retrieves the commit history
+	iter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
+	if err != nil {
+		return err
+	}
+
+	c, err := iter.Next()
+	if err != nil {
+		return err
+	}
+
+	g.hashString = c.Hash.String()
+
 	return nil
 }
 
@@ -814,6 +863,26 @@ func (g *gitProvider) download() error {
 	if err != nil {
 		return err
 	}
+
+	// ... retrieves the branch pointed by HEAD
+	ref, err := g.repo.Head()
+	if err != nil {
+		return err
+	}
+
+	// ... retrieves the commit history
+	iter, err := g.repo.Log(&git.LogOptions{From: ref.Hash()})
+	if err != nil {
+		return err
+	}
+
+	c, err := iter.Next()
+	if err != nil {
+		return err
+	}
+
+	g.hashString = c.Hash.String()
+
 	return nil
 }
 

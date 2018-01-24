@@ -7,12 +7,14 @@ import (
 
 	"path/filepath"
 
+	"os"
+
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 func TestNew(t *testing.T) {
 	fs := memfs.New()
-	c := New(fs)
+	c := New(fs, os.Stdout)
 	if err := c.Get("github.com/dave/brenda", true, false); err != nil {
 		t.Fatal(err.Error())
 	}

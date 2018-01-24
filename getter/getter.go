@@ -12,94 +12,43 @@ import (
 
 	"sync"
 
+	"github.com/dave/jsgo/common"
 	"golang.org/x/sync/singleflight"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func New(fs billy.Filesystem) *Cache {
+func New(fs billy.Filesystem, log io.Writer) *Cache {
 	c := &Cache{}
 
 	c.fs = fs
-	//c.isDirCache = make(map[string]bool)
+	c.log = log
 	c.packageCache = make(map[string]*Package)
 	c.foldPath = make(map[string]string)
 	c.downloadCache = make(map[string]bool)
-	c.repoRoots = make(map[string]*repoRoot)
+	c.repoRoots = make(map[string]*repoRoot)    // key is the root dir of the repo
+	c.repoPackages = make(map[string]*repoRoot) // key is the path of the package. NOTE: not all packages are included, but the ones we're interested in should be.
 	c.fetchCache = make(map[string]fetchResult)
-	c.buildContext = build.Context{
-		GOARCH:   "js",               // target architecture
-		GOOS:     build.Default.GOOS, // target operating system
-		GOROOT:   "/goroot",          // Go root
-		GOPATH:   "/gopath",          // Go path
-		Compiler: "gc",               // compiler to assume when computing target paths
-
-		// JoinPath joins the sequence of path fragments into a single path.
-		// If JoinPath is nil, Import uses filepath.Join.
-		JoinPath: pathpkg.Join,
-
-		// SplitPathList splits the path list into a slice of individual paths.
-		// If SplitPathList is nil, Import uses filepath.SplitList.
-		SplitPathList: func(list string) []string {
-			if list == "" {
-				return nil
-			}
-			return strings.Split(list, "/")
-		},
-
-		// IsAbsPath reports whether path is an absolute path.
-		// If IsAbsPath is nil, Import uses filepath.IsAbs.
-		IsAbsPath: pathpkg.IsAbs,
-
-		// IsDir reports whether the path names a directory.
-		// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
-		IsDir: c.isDir,
-
-		// HasSubdir reports whether dir is lexically a subdirectory of
-		// root, perhaps multiple levels below. It does not try to check
-		// whether dir exists.
-		// If so, HasSubdir sets rel to a slash-separated path that
-		// can be joined to root to produce a path equivalent to dir.
-		// If HasSubdir is nil, Import uses an implementation built on
-		// filepath.EvalSymlinks.
-		HasSubdir: func(root, dir string) (rel string, ok bool) {
-			const sep = string(filepath.Separator)
-			root = filepath.Clean(root)
-			if !strings.HasSuffix(root, sep) {
-				root += sep
-			}
-			dir = filepath.Clean(dir)
-			if !strings.HasPrefix(dir, root) {
-				return "", false
-			}
-			return filepath.ToSlash(dir[len(root):]), true
-		},
-
-		// ReadDir returns a slice of os.FileInfo, sorted by Name,
-		// describing the content of the named directory.
-		// If ReadDir is nil, Import uses ioutil.ReadDir.
-		ReadDir: c.fs.ReadDir,
-
-		// OpenFile opens a file (not a directory) for reading.
-		// If OpenFile is nil, Import uses os.Open.
-		OpenFile: func(path string) (io.ReadCloser, error) {
-			return c.fs.Open(path)
-		},
-	}
+	c.buildContext = common.NewBuildContext(fs, false) // getter doesn't need goroot
 	return c
 
 }
 
 type Cache struct {
-	fs billy.Filesystem
-	//isDirCache    map[string]bool
+	fs            billy.Filesystem
+	log           io.Writer
 	packageCache  map[string]*Package
-	buildContext  build.Context
+	buildContext  *build.Context
 	foldPath      map[string]string
 	downloadCache map[string]bool
 	repoRoots     map[string]*repoRoot
+	repoPackages  map[string]*repoRoot
 	fetchGroup    singleflight.Group
 	fetchCacheMu  sync.Mutex
 	fetchCache    map[string]fetchResult // key is metaImportsForPrefix's importPrefix
+}
+
+func (c *Cache) Root(path string) *repoRoot {
+	return c.repoPackages[path]
 }
 
 func (c *Cache) Get(path string, update bool, insecure bool) error {
