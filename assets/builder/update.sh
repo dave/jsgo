@@ -20,6 +20,9 @@ gopherjsgopath=$(go list -f '{{.Root}}' github.com/gopherjs/gopherjs)
 rm -rf assets/assets/static/pkg/
 rm -rf assets/assets/static/pkg_min/
 
+rm -rf assets/assets/static/goroot/
+rsync -av "$(go env GOROOT)/src" "assets/assets/static/goroot" --exclude *_test.go
+
 # Use an empty GOPATH workspace with just gopherjs,
 # so that all the standard library packages get written to GOROOT/pkg.
 export GOPATH="$tmp/gopath"
