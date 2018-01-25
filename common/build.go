@@ -43,12 +43,7 @@ func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
 		// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
 		IsDir: func(path string) bool {
 			if strings.HasPrefix(path, "/goroot/") && root {
-				f, err := assets.Assets.Open(path)
-				if err != nil {
-					return false
-				}
-				defer f.Close()
-				fi, err := f.Stat()
+				fi, err := assets.Assets.Stat(path)
 				if err != nil {
 					return false
 				}
@@ -83,12 +78,7 @@ func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
 		// If ReadDir is nil, Import uses ioutil.ReadDir.
 		ReadDir: func(path string) ([]os.FileInfo, error) {
 			if strings.HasPrefix(path, "/goroot/") && root {
-				f, err := assets.Assets.Open(path)
-				if err != nil {
-					return nil, err
-				}
-				defer f.Close()
-				fi, err := f.Readdir(-1)
+				fi, err := assets.Assets.ReadDir(path)
 				if err != nil {
 					return nil, err
 				}

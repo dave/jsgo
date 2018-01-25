@@ -65,7 +65,7 @@ type ArchiveInfo struct {
 	Standard bool
 	Archive  *compiler.Archive
 	Hash     []byte
-	Revision string
+	FullHash []byte
 }
 
 func (c *Cache) Store(ctx context.Context, path string, logger io.Writer) error {
@@ -115,7 +115,7 @@ func storeArchive(ctx context.Context, bucket *storage.BucketHandle, archive *Ar
 		min = ""
 	}
 
-	fname := fmt.Sprintf("js/%s/package.%s.%x%s.js", archive.Path, archive.Revision, archive.Hash, min)
+	fname := fmt.Sprintf("js/%s/package.%x%s.js", archive.Path, archive.FullHash, min)
 
 	if err := storeJs(ctx, bucket, buf, fname); err != nil {
 		return err
@@ -289,9 +289,9 @@ func (c *Cache) renderMain(path string) error {
 		if a.Archive == nil {
 			continue
 		}
-		p := PkgJson{Path: a.Path}
-		if a.Hash != nil {
-			p.Hash = fmt.Sprintf("%s.%x", a.Revision, a.Hash)
+		p := PkgJson{
+			Path: a.Path,
+			Hash: fmt.Sprintf("%x", a.FullHash),
 		}
 		pkgs = append(pkgs, p)
 	}
@@ -356,11 +356,12 @@ func (c *Cache) assignHashes(path string, repoHashes map[string]string) error {
 			return nil, err
 		}
 		archive.Hash = sha.Sum(nil)
-		hash, ok := repoHashes[path]
+		revision, ok := repoHashes[path]
 		if !ok {
 			return nil, fmt.Errorf("can't find repo revision hash for %s", path)
 		}
-		archive.Revision = hash
+		fmt.Fprint(sha, "\n", revision)
+		archive.FullHash = sha.Sum(nil)
 		return archive.Hash, nil
 	}
 	if _, err := getHash(path); err != nil {

@@ -17,15 +17,15 @@ go generate github.com/gopherjs/gopherjs.github.io/playground/internal/imports
 # The GOPATH workspace where the GopherJS project is.
 gopherjsgopath=$(go list -f '{{.Root}}' github.com/gopherjs/gopherjs)
 
-rm -rf assets/assets/static/pkg/
-rm -rf assets/assets/static/pkg_min/
+rm -rf assets/static/pkg/
+rm -rf assets/static/pkg_min/
 
-rm -rf assets/assets/static/goroot/
-rsync -av "$(go env GOROOT)/src" "assets/assets/static/goroot" --exclude *_test.go
+rm -rf assets/static/goroot/
+rsync -av "$(go env GOROOT)/src" "assets/static/goroot" --exclude *_test.go
 
-mkdir -p assets/assets/static/goroot/src/github.com/gopherjs/gopherjs
-rsync -av "$(go env GOPATH)/src/github.com/gopherjs/gopherjs/js" "assets/assets/static/goroot/src/github.com/gopherjs/gopherjs" --exclude *_test.go
-rsync -av "$(go env GOPATH)/src/github.com/gopherjs/gopherjs/nosync" "assets/assets/static/goroot/src/github.com/gopherjs/gopherjs" --exclude *_test.go
+mkdir -p assets/static/goroot/src/github.com/gopherjs/gopherjs
+rsync -av "$(go env GOPATH)/src/github.com/gopherjs/gopherjs/js" "assets/static/goroot/src/github.com/gopherjs/gopherjs" --exclude *_test.go
+rsync -av "$(go env GOPATH)/src/github.com/gopherjs/gopherjs/nosync" "assets/static/goroot/src/github.com/gopherjs/gopherjs" --exclude *_test.go
 
 # Use an empty GOPATH workspace with just gopherjs,
 # so that all the standard library packages get written to GOROOT/pkg.
@@ -36,16 +36,16 @@ cp -a "$gopherjsgopath"/src/github.com/gopherjs/gopherjs/* "$GOPATH"/src/github.
 # minified / non-minified:
 gopherjs install -m github.com/gopherjs/gopherjs/js github.com/gopherjs/gopherjs/nosync
 gopherjs install github.com/gopherjs/gopherjs/js github.com/gopherjs/gopherjs/nosync
-mkdir -p assets/assets/static/pkg/github.com/gopherjs/gopherjs
-mkdir -p assets/assets/static/pkg_min/github.com/gopherjs/gopherjs
+mkdir -p assets/static/pkg/github.com/gopherjs/gopherjs
+mkdir -p assets/static/pkg_min/github.com/gopherjs/gopherjs
 
 # minified:
-cp "$GOPATH"/pkg/*_js_min/github.com/gopherjs/gopherjs/js.a assets/assets/static/pkg_min/github.com/gopherjs/gopherjs/js.a
-cp "$GOPATH"/pkg/*_js_min/github.com/gopherjs/gopherjs/nosync.a assets/assets/static/pkg_min/github.com/gopherjs/gopherjs/nosync.a
+cp "$GOPATH"/pkg/*_js_min/github.com/gopherjs/gopherjs/js.a assets/static/pkg_min/github.com/gopherjs/gopherjs/js.a
+cp "$GOPATH"/pkg/*_js_min/github.com/gopherjs/gopherjs/nosync.a assets/static/pkg_min/github.com/gopherjs/gopherjs/nosync.a
 
 # non-minified:
-cp "$GOPATH"/pkg/*_js/github.com/gopherjs/gopherjs/js.a assets/assets/static/pkg/github.com/gopherjs/gopherjs/js.a
-cp "$GOPATH"/pkg/*_js/github.com/gopherjs/gopherjs/nosync.a assets/assets/static/pkg/github.com/gopherjs/gopherjs/nosync.a
+cp "$GOPATH"/pkg/*_js/github.com/gopherjs/gopherjs/js.a assets/static/pkg/github.com/gopherjs/gopherjs/js.a
+cp "$GOPATH"/pkg/*_js/github.com/gopherjs/gopherjs/nosync.a assets/static/pkg/github.com/gopherjs/gopherjs/nosync.a
 
 # Make a copy of GOROOT that is user-writeable,
 # use it to build and copy out standard library packages.
@@ -255,9 +255,9 @@ gopherjs install \
          unicode/utf8
 
 # minified:
-cp -a "$GOROOT"/pkg/*_js_min/* assets/assets/static/pkg_min/
-cp -a "$GOROOT"/pkg/*_amd64_js_min/* assets/assets/static/pkg_min/
+cp -a "$GOROOT"/pkg/*_js_min/* assets/static/pkg_min/
+cp -a "$GOROOT"/pkg/*_amd64_js_min/* assets/static/pkg_min/
 
 # non-minified:
-cp -a "$GOROOT"/pkg/*_js/* assets/assets/static/pkg/
-cp -a "$GOROOT"/pkg/*_amd64_js/* assets/assets/static/pkg/
+cp -a "$GOROOT"/pkg/*_js/* assets/static/pkg/
+cp -a "$GOROOT"/pkg/*_amd64_js/* assets/static/pkg/

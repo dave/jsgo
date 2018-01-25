@@ -54,21 +54,17 @@ func (c *Cache) CompileStdLib() error {
 			}
 		}
 		dir := fmt.Sprint(root, path)
-		f, err := assets.Assets.Open(dir)
+		s, err := assets.Assets.Stat(dir)
 		if err != nil {
 			if os.IsNotExist(err) {
 				return nil
 			}
 			return err
 		}
-		s, err := f.Stat()
-		if err != nil {
-			return err
-		}
 		if !s.IsDir() {
 			return nil
 		}
-		fis, err := f.Readdir(-1)
+		fis, err := assets.Assets.ReadDir(dir)
 		if err != nil {
 			return err
 		}

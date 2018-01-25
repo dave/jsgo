@@ -28,6 +28,7 @@ import (
 	"github.com/dave/jsgo/getter"
 	"github.com/dustin/go-humanize"
 	"github.com/shurcooL/httpgzip"
+	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
@@ -308,19 +309,11 @@ func key(path string) *datastore.Key {
 }
 
 func serveStatic(name string, w http.ResponseWriter, req *http.Request) error {
-	var file http.File
+	var file billy.File
 	var err error
 	file, err = assets.Assets.Open(name)
 	if err != nil {
 		if os.IsNotExist(err) {
-			// Special case: in /static/pkg/ we don't want 404 errors because we can't stop them from
-			// popping up in the js console. Instead, deiver a 200 with a zero lenth body.
-			if strings.HasPrefix(req.URL.Path, "/static/pkg/") {
-				if err := writeWithTimeout(w, []byte{}); err != nil {
-					return err
-				}
-				return nil
-			}
 			http.NotFound(w, req)
 			return nil
 		}
