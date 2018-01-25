@@ -34,7 +34,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-const VERSION = "8"
+const VERSION = "9"
 
 func New(fs billy.Filesystem) *Cache {
 	c := &Cache{
@@ -46,17 +46,18 @@ func New(fs billy.Filesystem) *Cache {
 }
 
 type Cache struct {
-	fs        billy.Filesystem
-	archivesM *sync.RWMutex
-	archives  map[string]*compiler.Archive
-	prog      *loader.Program
-	ordered   []*ArchiveInfo
-	info      map[string]*ArchiveInfo
-	mainJs    []byte
+	fs         billy.Filesystem
+	archivesM  *sync.RWMutex
+	archives   map[string]*compiler.Archive
+	prog       *loader.Program
+	ordered    []*ArchiveInfo
+	info       map[string]*ArchiveInfo
+	mainJs     []byte
+	mainJsHash []byte
 }
 
 func (c *Cache) Hash(path string) []byte {
-	return c.info[path].Hash
+	return c.mainJsHash
 }
 
 type ArchiveInfo struct {
@@ -64,6 +65,7 @@ type ArchiveInfo struct {
 	Standard bool
 	Archive  *compiler.Archive
 	Hash     []byte
+	Revision string
 }
 
 func (c *Cache) Store(ctx context.Context, path string, logger io.Writer) error {
@@ -82,21 +84,21 @@ func (c *Cache) Store(ctx context.Context, path string, logger io.Writer) error 
 			return err
 		}
 	}
-	if err := storeMainJs(ctx, bucket, path, c.info[path].Hash, c.mainJs); err != nil {
+	if err := c.storeMainJs(ctx, bucket, path); err != nil {
 		return err
 	}
 	return nil
 }
 
-func storeMainJs(ctx context.Context, bucket *storage.BucketHandle, path string, hash []byte, data []byte) error {
+func (c *Cache) storeMainJs(ctx context.Context, bucket *storage.BucketHandle, path string) error {
 
 	min := ".min"
 	if config.DEV {
 		min = ""
 	}
 
-	fname := fmt.Sprintf("js/%s/main.%x%s.js", path, hash, min)
-	if err := storeJs(ctx, bucket, bytes.NewBuffer(data), fname); err != nil {
+	fname := fmt.Sprintf("js/%s/main.%x%s.js", path, c.mainJsHash, min)
+	if err := storeJs(ctx, bucket, bytes.NewBuffer(c.mainJs), fname); err != nil {
 		return err
 	}
 	return nil
@@ -113,7 +115,7 @@ func storeArchive(ctx context.Context, bucket *storage.BucketHandle, archive *Ar
 		min = ""
 	}
 
-	fname := fmt.Sprintf("js/%s/package.%x%s.js", archive.Path, archive.Hash, min)
+	fname := fmt.Sprintf("js/%s/package.%s.%x%s.js", archive.Path, archive.Revision, archive.Hash, min)
 
 	if err := storeJs(ctx, bucket, buf, fname); err != nil {
 		return err
@@ -150,7 +152,7 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 	return nil
 }
 
-func (c *Cache) Compile(path string, logger io.Writer) error {
+func (c *Cache) Compile(path string, logger io.Writer, hashes map[string]string) error {
 
 	conf := loader.Config{}
 	conf.Import(path)
@@ -208,9 +210,13 @@ func (c *Cache) Compile(path string, logger io.Writer) error {
 		return err
 	}
 
-	if err := c.assignHashes(path); err != nil {
+	if err := c.assignHashes(path, hashes); err != nil {
 		return err
 	}
+
+	//for path, archive := range c.info {
+	//	fmt.Println(path, fmt.Sprintf("%x", archive.Hash), archive.Revision)
+	//}
 
 	if err := c.renderMain(path); err != nil {
 		return err
@@ -266,7 +272,7 @@ var load = function(url) {
 	}
     tag.onload = done;
     tag.onreadystatechange = done;
-    document.body.appendChild(tag);
+    document.head.appendChild(tag);
 }
 load("https://storage.googleapis.com/jsgo/std/prelude.js");
 $pkgs.forEach(function(pkg){
@@ -283,10 +289,11 @@ func (c *Cache) renderMain(path string) error {
 		if a.Archive == nil {
 			continue
 		}
-		pkgs = append(pkgs, PkgJson{
-			Path: a.Path,
-			Hash: fmt.Sprintf("%x", a.Hash),
-		})
+		p := PkgJson{Path: a.Path}
+		if a.Hash != nil {
+			p.Hash = fmt.Sprintf("%s.%x", a.Revision, a.Hash)
+		}
+		pkgs = append(pkgs, p)
 	}
 	b, err := json.Marshal(pkgs)
 	if err != nil {
@@ -302,13 +309,18 @@ func (c *Cache) renderMain(path string) error {
 		return err
 	}
 	c.mainJs = buf.Bytes()
+	s := sha1.New()
+	if _, err := s.Write(buf.Bytes()); err != nil {
+		return err
+	}
+	c.mainJsHash = s.Sum(nil)
 	return nil
 }
 
 // TODO: automate this? Add GopherJS version?
 const STDLIB_HASH = "go version go1.9 darwin/amd64"
 
-func (c *Cache) assignHashes(path string) error {
+func (c *Cache) assignHashes(path string, repoHashes map[string]string) error {
 	var getHash func(path string) ([]byte, error)
 	getHash = func(path string) ([]byte, error) {
 		archive, ok := c.info[path]
@@ -344,6 +356,11 @@ func (c *Cache) assignHashes(path string) error {
 			return nil, err
 		}
 		archive.Hash = sha.Sum(nil)
+		hash, ok := repoHashes[path]
+		if !ok {
+			return nil, fmt.Errorf("can't find repo revision hash for %s", path)
+		}
+		archive.Revision = hash
 		return archive.Hash, nil
 	}
 	if _, err := getHash(path); err != nil {

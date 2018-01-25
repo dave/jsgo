@@ -47,8 +47,12 @@ type Cache struct {
 	fetchCache    map[string]fetchResult // key is metaImportsForPrefix's importPrefix
 }
 
-func (c *Cache) Root(path string) *repoRoot {
-	return c.repoPackages[path]
+func (c *Cache) Hashes() map[string]string {
+	hashes := map[string]string{}
+	for path, root := range c.repoPackages {
+		hashes[path] = root.hash
+	}
+	return hashes
 }
 
 func (c *Cache) Get(path string, update bool, insecure bool) error {

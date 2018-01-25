@@ -36,7 +36,6 @@ const PROJECT_ID = "jsgo-192815"
 const writeTimeout = time.Second * 2
 
 func main() {
-	//http.Handle("/_compile/", websocket.Handler(compileHandler))
 	http.HandleFunc("/", handler)
 	http.HandleFunc("/favicon.ico", faviconHandler)
 	http.HandleFunc("/_ah/health", healthCheckHandler)
@@ -99,8 +98,8 @@ var rootTpl = template.Must(template.New("root").Parse(`
 	</head>
 	<body id="wrapper">
 		<span id="log">Loading...</span>
+		<script src="https://storage.googleapis.com/jsgo/js/{{ .Path }}/main.{{ .Hash }}{{ .Min }}.js"></script>
 	</body>
-	<script src="https://storage.googleapis.com/jsgo/js/{{ .Path }}/main.{{ .Hash }}{{ .Min }}.js"></script>
 </html>`))
 
 func serveRoot(w http.ResponseWriter, req *http.Request) {
@@ -245,14 +244,10 @@ func compile(path string, logger io.Writer, req *http.Request) error {
 	if err := g.Get(path, true, false); err != nil {
 		return err
 	}
-	r := g.Root(path)
-	if r == nil {
-		return fmt.Errorf("can't find %s in getter", path)
-	}
 
 	c := compiler.New(fs)
 
-	if err := c.Compile(path, logger); err != nil {
+	if err := c.Compile(path, logger, g.Hashes()); err != nil {
 		return err
 	}
 
@@ -270,6 +265,8 @@ func compile(path string, logger io.Writer, req *http.Request) error {
 	if err := save(context.Background(), path, data); err != nil {
 		return err
 	}
+
+	fmt.Fprintln(logger, "Done!")
 
 	return nil
 }
