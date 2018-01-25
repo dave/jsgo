@@ -73,7 +73,6 @@ func main() {
 	w.Flush()
 	w.Close()
 
-	fmt.Println("Storing...")
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -82,9 +81,16 @@ func main() {
 	defer client.Close()
 	bucket := client.Bucket("jsgo")
 
+	fmt.Println("Storing local copy...")
+	if err := ioutil.WriteFile(filepath.Join(root, "../assets.zip"), buf.Bytes(), 0666); err != nil {
+		log.Fatalln(err)
+	}
+
+	fmt.Println("Uploading to GCS...")
 	if err := storeZip(ctx, bucket, buf, "assets.zip"); err != nil {
 		log.Fatalln(err)
 	}
+
 	fmt.Println("Done!")
 
 }

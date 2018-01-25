@@ -10,6 +10,12 @@ import (
 
 	"bytes"
 
+	"io/ioutil"
+	"path/filepath"
+
+	"github.com/dave/jsgo/config"
+	"github.com/dave/patsy"
+	"github.com/dave/patsy/vos"
 	billy "gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -23,20 +29,35 @@ func init() {
 }
 
 func loadAssets(fs billy.Filesystem) error {
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	gcsReader, err := client.Bucket("jsgo").Object("assets.zip").NewReader(ctx)
-	if err != nil {
-		return err
-	}
-	fmt.Println("Getting assets from GCS...")
-	buf := new(bytes.Buffer)
-	if _, err := io.Copy(buf, gcsReader); err != nil {
-		return err
+
+	var buf *bytes.Buffer
+
+	if config.DEV {
+		dir, err := patsy.Dir(vos.Os(), "github.com/dave/jsgo/assets")
+		if err != nil {
+			return err
+		}
+		b, err := ioutil.ReadFile(filepath.Join(dir, "assets.zip"))
+		if err != nil {
+			return err
+		}
+		buf = bytes.NewBuffer(b)
+	} else {
+		ctx := context.Background()
+		client, err := storage.NewClient(ctx)
+		if err != nil {
+			return err
+		}
+		defer client.Close()
+		gcsReader, err := client.Bucket("jsgo").Object("assets.zip").NewReader(ctx)
+		if err != nil {
+			return err
+		}
+		fmt.Println("Getting assets from GCS...")
+		buf = new(bytes.Buffer)
+		if _, err := io.Copy(buf, gcsReader); err != nil {
+			return err
+		}
 	}
 
 	reader := bytes.NewReader(buf.Bytes())
