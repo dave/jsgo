@@ -161,7 +161,7 @@ func serveCompile(w http.ResponseWriter, req *http.Request) {
 			</head>
 			<body id="wrapper">
 				{{ if .Found }}
-					<p>{{ .Path }} was last compiled {{ .Last }}, with git hash {{ .Hash }}.</p>
+					<p>{{ .Path }} was last compiled {{ .Last }}, with hash {{ .Hash }}.</p>
 				{{ else }}
 					<p>{{ .Path }} has never been compiled.</p>
 				{{ end }}

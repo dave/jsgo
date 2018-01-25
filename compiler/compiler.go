@@ -25,6 +25,8 @@ import (
 
 	"context"
 
+	"sort"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/common"
 	"github.com/dave/jsgo/config"
@@ -65,7 +67,6 @@ type ArchiveInfo struct {
 	Standard bool
 	Archive  *compiler.Archive
 	Hash     []byte
-	FullHash []byte
 }
 
 func (c *Cache) Store(ctx context.Context, path string, logger io.Writer) error {
@@ -83,6 +84,9 @@ func (c *Cache) Store(ctx context.Context, path string, logger io.Writer) error 
 		if err := storeArchive(ctx, bucket, a); err != nil {
 			return err
 		}
+	}
+	if err := c.renderMain(path); err != nil {
+		return err
 	}
 	if err := c.storeMainJs(ctx, bucket, path); err != nil {
 		return err
@@ -109,13 +113,18 @@ func storeArchive(ctx context.Context, bucket *storage.BucketHandle, archive *Ar
 	if err := writeArchive(buf, archive.Archive); err != nil {
 		return err
 	}
+	s := sha1.New()
+	if _, err := s.Write(buf.Bytes()); err != nil {
+		return err
+	}
+	archive.Hash = s.Sum(nil)
 
 	min := ".min"
 	if config.DEV {
 		min = ""
 	}
 
-	fname := fmt.Sprintf("js/%s/package.%x%s.js", archive.Path, archive.FullHash, min)
+	fname := fmt.Sprintf("js/%s/package.%x%s.js", archive.Path, archive.Hash, min)
 
 	if err := storeJs(ctx, bucket, buf, fname); err != nil {
 		return err
@@ -191,6 +200,11 @@ func (c *Cache) Compile(path string, logger io.Writer, hashes map[string]string)
 
 			fmt.Fprintf(logger, "Compiling %s\n", path)
 
+			// Files must be in the same order to get reproducible JS
+			sort.Slice(pi.Files, func(i, j int) bool {
+				return c.prog.Fset.File(pi.Files[i].Pos()).Name() > c.prog.Fset.File(pi.Files[j].Pos()).Name()
+			})
+
 			// compile package
 			minify := !config.DEV
 			a, err = compiler.Compile(path, pi.Files, c.prog.Fset, importContext, minify)
@@ -210,17 +224,13 @@ func (c *Cache) Compile(path string, logger io.Writer, hashes map[string]string)
 		return err
 	}
 
-	if err := c.assignHashes(path, hashes); err != nil {
-		return err
-	}
+	//if err := c.assignHashes(path, hashes); err != nil {
+	//	return err
+	//}
 
 	//for path, archive := range c.info {
 	//	fmt.Println(path, fmt.Sprintf("%x", archive.Hash), archive.Revision)
 	//}
-
-	if err := c.renderMain(path); err != nil {
-		return err
-	}
 
 	return nil
 }
@@ -291,7 +301,7 @@ func (c *Cache) renderMain(path string) error {
 		}
 		p := PkgJson{
 			Path: a.Path,
-			Hash: fmt.Sprintf("%x", a.FullHash),
+			Hash: fmt.Sprintf("%x", a.Hash),
 		}
 		pkgs = append(pkgs, p)
 	}
@@ -317,10 +327,11 @@ func (c *Cache) renderMain(path string) error {
 	return nil
 }
 
+/*
 // TODO: automate this? Add GopherJS version?
 const STDLIB_HASH = "go version go1.9 darwin/amd64"
 
-func (c *Cache) assignHashes(path string, repoHashes map[string]string) error {
+func (c *Cache) assignHashes(path string) error {
 	var getHash func(path string) ([]byte, error)
 	getHash = func(path string) ([]byte, error) {
 		archive, ok := c.info[path]
@@ -356,12 +367,13 @@ func (c *Cache) assignHashes(path string, repoHashes map[string]string) error {
 			return nil, err
 		}
 		archive.Hash = sha.Sum(nil)
-		revision, ok := repoHashes[path]
-		if !ok {
-			return nil, fmt.Errorf("can't find repo revision hash for %s", path)
-		}
-		fmt.Fprint(sha, "\n", revision)
-		archive.FullHash = sha.Sum(nil)
+
+		//	revision, ok := repoHashes[path]
+		//	if !ok {
+		//		return nil, fmt.Errorf("can't find repo revision hash for %s", path)
+		//	}
+		//	fmt.Fprint(sha, "\n", revision)
+		//	archive.FullHash = sha.Sum(nil)
 		return archive.Hash, nil
 	}
 	if _, err := getHash(path); err != nil {
@@ -377,6 +389,7 @@ type Sig struct {
 	Defs    map[string]bool
 	Imports map[string][]byte
 }
+*/
 
 func (c *Cache) getArchive(path string) (*compiler.Archive, bool) {
 	c.archivesM.RLock()
