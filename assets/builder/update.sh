@@ -23,6 +23,10 @@ rm -rf assets/assets/static/pkg_min/
 rm -rf assets/assets/static/goroot/
 rsync -av "$(go env GOROOT)/src" "assets/assets/static/goroot" --exclude *_test.go
 
+mkdir -p assets/assets/static/goroot/src/github.com/gopherjs/gopherjs
+rsync -av "$(go env GOPATH)/src/github.com/gopherjs/gopherjs/js" "assets/assets/static/goroot/src/github.com/gopherjs/gopherjs" --exclude *_test.go
+rsync -av "$(go env GOPATH)/src/github.com/gopherjs/gopherjs/nosync" "assets/assets/static/goroot/src/github.com/gopherjs/gopherjs" --exclude *_test.go
+
 # Use an empty GOPATH workspace with just gopherjs,
 # so that all the standard library packages get written to GOROOT/pkg.
 export GOPATH="$tmp/gopath"

@@ -15,7 +15,6 @@ import (
 	"google.golang.org/appengine"
 
 	"cloud.google.com/go/datastore"
-	"cloud.google.com/go/storage"
 
 	pathpkg "path"
 
@@ -23,8 +22,6 @@ import (
 	"github.com/pkg/errors"
 
 	"context"
-
-	"crypto/sha1"
 
 	"github.com/dave/jsgo/compiler"
 	"github.com/dave/jsgo/config"
@@ -88,10 +85,48 @@ func serveJs(w http.ResponseWriter, req *http.Request) {
 	fmt.Fprintln(w, "js", path)
 }
 
+type rootVars struct {
+	Path string
+	Hash string
+	Min  string
+}
+
+var rootTpl = template.Must(template.New("root").Parse(`
+<html>
+	<head>
+		<meta charset="utf-8">
+		<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
+	</head>
+	<body id="wrapper">
+		<span id="log">Loading...</span>
+	</body>
+	<script src="https://storage.googleapis.com/jsgo/js/{{ .Path }}/main.{{ .Hash }}{{ .Min }}.js"></script>
+</html>`))
+
 func serveRoot(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
-
-	fmt.Fprintln(w, "root", path)
+	found, data, err := lookup(context.Background(), path)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+	if !found {
+		http.Redirect(w, req, fmt.Sprintf("/%s?compile", path), http.StatusFound)
+		return
+	}
+	min := ""
+	if data.Min {
+		min = ".min"
+	}
+	vars := rootVars{
+		Path: path,
+		Hash: data.Hash,
+		Min:  min,
+	}
+	if err := rootTpl.Execute(w, vars); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 }
 
 func serveCompile(w http.ResponseWriter, req *http.Request) {
@@ -214,81 +249,35 @@ func compile(path string, logger io.Writer, req *http.Request) error {
 	if r == nil {
 		return fmt.Errorf("can't find %s in getter", path)
 	}
-	fmt.Fprintln(logger, "hash", r.Hash())
-	if err := save(context.Background(), path, Data{time.Now(), r.Hash()}); err != nil {
-		return err
-	}
-	fmt.Fprintln(logger, "compile", path)
 
 	c := compiler.New(fs)
-	archives, err := c.Compile(path, logger)
-	if err != nil {
+
+	if err := c.Compile(path, logger); err != nil {
 		return err
 	}
 
-	for _, a := range archives {
-
-		if !a.Standard {
-			fmt.Fprintf(logger, "Archive: %s\n", a.Path)
-		}
-
-	}
-
-	if err := storeArchives(archives, logger, req); err != nil {
+	ctx := appengine.NewContext(req)
+	if err := c.Store(ctx, path, logger); err != nil {
 		return err
 	}
 
-	return nil
-}
-
-func storeArchives(archives []compiler.ArchiveInfo, logger io.Writer, r *http.Request) error {
-	ctx := appengine.NewContext(r)
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	bucket := client.Bucket("jsgo")
-	for _, a := range archives {
-		if a.Standard {
-			continue
-		}
-		fmt.Fprintf(logger, "Storing %s\n", a.Path)
-		if err := storeArchive(ctx, bucket, a); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func storeArchive(ctx context.Context, bucket *storage.BucketHandle, archive compiler.ArchiveInfo) error {
-	buf := &bytes.Buffer{}
-	if err := compiler.WriteArchive(buf, archive.Archive); err != nil {
-		return err
-	}
-	s := sha1.New()
-	if _, err := s.Write(buf.Bytes()); err != nil {
-		return err
-	}
-	hash := s.Sum(nil)
-
-	min := ".min"
-	if config.DEV {
-		min = ""
+	data := Data{
+		Time: time.Now(),
+		Hash: fmt.Sprintf("%x", c.Hash(path)),
+		Min:  !config.DEV,
 	}
 
-	wc := bucket.Object(fmt.Sprintf("%s/package.%x%s.js", archive.Path, hash, min)).NewWriter(ctx)
-	defer wc.Close()
-	wc.ContentType = "application/javascript"
-	if _, err := io.Copy(wc, buf); err != nil {
+	if err := save(context.Background(), path, data); err != nil {
 		return err
 	}
+
 	return nil
 }
 
 type Data struct {
 	Time time.Time
 	Hash string
+	Min  bool
 }
 
 func save(ctx context.Context, path string, data Data) error {
