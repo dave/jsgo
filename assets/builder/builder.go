@@ -60,10 +60,12 @@ func main() {
 			if err != nil {
 				return err
 			}
-			defer f.Close()
 			if _, err := io.Copy(z, f); err != nil {
+				f.Close()
 				return err
 			}
+			f.Close()
+			w.Flush()
 		}
 		return nil
 	}
