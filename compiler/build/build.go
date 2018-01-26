@@ -31,7 +31,7 @@ func (e *ImportCError) Error() string {
 	return e.pkgPath + `: importing "C" is not supported by GopherJS`
 }
 
-func NewBuildContext(installSuffix string, buildTags []string) *build.Context {
+func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *build.Context {
 	return &build.Context{
 		GOROOT:        build.Default.GOROOT,
 		GOPATH:        build.Default.GOPATH,
@@ -42,6 +42,57 @@ func NewBuildContext(installSuffix string, buildTags []string) *build.Context {
 		BuildTags:     append(buildTags, "netgo"),
 		ReleaseTags:   build.Default.ReleaseTags,
 		CgoEnabled:    true, // detect `import "C"` to throw proper error
+
+		/*
+			TODO:
+			// The install suffix specifies a suffix to use in the name of the installation
+			// directory. By default it is empty, but custom builds that need to keep
+			// their outputs separate can set InstallSuffix to do so. For example, when
+			// using the race detector, the go command uses InstallSuffix = "race", so
+			// that on a Linux/386 system, packages are written to a directory named
+			// "linux_386_race" instead of the usual "linux_386".
+			InstallSuffix string
+
+			// By default, Import uses the operating system's file system calls
+			// to read directories and files. To read from other sources,
+			// callers can set the following functions. They all have default
+			// behaviors that use the local file system, so clients need only set
+			// the functions whose behaviors they wish to change.
+
+			// JoinPath joins the sequence of path fragments into a single path.
+			// If JoinPath is nil, Import uses filepath.Join.
+			JoinPath func(elem ...string) string
+
+			// SplitPathList splits the path list into a slice of individual paths.
+			// If SplitPathList is nil, Import uses filepath.SplitList.
+			SplitPathList func(list string) []string
+
+			// IsAbsPath reports whether path is an absolute path.
+			// If IsAbsPath is nil, Import uses filepath.IsAbs.
+			IsAbsPath func(path string) bool
+
+			// IsDir reports whether the path names a directory.
+			// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
+			IsDir func(path string) bool
+
+			// HasSubdir reports whether dir is lexically a subdirectory of
+			// root, perhaps multiple levels below. It does not try to check
+			// whether dir exists.
+			// If so, HasSubdir sets rel to a slash-separated path that
+			// can be joined to root to produce a path equivalent to dir.
+			// If HasSubdir is nil, Import uses an implementation built on
+			// filepath.EvalSymlinks.
+			HasSubdir func(root, dir string) (rel string, ok bool)
+
+			// ReadDir returns a slice of os.FileInfo, sorted by Name,
+			// describing the content of the named directory.
+			// If ReadDir is nil, Import uses ioutil.ReadDir.
+			ReadDir func(dir string) ([]os.FileInfo, error)
+
+			// OpenFile opens a file (not a directory) for reading.
+			// If OpenFile is nil, Import uses os.Open.
+			OpenFile func(path string) (io.ReadCloser, error)
+		*/
 	}
 }
 
@@ -59,12 +110,12 @@ func NewBuildContext(installSuffix string, buildTags []string) *build.Context {
 //
 // If an error occurs, Import returns a non-nil error and a nil
 // *PackageData.
-func Import(path string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	return importWithSrcDir(path, "", mode, installSuffix, buildTags)
+func (s *Session) Import(path string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+	return s.importWithSrcDir(path, "", mode, installSuffix, buildTags)
 }
 
-func importWithSrcDir(path string, srcDir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	bctx := NewBuildContext(installSuffix, buildTags)
+func (s *Session) importWithSrcDir(path string, srcDir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+	bctx := s.NewBuildContext(installSuffix, buildTags)
 	switch path {
 	case "syscall":
 		// syscall needs to use a typical GOARCH like amd64 to pick up definitions for _Socklen, BpfInsn, IFNAMSIZ, Timeval, BpfStat, SYS_FCNTL, Flock_t, etc.
@@ -160,8 +211,8 @@ Outer:
 
 // ImportDir is like Import but processes the Go package found in the named
 // directory.
-func ImportDir(dir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	pkg, err := NewBuildContext(installSuffix, buildTags).ImportDir(dir, mode)
+func (s *Session) ImportDir(dir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+	pkg, err := s.NewBuildContext(installSuffix, buildTags).ImportDir(dir, mode)
 	if err != nil {
 		return nil, err
 	}
@@ -424,7 +475,7 @@ func (s *Session) InstallSuffix() string {
 }
 
 func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) error {
-	buildPkg, err := NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
+	buildPkg, err := s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
 	if err != nil {
 		return err
 	}
@@ -482,7 +533,7 @@ func (s *Session) BuildImportPath(path string) (*compiler.Archive, error) {
 }
 
 func (s *Session) buildImportPathWithSrcDir(path string, srcDir string) (*PackageData, *compiler.Archive, error) {
-	pkg, err := importWithSrcDir(path, srcDir, 0, s.InstallSuffix(), s.options.BuildTags)
+	pkg, err := s.importWithSrcDir(path, srcDir, 0, s.InstallSuffix(), s.options.BuildTags)
 	if err != nil {
 		return nil, nil, err
 	}
