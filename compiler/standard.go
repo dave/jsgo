@@ -14,7 +14,6 @@ import (
 	"bytes"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/config"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 )
 
@@ -32,13 +31,13 @@ func (c *Cache) CompileStdLib() error {
 		return nil
 	}
 
-	root := "pkg/"
-	if !config.DEV {
-		root = "pkg_min/"
-	}
 	done := map[string]bool{}
-	var storeArchives func(path string) error
-	storeArchives = func(path string) error {
+	var storeArchives func(path string, minify bool) error
+	storeArchives = func(path string, minify bool) error {
+		root := "pkg/"
+		if minify {
+			root = "pkg_min/"
+		}
 		if done[path] {
 			return nil
 		}
@@ -48,7 +47,7 @@ func (c *Cache) CompileStdLib() error {
 			return err
 		}
 		if a != nil {
-			fmt.Println("Storing", path)
+			fmt.Println(path)
 			if err := storeStandard(ctx, bucket, path, a); err != nil {
 				return err
 			}
@@ -76,13 +75,19 @@ func (c *Cache) CompileStdLib() error {
 			} else {
 				newPath = path + "/" + pkg
 			}
-			if err := storeArchives(newPath); err != nil {
+			if err := storeArchives(newPath, minify); err != nil {
 				return err
 			}
 		}
 		return nil
 	}
-	if err := storeArchives(""); err != nil {
+	fmt.Println("Sending non-minified JS to GCS...")
+	if err := storeArchives("", false); err != nil {
+		return err
+	}
+	done = map[string]bool{}
+	fmt.Println("Sending minified JS to GCS...")
+	if err := storeArchives("", true); err != nil {
 		return err
 	}
 	return nil

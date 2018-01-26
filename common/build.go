@@ -15,12 +15,13 @@ import (
 
 func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
 	return &build.Context{
-		GOARCH:    build.Default.GOARCH, // target architecture
-		GOOS:      build.Default.GOOS,   // target operating system
-		GOROOT:    "/goroot",            // Go root
-		GOPATH:    "/gopath",            // Go path
-		Compiler:  "gc",                 // compiler to assume when computing target paths
-		BuildTags: []string{"js"},
+		GOARCH:      build.Default.GOARCH, // target architecture
+		GOOS:        build.Default.GOOS,   // target operating system
+		GOROOT:      "/goroot",            // Go root
+		GOPATH:      "/gopath",            // Go path
+		Compiler:    "gc",                 // compiler to assume when computing target paths
+		BuildTags:   []string{"js"},
+		ReleaseTags: build.Default.ReleaseTags,
 
 		// JoinPath joins the sequence of path fragments into a single path.
 		// If JoinPath is nil, Import uses filepath.Join.

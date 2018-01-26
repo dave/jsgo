@@ -161,7 +161,7 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 	return nil
 }
 
-func (c *Cache) Compile(path string, logger io.Writer, hashes map[string]string) error {
+func (c *Cache) Compile(path string, logger io.Writer) error {
 
 	conf := loader.Config{}
 	conf.Import(path)
@@ -185,6 +185,20 @@ func (c *Cache) Compile(path string, logger io.Writer, hashes map[string]string)
 			}
 
 			pi := c.prog.Package(path)
+			if pi == nil {
+				for p, pii := range c.prog.AllPackages {
+					if strings.HasSuffix(p.Path(), path) {
+						vendor := strings.TrimSuffix(p.Path(), path)
+						path = p.Path()
+						if strings.HasSuffix(vendor, "/vendor/") {
+							pi = pii
+						}
+					}
+				}
+			}
+			if pi == nil {
+				return nil, fmt.Errorf("can't find %s", path)
+			}
 			importContext.Packages[path] = pi.Pkg
 
 			// find in standard library cache

@@ -240,15 +240,16 @@ func serveCompilePost(w http.ResponseWriter, req *http.Request) {
 }
 
 func compile(path string, logger io.Writer, req *http.Request) error {
+
 	fs := memfs.New()
+
 	g := getter.New(fs, logger)
 	if err := g.Get(path, true, false); err != nil {
 		return err
 	}
 
 	c := compiler.New(fs)
-
-	if err := c.Compile(path, logger, g.Hashes()); err != nil {
+	if err := c.Compile(path, logger); err != nil {
 		return err
 	}
 
