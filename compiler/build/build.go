@@ -11,7 +11,6 @@ import (
 	"io"
 	"io/ioutil"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -19,7 +18,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"github.com/neelance/sourcemap"
@@ -374,7 +372,6 @@ type Options struct {
 	GOPATH         string
 	Verbose        bool
 	Quiet          bool
-	Watch          bool
 	CreateMapFile  bool
 	MapToLocalDisk bool
 	Minify         bool
@@ -408,7 +405,6 @@ type Session struct {
 	options  *Options
 	Archives map[string]*compiler.Archive
 	Types    map[string]*types.Package
-	Watcher  *fsnotify.Watcher
 }
 
 func NewSession(options *Options) *Session {
@@ -418,26 +414,12 @@ func NewSession(options *Options) *Session {
 	if options.GOPATH == "" {
 		options.GOPATH = build.Default.GOPATH
 	}
-	options.Verbose = options.Verbose || options.Watch
 
 	s := &Session{
 		options:  options,
 		Archives: make(map[string]*compiler.Archive),
 	}
 	s.Types = make(map[string]*types.Package)
-	if options.Watch {
-		if out, err := exec.Command("ulimit", "-n").Output(); err == nil {
-			if n, err := strconv.Atoi(strings.TrimSpace(string(out))); err == nil && n < 1024 {
-				fmt.Printf("Warning: The maximum number of open file descriptors is very low (%d). Change it with 'ulimit -n 8192'.\n", n)
-			}
-		}
-
-		var err error
-		s.Watcher, err = fsnotify.NewWatcher()
-		if err != nil {
-			panic(err)
-		}
-	}
 	return s
 }
 
@@ -449,9 +431,6 @@ func (s *Session) InstallSuffix() string {
 }
 
 func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) error {
-	if s.Watcher != nil {
-		s.Watcher.Add(packagePath)
-	}
 	buildPkg, err := NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
 	if err != nil {
 		return err
@@ -511,9 +490,6 @@ func (s *Session) BuildImportPath(path string) (*compiler.Archive, error) {
 
 func (s *Session) buildImportPathWithSrcDir(path string, srcDir string) (*PackageData, *compiler.Archive, error) {
 	pkg, err := importWithSrcDir(path, srcDir, 0, s.InstallSuffix(), s.options.BuildTags)
-	if s.Watcher != nil && pkg != nil { // add watch even on error
-		s.Watcher.Add(pkg.Dir)
-	}
 	if err != nil {
 		return nil, nil, err
 	}
@@ -773,30 +749,4 @@ func hasGopathPrefix(file, gopath string) (hasGopathPrefix bool, prefixLen int) 
 		}
 	}
 	return false, 0
-}
-
-func (s *Session) WaitForChange() {
-	s.options.PrintSuccess("watching for changes...\n")
-	for {
-		select {
-		case ev := <-s.Watcher.Events:
-			if ev.Op&(fsnotify.Create|fsnotify.Write|fsnotify.Remove|fsnotify.Rename) == 0 || filepath.Base(ev.Name)[0] == '.' {
-				continue
-			}
-			if !strings.HasSuffix(ev.Name, ".go") && !strings.HasSuffix(ev.Name, ".inc.js") {
-				continue
-			}
-			s.options.PrintSuccess("change detected: %s\n", ev.Name)
-		case err := <-s.Watcher.Errors:
-			s.options.PrintError("watcher error: %s\n", err.Error())
-		}
-		break
-	}
-
-	go func() {
-		for range s.Watcher.Events {
-			// consume, else Close() may deadlock
-		}
-	}()
-	s.Watcher.Close()
 }
