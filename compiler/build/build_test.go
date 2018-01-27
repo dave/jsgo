@@ -4,13 +4,98 @@ import (
 	"fmt"
 	gobuild "go/build"
 	"go/token"
+	"os"
 	"strconv"
 	"strings"
 	"testing"
 
+	"io/ioutil"
+
+	"path/filepath"
+
+	"os/exec"
+
 	"github.com/kisielk/gotool"
 	"github.com/shurcooL/go/importgraphutil"
 )
+
+func TestAll(t *testing.T) {
+	gopath, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(gopath)
+	goroot, err := ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(goroot)
+	//fmt.Println("Copying stdlib...")
+	if err := Copy(filepath.Join(gobuild.Default.GOROOT, "src"), filepath.Join(goroot, "src")); err != nil {
+		t.Fatal(err)
+	}
+	//fmt.Println("Copying gopherjs...")
+	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/js"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/js")); err != nil {
+		t.Fatal(err)
+	}
+	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/nosync"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/nosync")); err != nil {
+		t.Fatal(err)
+	}
+	//fmt.Println("Building...")
+	path := "fmt"
+	cmd := exec.Command("gopherjs", "build", path)
+	cmd.Env = []string{
+		fmt.Sprintf("GOPATH=%s", gopath),
+		fmt.Sprintf("GOROOT=%s", goroot),
+	}
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		t.Fatal(err)
+	}
+	walkFunc := func(root string) func(path string, info os.FileInfo, err error) error {
+		return func(path string, info os.FileInfo, err error) error {
+
+			if info.IsDir() {
+				return nil
+			}
+
+			rel, err := filepath.Rel(root, path)
+			if err != nil {
+				return err
+			}
+
+			rel = filepath.ToSlash(path)
+
+			// ignore everything in the src directory
+			if strings.HasPrefix(rel, "src/") {
+				return nil
+			}
+
+			// ignore everything that's not an archive
+			if !strings.HasSuffix(rel, ".a") {
+				return nil
+			}
+
+			// find the package path
+			rel = strings.TrimSuffix(rel, ".a")
+			rel = strings.TrimPrefix(rel, "pkg/")
+			rel = strings.TrimPrefix(rel, fmt.Sprintf("%s_%s_js/", gobuild.Default.GOOS, gobuild.Default.GOARCH))
+			rel = strings.TrimPrefix(rel, fmt.Sprintf("%s_js/", gobuild.Default.GOOS))
+
+			fmt.Println(rel)
+			return nil
+		}
+	}
+	fmt.Println("GOPATH:")
+	filepath.Walk(gopath, walkFunc(gopath))
+	fmt.Println("GOROOT:")
+	filepath.Walk(goroot, walkFunc(goroot))
+
+	//GOARCH:"amd64",
+	//GOOS:"darwin",
+
+}
 
 // Natives augment the standard library with GopherJS-specific changes.
 // This test ensures that none of the standard library packages are modified
