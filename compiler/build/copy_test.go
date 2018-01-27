@@ -2,41 +2,38 @@ package build
 
 import (
 	"io"
-	"io/ioutil"
 	"os"
 	"path/filepath"
+
+	"gopkg.in/src-d/go-billy.v4"
 )
 
 // Copy copies src to dest, doesn't matter if src is a directory or a file
-func Copy(src, dest string) error {
-	info, err := os.Stat(src)
+func Copy(src, dest string, srcFs, dstFs billy.Filesystem) error {
+	info, err := srcFs.Stat(src)
 	if err != nil {
 		return err
 	}
-	return copyInternal(src, dest, info)
+	return copyInternal(src, dest, info, srcFs, dstFs)
 }
 
 // "info" must be given here, NOT nil.
-func copyInternal(src, dest string, info os.FileInfo) error {
+func copyInternal(src, dest string, info os.FileInfo, srcFs, dstFs billy.Filesystem) error {
 	if info.IsDir() {
-		return dcopy(src, dest, info)
+		return dcopy(src, dest, info, srcFs, dstFs)
 	}
-	return fcopy(src, dest, info)
+	return fcopy(src, dest, info, srcFs, dstFs)
 }
 
-func fcopy(src, dest string, info os.FileInfo) error {
+func fcopy(src, dest string, info os.FileInfo, srcFs, dstFs billy.Filesystem) error {
 
-	f, err := os.Create(dest)
+	f, err := dstFs.Create(dest)
 	if err != nil {
 		return err
 	}
 	defer f.Close()
 
-	if err = os.Chmod(f.Name(), info.Mode()); err != nil {
-		return err
-	}
-
-	s, err := os.Open(src)
+	s, err := srcFs.Open(src)
 	if err != nil {
 		return err
 	}
@@ -46,13 +43,13 @@ func fcopy(src, dest string, info os.FileInfo) error {
 	return err
 }
 
-func dcopy(src, dest string, info os.FileInfo) error {
+func dcopy(src, dest string, info os.FileInfo, srcFs, dstFs billy.Filesystem) error {
 
-	if err := os.MkdirAll(dest, info.Mode()); err != nil {
+	if err := dstFs.MkdirAll(dest, info.Mode()); err != nil {
 		return err
 	}
 
-	infos, err := ioutil.ReadDir(src)
+	infos, err := srcFs.ReadDir(src)
 	if err != nil {
 		return err
 	}
@@ -62,6 +59,8 @@ func dcopy(src, dest string, info os.FileInfo) error {
 			filepath.Join(src, info.Name()),
 			filepath.Join(dest, info.Name()),
 			info,
+			srcFs,
+			dstFs,
 		); err != nil {
 			return err
 		}

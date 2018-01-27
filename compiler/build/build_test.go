@@ -3,23 +3,24 @@ package build
 import (
 	"fmt"
 	gobuild "go/build"
-	"go/token"
-	"os"
-	"strconv"
-	"strings"
+	"go/types"
 	"testing"
 
 	"io/ioutil"
-
-	"path/filepath"
-
+	"os"
 	"os/exec"
+	"path/filepath"
+	"strings"
 
-	"github.com/kisielk/gotool"
-	"github.com/shurcooL/go/importgraphutil"
+	"gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/memfs"
+	"gopkg.in/src-d/go-billy.v4/osfs"
 )
 
 func TestAll(t *testing.T) {
+
+	masterList := map[string]string{}
+
 	gopath, err := ioutil.TempDir("", "")
 	if err != nil {
 		t.Fatal(err)
@@ -30,42 +31,93 @@ func TestAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(goroot)
-	//fmt.Println("Copying stdlib...")
-	if err := Copy(filepath.Join(gobuild.Default.GOROOT, "src"), filepath.Join(goroot, "src")); err != nil {
+	if err := Copy(filepath.Join(gobuild.Default.GOROOT, "src"), filepath.Join(goroot, "src"), osfs.New("/"), osfs.New("/")); err != nil {
 		t.Fatal(err)
 	}
-	//fmt.Println("Copying gopherjs...")
-	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/js"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/js")); err != nil {
+	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/js"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/js"), osfs.New("/"), osfs.New("/")); err != nil {
 		t.Fatal(err)
 	}
-	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/nosync"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/nosync")); err != nil {
+	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/nosync"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/nosync"), osfs.New("/"), osfs.New("/")); err != nil {
 		t.Fatal(err)
 	}
-	//fmt.Println("Building...")
-	path := "fmt"
-	cmd := exec.Command("gopherjs", "build", path)
-	cmd.Env = []string{
+
+	goroot1 := memfs.New()
+	if err := Copy("/src", "/goroot/src", osfs.New(gobuild.Default.GOROOT), goroot1); err != nil {
+		t.Fatal(err)
+	}
+	if err := Copy("/src/github.com/gopherjs/gopherjs/js", "/goroot/src/github.com/gopherjs/gopherjs/js", osfs.New(gobuild.Default.GOPATH), goroot1); err != nil {
+		t.Fatal(err)
+	}
+	if err := Copy("/src/github.com/gopherjs/gopherjs/nosync", "/goroot/src/github.com/gopherjs/gopherjs/nosync", osfs.New(gobuild.Default.GOPATH), goroot1); err != nil {
+		t.Fatal(err)
+	}
+
+	listCmd := exec.Command("go", "list", "./...")
+	listCmd.Env = []string{
 		fmt.Sprintf("GOPATH=%s", gopath),
 		fmt.Sprintf("GOROOT=%s", goroot),
 	}
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	if err := cmd.Run(); err != nil {
+	listCmd.Dir = filepath.Join(goroot, "src")
+	stdLibPackagesBytes, err := listCmd.CombinedOutput()
+	if err != nil {
 		t.Fatal(err)
 	}
+	stdLibPackages := strings.Split(strings.TrimSpace(string(stdLibPackagesBytes)), "\n")
+	excluded := map[string]bool{
+		"builtin":        true,
+		"internal/cpu":   true,
+		"net/http/pprof": true,
+		"plugin":         true,
+		"runtime/cgo":    true,
+	}
+	skip := false
+	skipUntil := ""
+	for _, p := range stdLibPackages {
+		if p == skipUntil {
+			skip = false
+		}
+		if skip {
+			continue
+		}
+		if excluded[p] {
+			continue
+		}
+		fmt.Println("Testing", p)
+		if err := testPackage(p, goroot, gopath, goroot1, masterList); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+}
+
+func testPackage(path, goroot, gopath string, goroot1 billy.Filesystem, masterList map[string]string) error {
+	os.RemoveAll(filepath.Join(goroot, "pkg"))
+	os.RemoveAll(filepath.Join(gopath, "pkg"))
+	outpath := filepath.Join(gopath, "pkg", "out.js")
+	packagesFromCommand := map[string]PackageOutput{}
+	buildCmd := exec.Command("gopherjs", "build", path, "-o", outpath)
+	buildCmd.Env = []string{
+		fmt.Sprintf("GOPATH=%s", gopath),
+		fmt.Sprintf("GOROOT=%s", goroot),
+	}
+	buildCmd.Stdout = os.Stdout
+	buildCmd.Stderr = os.Stderr
+	if err := buildCmd.Run(); err != nil {
+		return err
+	}
 	walkFunc := func(root string) func(path string, info os.FileInfo, err error) error {
-		return func(path string, info os.FileInfo, err error) error {
+		return func(fpath string, info os.FileInfo, err error) error {
 
 			if info.IsDir() {
 				return nil
 			}
 
-			rel, err := filepath.Rel(root, path)
+			rel, err := filepath.Rel(root, fpath)
 			if err != nil {
 				return err
 			}
 
-			rel = filepath.ToSlash(path)
+			rel = filepath.ToSlash(rel)
 
 			// ignore everything in the src directory
 			if strings.HasPrefix(rel, "src/") {
@@ -78,207 +130,76 @@ func TestAll(t *testing.T) {
 			}
 
 			// find the package path
-			rel = strings.TrimSuffix(rel, ".a")
-			rel = strings.TrimPrefix(rel, "pkg/")
-			rel = strings.TrimPrefix(rel, fmt.Sprintf("%s_%s_js/", gobuild.Default.GOOS, gobuild.Default.GOARCH))
-			rel = strings.TrimPrefix(rel, fmt.Sprintf("%s_js/", gobuild.Default.GOOS))
+			path := strings.TrimSuffix(rel, ".a")
+			path = strings.TrimPrefix(path, "pkg/")
+			path = strings.TrimPrefix(path, fmt.Sprintf("%s_%s_js/", gobuild.Default.GOOS, gobuild.Default.GOARCH))
+			path = strings.TrimPrefix(path, fmt.Sprintf("%s_js/", gobuild.Default.GOOS))
 
-			fmt.Println(rel)
+			a, err := readArchive(osfs.New("/"), fpath, path, map[string]*types.Package{})
+
+			contents, hash, err := GetPackageCode(a, false)
+			if err != nil {
+				return err
+			}
+			packagesFromCommand[path] = PackageOutput{
+				Path:     path,
+				Hash:     hash,
+				Contents: contents,
+			}
 			return nil
 		}
 	}
-	fmt.Println("GOPATH:")
 	filepath.Walk(gopath, walkFunc(gopath))
-	fmt.Println("GOROOT:")
 	filepath.Walk(goroot, walkFunc(goroot))
 
-	//GOARCH:"amd64",
-	//GOOS:"darwin",
+	gopath1 := memfs.New()
+	temp := memfs.New()
 
-}
-
-// Natives augment the standard library with GopherJS-specific changes.
-// This test ensures that none of the standard library packages are modified
-// in a way that adds imports which the original upstream standard library package
-// does not already import. Doing that can increase generated output size or cause
-// other unexpected issues (since the cmd/go tool does not know about these extra imports),
-// so it's best to avoid it.
-//
-// It checks all standard library packages. Each package is considered as a normal
-// package, as a test package, and as an external test package.
-func TestNativesDontImportExtraPackages(t *testing.T) {
-	// Calculate the forward import graph for all standard library packages.
-	// It's needed for populateImportSet.
-	stdOnly := gobuild.Default
-	stdOnly.GOPATH = "" // We only care about standard library, so skip all GOPATH packages.
-	forward, _, err := importgraphutil.BuildNoTests(&stdOnly)
+	s := NewSession(&Options{
+		Root:      goroot1,
+		Path:      gopath1,
+		Temporary: temp,
+	})
+	a, err := s.BuildImportPath(path)
 	if err != nil {
-		t.Fatalf("importgraphutil.BuildNoTests: %v", err)
+		return err
 	}
-
-	// populateImportSet takes a slice of imports, and populates set with those
-	// imports, as well as their transitive dependencies. That way, the set can
-	// be quickly queried to check if a package is in the import graph of imports.
-	//
-	// Note, this does not include transitive imports of test/xtest packages,
-	// which could cause some false positives. It currently doesn't, but if it does,
-	// then support for that should be added here.
-	populateImportSet := func(imports []string, set *stringSet) {
-		for _, p := range imports {
-			(*set)[p] = struct{}{}
-			switch p {
-			case "sync":
-				(*set)["github.com/gopherjs/gopherjs/nosync"] = struct{}{}
+	hasMain := false
+	expectedPackages := len(s.Archives)
+	if a.Name == "main" {
+		hasMain = true
+		expectedPackages = len(s.Archives) - 1
+	}
+	if expectedPackages != len(packagesFromCommand) {
+		fmt.Println("From code:")
+		for _, a := range s.Archives {
+			fmt.Println(a.ImportPath)
+		}
+		fmt.Println("From command:")
+		for _, p := range packagesFromCommand {
+			fmt.Println(p.Path)
+		}
+		return fmt.Errorf("%d packages from command, %d from code", len(packagesFromCommand), len(s.Archives))
+	}
+	for _, a := range s.Archives {
+		if hasMain && a.ImportPath == path {
+			continue
+		}
+		contents, hash, err := GetPackageCode(a, false)
+		if err != nil {
+			return err
+		}
+		p1 := packagesFromCommand[a.ImportPath]
+		if fmt.Sprintf("%x", hash) != fmt.Sprintf("%x", p1.Hash) {
+			return fmt.Errorf("package %s different\nFROM COMMAND:\n%s\nFROM CODE:\n%s", a.ImportPath, string(contents), string(p1.Contents))
+		}
+		if h, ok := masterList[a.ImportPath]; ok {
+			if fmt.Sprintf("%x", hash) != h {
+				return fmt.Errorf("package %s different master list", a.ImportPath)
 			}
-			transitiveImports := forward.Search(p)
-			for p := range transitiveImports {
-				(*set)[p] = struct{}{}
-			}
+		} else {
+			masterList[a.ImportPath] = fmt.Sprintf("%x", hash)
 		}
 	}
-
-	// Check all standard library packages.
-	//
-	// The general strategy is to first import each standard library package using the
-	// normal build.Import, which returns a *build.Package. That contains Imports, TestImports,
-	// and XTestImports values that are considered the "real imports".
-	//
-	// That list of direct imports is then expanded to the transitive closure by populateImportSet,
-	// meaning all packages that are indirectly imported are also added to the set.
-	//
-	// Then, github.com/gopherjs/gopherjs/build.parseAndAugment(*build.Package) returns []*ast.File.
-	// Those augmented parsed Go files of the package are checked, one file at at time, one import
-	// at a time. Each import is verified to belong in the set of allowed real imports.
-	for _, pkg := range gotool.ImportPaths([]string{"std"}) {
-		// Normal package.
-		{
-			// Import the real normal package, and populate its real import set.
-			bpkg, err := gobuild.Import(pkg, "", gobuild.ImportComment)
-			if err != nil {
-				t.Fatalf("gobuild.Import: %v", err)
-			}
-			realImports := make(stringSet)
-			populateImportSet(bpkg.Imports, &realImports)
-
-			// Use parseAndAugment to get a list of augmented AST files.
-			fset := token.NewFileSet()
-			files, err := parseAndAugment(bpkg, false, fset)
-			if err != nil {
-				t.Fatalf("github.com/gopherjs/gopherjs/build.parseAndAugment: %v", err)
-			}
-
-			// Verify imports of normal augmented AST files.
-			for _, f := range files {
-				fileName := fset.File(f.Pos()).Name()
-				normalFile := !strings.HasSuffix(fileName, "_test.go")
-				if !normalFile {
-					continue
-				}
-				for _, imp := range f.Imports {
-					importPath, err := strconv.Unquote(imp.Path.Value)
-					if err != nil {
-						t.Fatalf("strconv.Unquote(%v): %v", imp.Path.Value, err)
-					}
-					if importPath == "github.com/gopherjs/gopherjs/js" {
-						continue
-					}
-					if _, ok := realImports[importPath]; !ok {
-						t.Errorf("augmented normal package %q imports %q in file %v, but real %q doesn't:\nrealImports = %v", bpkg.ImportPath, importPath, fileName, bpkg.ImportPath, realImports)
-					}
-				}
-			}
-		}
-
-		// Test package.
-		{
-			// Import the real test package, and populate its real import set.
-			bpkg, err := gobuild.Import(pkg, "", gobuild.ImportComment)
-			if err != nil {
-				t.Fatalf("gobuild.Import: %v", err)
-			}
-			realTestImports := make(stringSet)
-			populateImportSet(bpkg.TestImports, &realTestImports)
-
-			// Use parseAndAugment to get a list of augmented AST files.
-			fset := token.NewFileSet()
-			files, err := parseAndAugment(bpkg, true, fset)
-			if err != nil {
-				t.Fatalf("github.com/gopherjs/gopherjs/build.parseAndAugment: %v", err)
-			}
-
-			// Verify imports of test augmented AST files.
-			for _, f := range files {
-				fileName, pkgName := fset.File(f.Pos()).Name(), f.Name.String()
-				testFile := strings.HasSuffix(fileName, "_test.go") && !strings.HasSuffix(pkgName, "_test")
-				if !testFile {
-					continue
-				}
-				for _, imp := range f.Imports {
-					importPath, err := strconv.Unquote(imp.Path.Value)
-					if err != nil {
-						t.Fatalf("strconv.Unquote(%v): %v", imp.Path.Value, err)
-					}
-					if importPath == "github.com/gopherjs/gopherjs/js" {
-						continue
-					}
-					if _, ok := realTestImports[importPath]; !ok {
-						t.Errorf("augmented test package %q imports %q in file %v, but real %q doesn't:\nrealTestImports = %v", bpkg.ImportPath, importPath, fileName, bpkg.ImportPath, realTestImports)
-					}
-				}
-			}
-		}
-
-		// External test package.
-		{
-			// Import the real external test package, and populate its real import set.
-			bpkg, err := gobuild.Import(pkg, "", gobuild.ImportComment)
-			if err != nil {
-				t.Fatalf("gobuild.Import: %v", err)
-			}
-			realXTestImports := make(stringSet)
-			populateImportSet(bpkg.XTestImports, &realXTestImports)
-
-			// Add _test suffix to import path to cause parseAndAugment to use external test mode.
-			bpkg.ImportPath += "_test"
-
-			// Use parseAndAugment to get a list of augmented AST files, then check only the external test files.
-			fset := token.NewFileSet()
-			files, err := parseAndAugment(bpkg, true, fset)
-			if err != nil {
-				t.Fatalf("github.com/gopherjs/gopherjs/build.parseAndAugment: %v", err)
-			}
-
-			// Verify imports of external test augmented AST files.
-			for _, f := range files {
-				fileName, pkgName := fset.File(f.Pos()).Name(), f.Name.String()
-				xTestFile := strings.HasSuffix(fileName, "_test.go") && strings.HasSuffix(pkgName, "_test")
-				if !xTestFile {
-					continue
-				}
-				for _, imp := range f.Imports {
-					importPath, err := strconv.Unquote(imp.Path.Value)
-					if err != nil {
-						t.Fatalf("strconv.Unquote(%v): %v", imp.Path.Value, err)
-					}
-					if importPath == "github.com/gopherjs/gopherjs/js" {
-						continue
-					}
-					if _, ok := realXTestImports[importPath]; !ok {
-						t.Errorf("augmented external test package %q imports %q in file %v, but real %q doesn't:\nrealXTestImports = %v", bpkg.ImportPath, importPath, fileName, bpkg.ImportPath, realXTestImports)
-					}
-				}
-			}
-		}
-	}
-}
-
-// stringSet is used to print a set of strings in a more readable way.
-type stringSet map[string]struct{}
-
-func (m stringSet) String() string {
-	s := make([]string, 0, len(m))
-	for v := range m {
-		s = append(s, v)
-	}
-	return fmt.Sprintf("%q", s)
+	return nil
 }

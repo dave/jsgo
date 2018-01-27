@@ -9,7 +9,6 @@ import (
 	"go/token"
 	"go/types"
 	"io"
-	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
@@ -18,9 +17,12 @@ import (
 	"strings"
 	"time"
 
+	"bytes"
+
+	"crypto/sha1"
+
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
-	"github.com/neelance/sourcemap"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -35,8 +37,8 @@ func (e *ImportCError) Error() string {
 
 func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *build.Context {
 	return &build.Context{
-		GOROOT:        build.Default.GOROOT,
-		GOPATH:        build.Default.GOPATH,
+		GOROOT:        "goroot",
+		GOPATH:        "gopath",
 		GOOS:          build.Default.GOOS,
 		GOARCH:        "js",
 		InstallSuffix: installSuffix,
@@ -45,56 +47,48 @@ func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *bui
 		ReleaseTags:   build.Default.ReleaseTags,
 		CgoEnabled:    true, // detect `import "C"` to throw proper error
 
-		/*
-			TODO:
-			// The install suffix specifies a suffix to use in the name of the installation
-			// directory. By default it is empty, but custom builds that need to keep
-			// their outputs separate can set InstallSuffix to do so. For example, when
-			// using the race detector, the go command uses InstallSuffix = "race", so
-			// that on a Linux/386 system, packages are written to a directory named
-			// "linux_386_race" instead of the usual "linux_386".
-			InstallSuffix string
+		// IsDir reports whether the path names a directory.
+		// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
+		IsDir: func(path string) bool {
+			fs := s.Filesystem(path)
+			fi, err := fs.Stat(path)
+			return err == nil && fi.IsDir()
+		},
 
-			// By default, Import uses the operating system's file system calls
-			// to read directories and files. To read from other sources,
-			// callers can set the following functions. They all have default
-			// behaviors that use the local file system, so clients need only set
-			// the functions whose behaviors they wish to change.
+		// HasSubdir reports whether dir is lexically a subdirectory of
+		// root, perhaps multiple levels below. It does not try to check
+		// whether dir exists.
+		// If so, HasSubdir sets rel to a slash-separated path that
+		// can be joined to root to produce a path equivalent to dir.
+		// If HasSubdir is nil, Import uses an implementation built on
+		// filepath.EvalSymlinks.
+		HasSubdir: func(root, dir string) (rel string, ok bool) {
+			const sep = string(filepath.Separator)
+			root = filepath.Clean(root)
+			if !strings.HasSuffix(root, sep) {
+				root += sep
+			}
+			dir = filepath.Clean(dir)
+			if !strings.HasPrefix(dir, root) {
+				return "", false
+			}
+			return filepath.ToSlash(dir[len(root):]), true
+		},
 
-			// JoinPath joins the sequence of path fragments into a single path.
-			// If JoinPath is nil, Import uses filepath.Join.
-			JoinPath func(elem ...string) string
+		// ReadDir returns a slice of os.FileInfo, sorted by Name,
+		// describing the content of the named directory.
+		// If ReadDir is nil, Import uses ioutil.ReadDir.
+		ReadDir: func(path string) ([]os.FileInfo, error) {
+			fs := s.Filesystem(path)
+			return fs.ReadDir(path)
+		},
 
-			// SplitPathList splits the path list into a slice of individual paths.
-			// If SplitPathList is nil, Import uses filepath.SplitList.
-			SplitPathList func(list string) []string
-
-			// IsAbsPath reports whether path is an absolute path.
-			// If IsAbsPath is nil, Import uses filepath.IsAbs.
-			IsAbsPath func(path string) bool
-
-			// IsDir reports whether the path names a directory.
-			// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
-			IsDir func(path string) bool
-
-			// HasSubdir reports whether dir is lexically a subdirectory of
-			// root, perhaps multiple levels below. It does not try to check
-			// whether dir exists.
-			// If so, HasSubdir sets rel to a slash-separated path that
-			// can be joined to root to produce a path equivalent to dir.
-			// If HasSubdir is nil, Import uses an implementation built on
-			// filepath.EvalSymlinks.
-			HasSubdir func(root, dir string) (rel string, ok bool)
-
-			// ReadDir returns a slice of os.FileInfo, sorted by Name,
-			// describing the content of the named directory.
-			// If ReadDir is nil, Import uses ioutil.ReadDir.
-			ReadDir func(dir string) ([]os.FileInfo, error)
-
-			// OpenFile opens a file (not a directory) for reading.
-			// If OpenFile is nil, Import uses os.Open.
-			OpenFile func(path string) (io.ReadCloser, error)
-		*/
+		// OpenFile opens a file (not a directory) for reading.
+		// If OpenFile is nil, Import uses os.Open.
+		OpenFile: func(path string) (io.ReadCloser, error) {
+			fs := s.Filesystem(path)
+			return fs.Open(path)
+		},
 	}
 }
 
@@ -162,20 +156,19 @@ func (s *Session) importWithSrcDir(path string, srcDir string, mode build.Import
 		return nil, &ImportCError{path}
 	}
 
-	if pkg.IsCommand() {
-		pkg.PkgObj = filepath.Join(pkg.BinDir, filepath.Base(pkg.ImportPath)+".js")
-	}
-
-	if _, err := os.Stat(pkg.PkgObj); os.IsNotExist(err) && strings.HasPrefix(pkg.PkgObj, build.Default.GOROOT) {
-		// fall back to GOPATH
-		firstGopathWorkspace := filepath.SplitList(build.Default.GOPATH)[0] // TODO: Need to check inside all GOPATH workspaces.
-		gopathPkgObj := filepath.Join(firstGopathWorkspace, pkg.PkgObj[len(build.Default.GOROOT):])
-		if _, err := os.Stat(gopathPkgObj); err == nil {
-			pkg.PkgObj = gopathPkgObj
+	// TODO: Is this needed?
+	/*
+		if _, err := os.Stat(pkg.PkgObj); os.IsNotExist(err) && strings.HasPrefix(pkg.PkgObj, build.Default.GOROOT) {
+			// fall back to GOPATH
+			firstGopathWorkspace := filepath.SplitList(build.Default.GOPATH)[0] // TODO: Need to check inside all GOPATH workspaces.
+			gopathPkgObj := filepath.Join(firstGopathWorkspace, pkg.PkgObj[len(build.Default.GOROOT):])
+			if _, err := os.Stat(gopathPkgObj); err == nil {
+				pkg.PkgObj = gopathPkgObj
+			}
 		}
-	}
+	*/
 
-	jsFiles, err := jsFilesFromDir(pkg.Dir)
+	jsFiles, err := s.jsFilesFromDir(pkg.Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -219,7 +212,7 @@ func (s *Session) ImportDir(dir string, mode build.ImportMode, installSuffix str
 		return nil, err
 	}
 
-	jsFiles, err := jsFilesFromDir(pkg.Dir)
+	jsFiles, err := s.jsFilesFromDir(pkg.Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -238,7 +231,7 @@ func (s *Session) ImportDir(dir string, mode build.ImportMode, installSuffix str
 // as an existing file from the standard library). For all identifiers that exist
 // in the original AND the overrides, the original identifier in the AST gets
 // replaced by `_`. New identifiers that don't exist in original package get added.
-func parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([]*ast.File, error) {
+func (s *Session) parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([]*ast.File, error) {
 	var files []*ast.File
 	replacedDeclNames := make(map[string]bool)
 	funcName := func(d *ast.FuncDecl) string {
@@ -311,7 +304,8 @@ func parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([
 			if err != nil {
 				panic(err)
 			}
-			file, err := parser.ParseFile(fileSet, fullPath, r, parser.ParseComments)
+			newPath := path.Join(pkg.Dir, "__"+name)
+			file, err := parser.ParseFile(fileSet, newPath, r, parser.ParseComments)
 			if err != nil {
 				panic(err)
 			}
@@ -345,7 +339,8 @@ func parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([
 		if !filepath.IsAbs(name) {
 			name = filepath.Join(pkg.Dir, name)
 		}
-		r, err := os.Open(name)
+		fs := s.Filesystem(name)
+		r, err := fs.Open(name)
 		if err != nil {
 			return nil, err
 		}
@@ -461,9 +456,24 @@ type Session struct {
 	Types    map[string]*types.Package
 }
 
+// Gets either the Gopath or Goroot filesystems depending on the path
+func (s *Session) Filesystem(fpath string) billy.Filesystem {
+	p := filepath.Clean(fpath)
+	p = strings.TrimPrefix(p, string(filepath.Separator))
+	parts := strings.Split(p, string(filepath.Separator))
+	dir := parts[0]
+	switch dir {
+	case "gopath":
+		return s.options.Path
+	case "goroot":
+		return s.options.Root
+	}
+	panic(fmt.Sprintf("Top dir should be goroot or gopath, got %s", fpath))
+}
+
 func NewSession(options *Options) *Session {
 	if options.Root == nil {
-		panic("Need to specify Goroot in options")
+		panic("Need to specify Goroot in options (should contain full standard library source)")
 	}
 	if options.Path == nil {
 		options.Path = memfs.New()
@@ -487,33 +497,32 @@ func (s *Session) InstallSuffix() string {
 	return ""
 }
 
-func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) error {
+func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
 	buildPkg, err := s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pkg := &PackageData{Package: buildPkg}
-	jsFiles, err := jsFilesFromDir(pkg.Dir)
+	jsFiles, err := s.jsFilesFromDir(pkg.Dir)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	pkg.JSFiles = jsFiles
 	archive, err := s.BuildPackage(pkg)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	if pkgObj == "" {
-		pkgObj = filepath.Base(packagePath) + ".js"
+	if !pkg.IsCommand() {
+		return nil, nil
 	}
-	if pkg.IsCommand() && !pkg.UpToDate {
-		if err := s.WriteCommandPackage(archive, pkgObj); err != nil {
-			return err
-		}
+	cp, err := s.WriteCommandPackage(archive)
+	if err != nil {
+		return nil, err
 	}
-	return nil
+	return cp, nil
 }
 
-func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string) error {
+func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
 	pkg := &PackageData{
 		Package: &build.Package{
 			Name:       "main",
@@ -532,12 +541,12 @@ func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath stri
 
 	archive, err := s.BuildPackage(pkg)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if s.Types["main"].Name() != "main" {
-		return fmt.Errorf("cannot build/run non-main package")
+		return nil, fmt.Errorf("cannot build/run non-main package")
 	}
-	return s.WriteCommandPackage(archive, pkgObj)
+	return s.WriteCommandPackage(archive)
 }
 
 func (s *Session) BuildImportPath(path string) (*compiler.Archive, error) {
@@ -565,74 +574,40 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 	}
 
 	if pkg.PkgObj != "" {
-		var fileInfo os.FileInfo
-		gopherjsBinary, err := os.Executable()
-		if err == nil {
-			fileInfo, err = os.Stat(gopherjsBinary)
-			if err == nil {
-				pkg.SrcModTime = fileInfo.ModTime()
-			}
-		}
-		if err != nil {
-			os.Stderr.WriteString("Could not get GopherJS binary's modification timestamp. Please report issue.\n")
-			pkg.SrcModTime = time.Now()
-		}
 
-		for _, importedPkgPath := range pkg.Imports {
-			// Ignore all imports that aren't mentioned in import specs of pkg.
-			// For example, this ignores imports such as runtime/internal/sys and runtime/internal/atomic.
-			ignored := true
-			for _, pos := range pkg.ImportPos[importedPkgPath] {
-				importFile := filepath.Base(pos.Filename)
-				for _, file := range pkg.GoFiles {
-					if importFile == file {
-						ignored = false
+		// TODO: Is this needed? I don't think so?
+		/*
+			for _, importedPkgPath := range pkg.Imports {
+				// Ignore all imports that aren't mentioned in import specs of pkg.
+				// For example, this ignores imports such as runtime/internal/sys and runtime/internal/atomic.
+				ignored := true
+				for _, pos := range pkg.ImportPos[importedPkgPath] {
+					importFile := filepath.Base(pos.Filename)
+					for _, file := range pkg.GoFiles {
+						if importFile == file {
+							ignored = false
+							break
+						}
+					}
+					if !ignored {
 						break
 					}
 				}
-				if !ignored {
-					break
+
+				if importedPkgPath == "unsafe" || ignored {
+					continue
+				}
+				if _, _, err := s.buildImportPathWithSrcDir(importedPkgPath, pkg.Dir); err != nil {
+					return nil, err
 				}
 			}
+		*/
 
-			if importedPkgPath == "unsafe" || ignored {
-				continue
-			}
-			importedPkg, _, err := s.buildImportPathWithSrcDir(importedPkgPath, pkg.Dir)
-			if err != nil {
-				return nil, err
-			}
-			impModTime := importedPkg.SrcModTime
-			if impModTime.After(pkg.SrcModTime) {
-				pkg.SrcModTime = impModTime
-			}
-		}
-
-		for _, name := range append(pkg.GoFiles, pkg.JSFiles...) {
-			fileInfo, err := os.Stat(filepath.Join(pkg.Dir, name))
-			if err != nil {
-				return nil, err
-			}
-			if fileInfo.ModTime().After(pkg.SrcModTime) {
-				pkg.SrcModTime = fileInfo.ModTime()
-			}
-		}
-
-		pkgObjFileInfo, err := os.Stat(pkg.PkgObj)
-		if err == nil && !pkg.SrcModTime.After(pkgObjFileInfo.ModTime()) {
-			// package object is up to date, load from disk if library
+		if _, err := s.options.Temporary.Stat(pkg.PkgObj); err == nil {
+			// package object exists, load from disk
 			pkg.UpToDate = true
-			if pkg.IsCommand() {
-				return nil, nil
-			}
 
-			objFile, err := os.Open(pkg.PkgObj)
-			if err != nil {
-				return nil, err
-			}
-			defer objFile.Close()
-
-			archive, err := compiler.ReadArchive(pkg.PkgObj, pkg.ImportPath, objFile, s.Types)
+			archive, err := readArchive(s.options.Temporary, pkg.PkgObj, pkg.ImportPath, s.Types)
 			if err != nil {
 				return nil, err
 			}
@@ -643,7 +618,7 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 	}
 
 	fileSet := token.NewFileSet()
-	files, err := parseAndAugment(pkg.Package, pkg.IsTest, fileSet)
+	files, err := s.parseAndAugment(pkg.Package, pkg.IsTest, fileSet)
 	if err != nil {
 		return nil, err
 	}
@@ -669,7 +644,9 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 	}
 
 	for _, jsFile := range pkg.JSFiles {
-		code, err := ioutil.ReadFile(filepath.Join(pkg.Dir, jsFile))
+		fname := filepath.Join(pkg.Dir, jsFile)
+		fs := s.Filesystem(fname)
+		code, err := readFile(fs, fname)
 		if err != nil {
 			return nil, err
 		}
@@ -684,31 +661,51 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 
 	s.Archives[pkg.ImportPath] = archive
 
-	if pkg.PkgObj == "" || pkg.IsCommand() {
+	// TODO: Why would PkgObj be empty?
+	if pkg.PkgObj == "" {
 		return archive, nil
 	}
 
 	if err := s.writeLibraryPackage(archive, pkg.PkgObj); err != nil {
-		if strings.HasPrefix(pkg.PkgObj, s.options.GOROOT) {
-			// fall back to first GOPATH workspace
-			firstGopathWorkspace := filepath.SplitList(s.options.GOPATH)[0]
-			if err := s.writeLibraryPackage(archive, filepath.Join(firstGopathWorkspace, pkg.PkgObj[len(s.options.GOROOT):])); err != nil {
-				return nil, err
-			}
-			return archive, nil
-		}
 		return nil, err
 	}
 
 	return archive, nil
 }
 
+func readArchive(fs billy.Filesystem, fpath, path string, types map[string]*types.Package) (*compiler.Archive, error) {
+	objFile, err := fs.Open(fpath)
+	if err != nil {
+		return nil, err
+	}
+	defer objFile.Close()
+
+	archive, err := compiler.ReadArchive(fpath, path, objFile, types)
+	if err != nil {
+		return nil, err
+	}
+	return archive, nil
+}
+
+func readFile(fs billy.Filesystem, path string) ([]byte, error) {
+	f, err := fs.Open(path)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	buf := new(bytes.Buffer)
+	if _, err := io.Copy(buf, f); err != nil {
+		return nil, err
+	}
+	return buf.Bytes(), nil
+}
+
 func (s *Session) writeLibraryPackage(archive *compiler.Archive, pkgObj string) error {
-	if err := os.MkdirAll(filepath.Dir(pkgObj), 0777); err != nil {
+	if err := s.options.Temporary.MkdirAll(filepath.Dir(pkgObj), 0777); err != nil {
 		return err
 	}
 
-	objFile, err := os.Create(pkgObj)
+	objFile, err := s.options.Temporary.Create(pkgObj)
 	if err != nil {
 		return err
 	}
@@ -717,33 +714,18 @@ func (s *Session) writeLibraryPackage(archive *compiler.Archive, pkgObj string) 
 	return compiler.WriteArchive(archive, objFile)
 }
 
-func (s *Session) WriteCommandPackage(archive *compiler.Archive, pkgObj string) error {
-	if err := os.MkdirAll(filepath.Dir(pkgObj), 0777); err != nil {
-		return err
-	}
-	codeFile, err := os.Create(pkgObj)
-	if err != nil {
-		return err
-	}
-	defer codeFile.Close()
+type CommandOutput struct {
+	Path     string
+	Packages []*PackageOutput
+}
 
-	sourceMapFilter := &compiler.SourceMapFilter{Writer: codeFile}
-	if s.options.CreateMapFile {
-		m := &sourcemap.Map{File: filepath.Base(pkgObj)}
-		mapFile, err := os.Create(pkgObj + ".map")
-		if err != nil {
-			return err
-		}
+type PackageOutput struct {
+	Path     string
+	Hash     []byte
+	Contents []byte
+}
 
-		defer func() {
-			m.WriteTo(mapFile)
-			mapFile.Close()
-			fmt.Fprintf(codeFile, "//# sourceMappingURL=%s.map\n", filepath.Base(pkgObj))
-		}()
-
-		sourceMapFilter.MappingCallback = NewMappingCallback(m, s.options.GOROOT, s.options.GOPATH, s.options.MapToLocalDisk)
-	}
-
+func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput, error) {
 	deps, err := compiler.ImportDependencies(archive, func(path string) (*compiler.Archive, error) {
 		if archive, ok := s.Archives[path]; ok {
 			return archive, nil
@@ -752,37 +734,61 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive, pkgObj string) 
 		return archive, err
 	})
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return compiler.WriteProgramCode(deps, sourceMapFilter)
+
+	commandPath, packages, err := GetProgramCode(deps)
+	if err != nil {
+		return nil, err
+	}
+
+	c := &CommandOutput{
+		Path:     commandPath,
+		Packages: packages,
+	}
+	return c, nil
 }
 
-func NewMappingCallback(m *sourcemap.Map, goroot, gopath string, localMap bool) func(generatedLine, generatedColumn int, originalPos token.Position) {
-	return func(generatedLine, generatedColumn int, originalPos token.Position) {
-		if !originalPos.IsValid() {
-			m.AddMapping(&sourcemap.Mapping{GeneratedLine: generatedLine, GeneratedColumn: generatedColumn})
-			return
+func GetProgramCode(pkgs []*compiler.Archive) (string, []*PackageOutput, error) {
+
+	mainPkg := pkgs[len(pkgs)-1]
+	minify := mainPkg.Minified
+
+	// write packages
+	var packageOutputs []*PackageOutput
+	for _, pkg := range pkgs {
+		contents, hash, err := GetPackageCode(pkg, minify)
+		if err != nil {
+			return "", nil, err
 		}
-
-		file := originalPos.Filename
-
-		switch hasGopathPrefix, prefixLen := hasGopathPrefix(file, gopath); {
-		case localMap:
-			// no-op:  keep file as-is
-		case hasGopathPrefix:
-			file = filepath.ToSlash(file[prefixLen+4:])
-		case strings.HasPrefix(file, goroot):
-			file = filepath.ToSlash(file[len(goroot)+4:])
-		default:
-			file = filepath.Base(file)
-		}
-
-		m.AddMapping(&sourcemap.Mapping{GeneratedLine: generatedLine, GeneratedColumn: generatedColumn, OriginalFile: file, OriginalLine: originalPos.Line, OriginalColumn: originalPos.Column})
+		packageOutputs = append(packageOutputs, &PackageOutput{
+			Path:     pkg.ImportPath,
+			Contents: contents,
+			Hash:     hash,
+		})
 	}
+	return mainPkg.ImportPath, packageOutputs, nil
 }
 
-func jsFilesFromDir(dir string) ([]string, error) {
-	files, err := ioutil.ReadDir(dir)
+func GetPackageCode(archive *compiler.Archive, minify bool) (contents []byte, hash []byte, err error) {
+	dceSelection := make(map[*compiler.Decl]struct{})
+	for _, d := range archive.Declarations {
+		dceSelection[d] = struct{}{}
+	}
+	buf := new(bytes.Buffer)
+	if err := compiler.WritePkgCode(archive, dceSelection, minify, &compiler.SourceMapFilter{Writer: buf}); err != nil {
+		return nil, nil, err
+	}
+	sha := sha1.New()
+	if _, err := sha.Write(buf.Bytes()); err != nil {
+		return nil, nil, err
+	}
+	return buf.Bytes(), sha.Sum(nil), nil
+}
+
+func (s *Session) jsFilesFromDir(dir string) ([]string, error) {
+	fs := s.Filesystem(dir)
+	files, err := fs.ReadDir(dir)
 	if err != nil {
 		return nil, err
 	}
