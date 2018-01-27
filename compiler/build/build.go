@@ -21,6 +21,8 @@ import (
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"github.com/neelance/sourcemap"
+	"gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 type ImportCError struct {
@@ -412,8 +414,16 @@ func parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([
 }
 
 type Options struct {
-	GOROOT         string
-	GOPATH         string
+
+	// Filesystem for GOROOT - should contain all Standard Library source
+	Root billy.Filesystem
+
+	// Filesystem for GOPATH (optional)
+	Path billy.Filesystem
+
+	// Filesystem for temporary Archive storage (optional)
+	Temporary billy.Filesystem
+
 	Verbose        bool
 	Quiet          bool
 	CreateMapFile  bool
@@ -452,11 +462,14 @@ type Session struct {
 }
 
 func NewSession(options *Options) *Session {
-	if options.GOROOT == "" {
-		options.GOROOT = build.Default.GOROOT
+	if options.Root == nil {
+		panic("Need to specify Goroot in options")
 	}
-	if options.GOPATH == "" {
-		options.GOPATH = build.Default.GOPATH
+	if options.Path == nil {
+		options.Path = memfs.New()
+	}
+	if options.Temporary == nil {
+		options.Temporary = memfs.New()
 	}
 
 	s := &Session{
