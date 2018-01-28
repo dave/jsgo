@@ -19,10 +19,13 @@ import (
 
 	"io/ioutil"
 
+	"crypto/sha1"
+
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
 	"github.com/dave/jsgo/builder/std"
+	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	"gopkg.in/src-d/go-billy.v4/osfs"
@@ -40,6 +43,10 @@ func main() {
 		}
 	case "src":
 		if err := Src(); err != nil {
+			log.Fatal(err)
+		}
+	case "prelude":
+		if err := Prelude(); err != nil {
 			log.Fatal(err)
 		}
 	}
@@ -123,7 +130,43 @@ func Src() error {
 	return nil
 }
 
+func Prelude() error {
+	fmt.Println("Storing prelude...")
+	b := []byte(prelude.Prelude)
+	s := sha1.New()
+	if _, err := s.Write(b); err != nil {
+		return err
+	}
+
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	bucket := client.Bucket("jsgo")
+
+	hash := fmt.Sprintf("%x", s.Sum(nil))
+
+	fname := fmt.Sprintf("sys/prelude.%s.js", hash)
+	if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
+		return nil
+	}
+
+	/*
+		const PreludeHash = "..."
+	*/
+	f := jen.NewFile("std")
+	f.Const().Id("PreludeHash").Op("=").Lit(hash)
+	if err := f.Save("./builder/std/prelude.go"); err != nil {
+		return err
+	}
+	fmt.Println("Done.")
+	return nil
+}
+
 func Js() error {
+	fmt.Println("Loading...")
 	packages, err := getStandardLibraryPackages()
 	if err != nil {
 		return err
@@ -220,6 +263,7 @@ func Js() error {
 	if err := f.Save("./builder/std/index.go"); err != nil {
 		return err
 	}
+	fmt.Println("Done.")
 
 	return nil
 }
