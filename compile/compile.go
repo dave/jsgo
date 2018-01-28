@@ -17,6 +17,8 @@ import (
 
 	"crypto/sha1"
 
+	"errors"
+
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"gopkg.in/src-d/go-billy.v4"
@@ -38,6 +40,7 @@ func New(goroot, gopath billy.Filesystem, log io.Writer) *Compiler {
 }
 
 func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, err error) {
+	fmt.Fprintln(c.log, "\nCompiling...")
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -45,38 +48,29 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 	defer client.Close()
 	bucket := client.Bucket("jsgo")
 
-	//fmt.Fprintln(c.log, "\nCompiling...")
-	//hashMax, err := c.compile(ctx, bucket, path, false)
-	//if err != nil {
-	//	return nil, nil, err
-	//}
-	var hashMax []byte
+	options := func(min bool, verbose bool) *builder.Options {
+		return &builder.Options{
+			Root:        c.root,
+			Path:        c.path,
+			Temporary:   c.temp,
+			Unvendor:    true,
+			Initializer: true,
+			Log:         c.log,
+			Verbose:     verbose,
+			Minify:      min,
+		}
+	}
 
-	fmt.Fprintln(c.log, "\nCompiling minified...")
-	hashMin, err := c.compile(ctx, bucket, path, true)
+	sessionMin := builder.NewSession(options(true, true))
+	sessionMax := builder.NewSession(options(false, false))
+
+	archiveMin, err := sessionMin.BuildImportPath(path)
 	if err != nil {
 		return nil, nil, err
 	}
-
-	return hashMin, hashMax, nil
-}
-
-func (c *Compiler) compile(ctx context.Context, bucket *storage.BucketHandle, path string, min bool) ([]byte, error) {
-
-	session := builder.NewSession(&builder.Options{
-		Root:        c.root,
-		Path:        c.path,
-		Temporary:   c.temp,
-		Unvendor:    true,
-		Initializer: true,
-		Log:         c.log,
-		Verbose:     true,
-		Minify:      min,
-	})
-
-	archive, err := session.BuildImportPath(path)
+	archiveMax, err := sessionMax.BuildImportPath(path)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	standard := func(path string, min bool) (hash []byte, ok bool) {
@@ -96,20 +90,51 @@ func (c *Compiler) compile(ctx context.Context, bucket *storage.BucketHandle, pa
 		return nil, false
 	}
 
-	output, err := session.WriteCommandPackage(archive, standard)
+	outputMin, err := sessionMin.WriteCommandPackage(archiveMin, standard)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
+	}
+	outputMax, err := sessionMax.WriteCommandPackage(archiveMax, standard)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if len(outputMin.Packages) != len(outputMax.Packages) {
+		return nil, nil, errors.New("minified output has different number of packages to non-minified")
 	}
 
 	fmt.Fprintln(c.log, "\nStoring...")
-	for _, po := range output.Packages {
-		if !po.Standard {
-			fmt.Fprintln(c.log, po.Path)
-			if err := sendToStorage(ctx, bucket, po.Path, po.Contents, po.Hash, min); err != nil {
-				return nil, err
-			}
+	for i := range outputMin.Packages {
+		poMin := outputMin.Packages[i]
+		poMax := outputMax.Packages[i]
+		if poMin.Path != poMax.Path {
+			return nil, nil, errors.New("minified output has different order of packages to non-minified")
+		}
+		if poMin.Standard {
+			continue
+		}
+		fmt.Fprintln(c.log, poMin.Path)
+		if err := sendToStorage(ctx, bucket, poMin.Path, poMin.Contents, poMin.Hash, true); err != nil {
+			return nil, nil, err
+		}
+		if err := sendToStorage(ctx, bucket, poMax.Path, poMax.Contents, poMax.Hash, false); err != nil {
+			return nil, nil, err
 		}
 	}
+
+	hashMin, err := genMain(ctx, bucket, outputMin, true)
+	if err != nil {
+		return nil, nil, err
+	}
+	hashMax, err := genMain(ctx, bucket, outputMax, false)
+	if err != nil {
+		return nil, nil, err
+	}
+	return hashMin, hashMax, nil
+
+}
+
+func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.CommandOutput, min bool) ([]byte, error) {
 
 	var pkgs []PkgJson
 	for _, po := range output.Packages {
