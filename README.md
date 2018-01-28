@@ -15,11 +15,17 @@ Please don't use this in production just yet!
 
 ### How it works
 
-Go to [jsgo.io/&lt;path&gt;?compile](https://jsgo.io/github.com/dave/jstest?compile), 
+Start the JS on a blank page: https://jsgo.io/GOPHERJS_PACKAGE_PATH  
+Recompile: https://jsgo.io/GOPHERJS_PACKAGE_PATH?compile  
+
+Try it with [github.com/dave/jstest](https://github.com/dave/jstest/blob/master/main.go) - a very simple 
+hello world: Open [jsgo.io/github.com/dave/jstest?compile](https://jsgo.io/github.com/dave/jstest?compile), 
 and click the `Compile now` button. 
 
-After it's finished, the page will be available at [jsgo.io/&lt;path&gt;](https://jsgo.io/github.com/dave/jstest), 
-or the compile page will give you the URL of the generated JS file.
+After it's finished, the URL of the compiled JS will be shown, or [jsgo.io/github.com/dave/jstest](https://jsgo.io/github.com/dave/jstest) 
+loads the JS in an empty page.
+
+It also works with Github gists: https://jsgo.io/gist.github.com/dave/d6b70ceef39da20906ddf709d4a054c6
 
 ### Demos
 
