@@ -13,8 +13,6 @@ import (
 
 	"encoding/json"
 
-	"encoding/hex"
-
 	"crypto/sha1"
 
 	"errors"
@@ -58,6 +56,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 			Log:         c.log,
 			Verbose:     verbose,
 			Minify:      min,
+			Standard:    std.Index,
 		}
 	}
 
@@ -73,28 +72,11 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
-	standard := func(path string, min bool) (hash []byte, ok bool) {
-		if s, ok := std.Index[path]; ok {
-			var h string
-			if min {
-				h = s.HashMin
-			} else {
-				h = s.HashMax
-			}
-			hash, err := hex.DecodeString(h)
-			if err != nil {
-				panic("invalid hex in generated file")
-			}
-			return hash, true
-		}
-		return nil, false
-	}
-
-	outputMin, err := sessionMin.WriteCommandPackage(archiveMin, standard)
+	outputMin, err := sessionMin.WriteCommandPackage(archiveMin)
 	if err != nil {
 		return nil, nil, err
 	}
-	outputMax, err := sessionMax.WriteCommandPackage(archiveMax, standard)
+	outputMax, err := sessionMax.WriteCommandPackage(archiveMax)
 	if err != nil {
 		return nil, nil, err
 	}

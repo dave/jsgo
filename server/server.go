@@ -233,7 +233,7 @@ func compileHandler(ws *websocket.Conn) {
 func serveCompilePost(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
 	// TODO: https://friendlybit.com/js/partial-xmlhttprequest-responses/
-	w.Write([]byte(strings.Repeat(".", 1024) + "\n"))
+	w.Write([]byte(strings.Repeat(" ", 1024) + "\n"))
 	logger := progressWriter{w}
 	if err := doCompile(path, logger, req); err != nil {
 		fmt.Fprintln(w, "error", err.Error())
@@ -245,6 +245,7 @@ func doCompile(path string, logger io.Writer, req *http.Request) error {
 
 	fs := memfs.New()
 
+	fmt.Fprintln(logger, "Downloading source...")
 	g := getter.New(fs, logger)
 	if err := g.Get(path, true, false); err != nil {
 		return err
@@ -268,7 +269,7 @@ func doCompile(path string, logger io.Writer, req *http.Request) error {
 		return err
 	}
 
-	fmt.Fprintln(logger, "Done!")
+	fmt.Fprintln(logger, "\nDone!")
 
 	return nil
 }

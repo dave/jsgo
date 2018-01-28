@@ -24,7 +24,6 @@ import (
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
-	"github.com/dave/jsgo/builder/std"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -213,7 +212,7 @@ func Js() error {
 		}
 	}
 
-	output := map[string]std.Package{}
+	output := map[string]builder.PackageHash{}
 	for key := range sessionMin.Archives {
 		archiveMin := sessionMin.Archives[key]
 		archiveMax := sessionMax.Archives[key]
@@ -236,14 +235,14 @@ func Js() error {
 		if err := sendToStorage(ctx, bucket, path, contentsMax, hashMax, false); err != nil {
 			return err
 		}
-		output[path] = std.Package{
+		output[path] = builder.PackageHash{
 			HashMin: fmt.Sprintf("%x", hashMin),
 			HashMax: fmt.Sprintf("%x", hashMax),
 		}
 	}
 
 	/*
-		var Index = map[string]Package{
+		var Index = map[string]builder.PackageHash{
 			{
 				HashMax: "...",
 				HashMin: "...",
@@ -252,7 +251,7 @@ func Js() error {
 		}
 	*/
 	f := jen.NewFile("std")
-	f.Var().Id("Index").Op("=").Map(jen.String()).Id("Package").Values(jen.DictFunc(func(d jen.Dict) {
+	f.Var().Id("Index").Op("=").Map(jen.String()).Qual("github.com/dave/jsgo/builder", "PackageHash").Values(jen.DictFunc(func(d jen.Dict) {
 		for path, p := range output {
 			d[jen.Lit(path)] = jen.Values(jen.Dict{
 				jen.Id("HashMax"): jen.Lit(p.HashMax),

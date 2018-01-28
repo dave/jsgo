@@ -117,7 +117,7 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		//}
 
 		if c.log != nil {
-			fmt.Fprintf(c.log, "cloning %s\n", root.path)
+			fmt.Fprintln(c.log, root.path)
 		}
 		if err = root.create(c.fs); err != nil {
 			return err
@@ -126,7 +126,7 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		// Metadata directory does exist; download incremental updates.
 
 		if c.log != nil {
-			fmt.Fprintf(c.log, "pulling %s\n", root.path)
+			fmt.Fprintln(c.log, root.path)
 		}
 
 		if err = root.download(); err != nil {

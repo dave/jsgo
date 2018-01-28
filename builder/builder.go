@@ -23,6 +23,8 @@ import (
 
 	"sort"
 
+	"encoding/hex"
+
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"gopkg.in/src-d/go-billy.v4"
@@ -431,6 +433,7 @@ type Options struct {
 	Minify         bool
 	Color          bool
 	BuildTags      []string
+	Standard       map[string]PackageHash
 }
 
 func (o *Options) PrintError(format string, a ...interface{}) {
@@ -445,6 +448,28 @@ func (o *Options) PrintSuccess(format string, a ...interface{}) {
 		format = "\x1B[32m" + format + "\x1B[39m"
 	}
 	fmt.Fprintf(os.Stderr, format, a...)
+}
+
+type PackageHash struct {
+	HashMin string
+	HashMax string
+}
+
+func (p PackageHash) Bytes(min bool) []byte {
+	var h string
+	if min {
+		h = p.HashMin
+	} else {
+		h = p.HashMax
+	}
+	if h == "" {
+		return nil
+	}
+	b, err := hex.DecodeString(h)
+	if err != nil {
+		panic(fmt.Sprintf("invalid hex: %s", h))
+	}
+	return b
 }
 
 type PackageData struct {
@@ -502,7 +527,7 @@ func (s *Session) InstallSuffix() string {
 	return ""
 }
 
-func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string, standard StandardFunc) (*CommandOutput, error) {
+func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
 	buildPkg, err := s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
 	if err != nil {
 		return nil, err
@@ -520,14 +545,14 @@ func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string,
 	if !pkg.IsCommand() {
 		return nil, nil
 	}
-	cp, err := s.WriteCommandPackage(archive, standard)
+	cp, err := s.WriteCommandPackage(archive)
 	if err != nil {
 		return nil, err
 	}
 	return cp, nil
 }
 
-func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string, standard StandardFunc) (*CommandOutput, error) {
+func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
 	pkg := &PackageData{
 		Package: &build.Package{
 			Name:       "main",
@@ -551,7 +576,7 @@ func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath stri
 	if s.Types["main"].Name() != "main" {
 		return nil, fmt.Errorf("cannot build/run non-main package")
 	}
-	return s.WriteCommandPackage(archive, standard)
+	return s.WriteCommandPackage(archive)
 }
 
 func (s *Session) BuildImportPath(path string) (*compiler.Archive, error) {
@@ -674,7 +699,15 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 	}
 
 	if s.options.Verbose {
-		fmt.Fprintln(s.options.Log, importPath)
+		show := true
+		if s.options.Standard != nil {
+			if _, ok := s.options.Standard[importPath]; ok {
+				show = false
+			}
+		}
+		if show {
+			fmt.Fprintln(s.options.Log, importPath)
+		}
 	}
 
 	s.Archives[importPath] = archive
@@ -744,7 +777,7 @@ type PackageOutput struct {
 	Standard bool
 }
 
-func (s *Session) WriteCommandPackage(archive *compiler.Archive, standard StandardFunc) (*CommandOutput, error) {
+func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput, error) {
 	deps, err := compiler.ImportDependencies(archive, func(path string) (*compiler.Archive, error) {
 		if archive, ok := s.Archives[path]; ok {
 			return archive, nil
@@ -756,7 +789,7 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive, standard Standa
 		return nil, err
 	}
 
-	commandPath, packages, err := GetProgramCode(deps, s.options.Initializer, standard)
+	commandPath, packages, err := GetProgramCode(deps, s.options.Initializer, s.options.Standard)
 	if err != nil {
 		return nil, err
 	}
@@ -768,9 +801,7 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive, standard Standa
 	return c, nil
 }
 
-type StandardFunc func(path string, min bool) (hash []byte, ok bool)
-
-func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard StandardFunc) (string, []*PackageOutput, error) {
+func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard map[string]PackageHash) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -779,10 +810,10 @@ func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard Standar
 	var packageOutputs []*PackageOutput
 	for _, pkg := range pkgs {
 		if standard != nil {
-			if hash, ok := standard(pkg.ImportPath, minify); ok {
+			if ph, ok := standard[pkg.ImportPath]; ok {
 				packageOutputs = append(packageOutputs, &PackageOutput{
 					Path:     pkg.ImportPath,
-					Hash:     hash,
+					Hash:     ph.Bytes(minify),
 					Standard: true,
 				})
 				continue

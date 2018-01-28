@@ -1,6 +1,8 @@
 package std
 
-var Index = map[string]Package{
+import "github.com/dave/jsgo/builder"
+
+var Index = map[string]builder.PackageHash{
 	"archive/tar": {
 		HashMax: "c9aaf6cbed2217ffcf51339bfe4ad4e6420d04e0",
 		HashMin: "52d1ddfaa45a1e66bf0112b544daeb4a7f541ebd",
