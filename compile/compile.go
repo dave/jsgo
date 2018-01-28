@@ -45,11 +45,12 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 	defer client.Close()
 	bucket := client.Bucket("jsgo")
 
-	fmt.Fprintln(c.log, "\nCompiling...")
-	hashMax, err := c.compile(ctx, bucket, path, false)
-	if err != nil {
-		return nil, nil, err
-	}
+	//fmt.Fprintln(c.log, "\nCompiling...")
+	//hashMax, err := c.compile(ctx, bucket, path, false)
+	//if err != nil {
+	//	return nil, nil, err
+	//}
+	var hashMax []byte
 
 	fmt.Fprintln(c.log, "\nCompiling minified...")
 	hashMin, err := c.compile(ctx, bucket, path, true)

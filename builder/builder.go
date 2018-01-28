@@ -574,7 +574,13 @@ func (s *Session) buildImportPathWithSrcDir(path string, srcDir string) (*Packag
 }
 
 func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
-	if archive, ok := s.Archives[pkg.ImportPath]; ok {
+
+	importPath := pkg.ImportPath
+	if s.options.Unvendor {
+		importPath = UnvendorPath(pkg.ImportPath)
+	}
+
+	if archive, ok := s.Archives[importPath]; ok {
 		return archive, nil
 	}
 
@@ -612,12 +618,12 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 			// package object exists, load from disk
 			pkg.UpToDate = true
 
-			archive, err := readArchive(s.options.Temporary, pkg.PkgObj, pkg.ImportPath, s.Types)
+			archive, err := readArchive(s.options.Temporary, pkg.PkgObj, importPath, s.Types)
 			if err != nil {
 				return nil, err
 			}
 
-			s.Archives[pkg.ImportPath] = archive
+			s.Archives[importPath] = archive
 			return archive, err
 		}
 	}
@@ -650,11 +656,6 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 		return fileSet.File(files[i].Pos()).Name() > fileSet.File(files[j].Pos()).Name()
 	})
 
-	importPath := pkg.ImportPath
-	if s.options.Unvendor {
-		importPath = UnvendorPath(pkg.ImportPath)
-	}
-
 	archive, err := compiler.Compile(importPath, files, fileSet, importContext, s.options.Minify)
 	if err != nil {
 		return nil, err
@@ -673,10 +674,10 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 	}
 
 	if s.options.Verbose {
-		fmt.Fprintln(s.options.Log, pkg.ImportPath)
+		fmt.Fprintln(s.options.Log, importPath)
 	}
 
-	s.Archives[pkg.ImportPath] = archive
+	s.Archives[importPath] = archive
 
 	// TODO: Why would PkgObj be empty?
 	if pkg.PkgObj == "" {
