@@ -72,6 +72,10 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
+	if archiveMin.Name != "main" {
+		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
+	}
+
 	outputMin, err := sessionMin.WriteCommandPackage(archiveMin)
 	if err != nil {
 		return nil, nil, err
