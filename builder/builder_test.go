@@ -1,10 +1,12 @@
-package build
+package builder
 
 import (
 	"fmt"
-	gobuild "go/build"
+	"go/build"
 	"go/types"
 	"testing"
+
+	"github.com/dave/jsgo/builder/fscopy"
 
 	"io/ioutil"
 	"os"
@@ -31,24 +33,24 @@ func TestAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer os.RemoveAll(goroot)
-	if err := Copy(filepath.Join(gobuild.Default.GOROOT, "src"), filepath.Join(goroot, "src"), osfs.New("/"), osfs.New("/")); err != nil {
+	if err := fscopy.Copy(filepath.Join(build.Default.GOROOT, "src"), filepath.Join(goroot, "src"), osfs.New("/"), osfs.New("/")); err != nil {
 		t.Fatal(err)
 	}
-	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/js"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/js"), osfs.New("/"), osfs.New("/")); err != nil {
+	if err := fscopy.Copy(filepath.Join(build.Default.GOPATH, "src/github.com/gopherjs/gopherjs/js"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/js"), osfs.New("/"), osfs.New("/")); err != nil {
 		t.Fatal(err)
 	}
-	if err := Copy(filepath.Join(gobuild.Default.GOPATH, "src/github.com/gopherjs/gopherjs/nosync"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/nosync"), osfs.New("/"), osfs.New("/")); err != nil {
+	if err := fscopy.Copy(filepath.Join(build.Default.GOPATH, "src/github.com/gopherjs/gopherjs/nosync"), filepath.Join(goroot, "src/github.com/gopherjs/gopherjs/nosync"), osfs.New("/"), osfs.New("/")); err != nil {
 		t.Fatal(err)
 	}
 
 	goroot1 := memfs.New()
-	if err := Copy("/src", "/goroot/src", osfs.New(gobuild.Default.GOROOT), goroot1); err != nil {
+	if err := fscopy.Copy("/src", "/goroot/src", osfs.New(build.Default.GOROOT), goroot1); err != nil {
 		t.Fatal(err)
 	}
-	if err := Copy("/src/github.com/gopherjs/gopherjs/js", "/goroot/src/github.com/gopherjs/gopherjs/js", osfs.New(gobuild.Default.GOPATH), goroot1); err != nil {
+	if err := fscopy.Copy("/src/github.com/gopherjs/gopherjs/js", "/goroot/src/github.com/gopherjs/gopherjs/js", osfs.New(build.Default.GOPATH), goroot1); err != nil {
 		t.Fatal(err)
 	}
-	if err := Copy("/src/github.com/gopherjs/gopherjs/nosync", "/goroot/src/github.com/gopherjs/gopherjs/nosync", osfs.New(gobuild.Default.GOPATH), goroot1); err != nil {
+	if err := fscopy.Copy("/src/github.com/gopherjs/gopherjs/nosync", "/goroot/src/github.com/gopherjs/gopherjs/nosync", osfs.New(build.Default.GOPATH), goroot1); err != nil {
 		t.Fatal(err)
 	}
 
@@ -132,12 +134,12 @@ func testPackage(path, goroot, gopath string, goroot1 billy.Filesystem, masterLi
 			// find the package path
 			path := strings.TrimSuffix(rel, ".a")
 			path = strings.TrimPrefix(path, "pkg/")
-			path = strings.TrimPrefix(path, fmt.Sprintf("%s_%s_js/", gobuild.Default.GOOS, gobuild.Default.GOARCH))
-			path = strings.TrimPrefix(path, fmt.Sprintf("%s_js/", gobuild.Default.GOOS))
+			path = strings.TrimPrefix(path, fmt.Sprintf("%s_%s_js/", build.Default.GOOS, build.Default.GOARCH))
+			path = strings.TrimPrefix(path, fmt.Sprintf("%s_js/", build.Default.GOOS))
 
 			a, err := readArchive(osfs.New("/"), fpath, path, map[string]*types.Package{})
 
-			contents, hash, err := GetPackageCode(a, false)
+			contents, hash, err := GetPackageCode(a, false, false)
 			if err != nil {
 				return err
 			}
@@ -185,7 +187,7 @@ func testPackage(path, goroot, gopath string, goroot1 billy.Filesystem, masterLi
 		if hasMain && a.ImportPath == path {
 			continue
 		}
-		contents, hash, err := GetPackageCode(a, false)
+		contents, hash, err := GetPackageCode(a, false, false)
 		if err != nil {
 			return err
 		}
@@ -202,4 +204,22 @@ func testPackage(path, goroot, gopath string, goroot1 billy.Filesystem, masterLi
 		}
 	}
 	return nil
+}
+
+func TestUnvendorPath(t *testing.T) {
+	cases := map[string]string{
+		"bytes":                                      "bytes",
+		"crypto/rc4":                                 "crypto/rc4",
+		"crypto/rc4/vendor":                          "crypto/rc4/vendor",
+		"cmd/vendor/github.com/google/pprof/profile": "github.com/google/pprof/profile",
+		"testing/internal-vendor/testdeps":           "testing/internal-vendor/testdeps",
+		"/testing/internal-vendor/testdeps":          "/testing/internal-vendor/testdeps",
+		"/testing/vendor/testdeps":                   "testdeps",
+	}
+	for input, expected := range cases {
+		output := UnvendorPath(input)
+		if output != expected {
+			t.Fatalf("output %s not %s for input %s", output, expected, input)
+		}
+	}
 }

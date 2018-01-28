@@ -1,11 +1,11 @@
-package build
+package fscopy
 
 import (
 	"io"
 	"os"
 	"path/filepath"
 
-	"gopkg.in/src-d/go-billy.v4"
+	billy "gopkg.in/src-d/go-billy.v4"
 )
 
 // Copy copies src to dest, doesn't matter if src is a directory or a file

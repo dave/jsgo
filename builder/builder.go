@@ -1,4 +1,4 @@
-package build
+package builder
 
 import (
 	"fmt"
@@ -20,6 +20,8 @@ import (
 	"bytes"
 
 	"crypto/sha1"
+
+	"sort"
 
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
@@ -419,6 +421,8 @@ type Options struct {
 	// Filesystem for temporary Archive storage (optional)
 	Temporary billy.Filesystem
 
+	Unvendor       bool // Render JS with unvendored paths
+	Initializer    bool // Render JS with deferred initialization
 	Verbose        bool
 	Quiet          bool
 	CreateMapFile  bool
@@ -638,7 +642,19 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 			return archive, nil
 		},
 	}
-	archive, err := compiler.Compile(pkg.ImportPath, files, fileSet, importContext, s.options.Minify)
+
+	// TODO: Remove this when https://github.com/gopherjs/gopherjs/pull/742 is merged
+	// Files must be in the same order to get reproducible JS
+	sort.Slice(files, func(i, j int) bool {
+		return fileSet.File(files[i].Pos()).Name() > fileSet.File(files[j].Pos()).Name()
+	})
+
+	importPath := pkg.ImportPath
+	if s.options.Unvendor {
+		importPath = UnvendorPath(pkg.ImportPath)
+	}
+
+	archive, err := compiler.Compile(importPath, files, fileSet, importContext, s.options.Minify)
 	if err != nil {
 		return nil, err
 	}
@@ -737,7 +753,7 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput
 		return nil, err
 	}
 
-	commandPath, packages, err := GetProgramCode(deps)
+	commandPath, packages, err := GetProgramCode(deps, s.options.Initializer)
 	if err != nil {
 		return nil, err
 	}
@@ -749,7 +765,7 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput
 	return c, nil
 }
 
-func GetProgramCode(pkgs []*compiler.Archive) (string, []*PackageOutput, error) {
+func GetProgramCode(pkgs []*compiler.Archive, initializer bool) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -757,7 +773,7 @@ func GetProgramCode(pkgs []*compiler.Archive) (string, []*PackageOutput, error) 
 	// write packages
 	var packageOutputs []*PackageOutput
 	for _, pkg := range pkgs {
-		contents, hash, err := GetPackageCode(pkg, minify)
+		contents, hash, err := GetPackageCode(pkg, minify, initializer)
 		if err != nil {
 			return "", nil, err
 		}
@@ -770,15 +786,29 @@ func GetProgramCode(pkgs []*compiler.Archive) (string, []*PackageOutput, error) 
 	return mainPkg.ImportPath, packageOutputs, nil
 }
 
-func GetPackageCode(archive *compiler.Archive, minify bool) (contents []byte, hash []byte, err error) {
+func GetPackageCode(archive *compiler.Archive, minify, initializer bool) (contents []byte, hash []byte, err error) {
 	dceSelection := make(map[*compiler.Decl]struct{})
 	for _, d := range archive.Declarations {
 		dceSelection[d] = struct{}{}
 	}
 	buf := new(bytes.Buffer)
+
+	if initializer {
+		if _, err := fmt.Fprintf(buf, `$initialisers["%s"] = function () {`, archive.ImportPath); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	if err := compiler.WritePkgCode(archive, dceSelection, minify, &compiler.SourceMapFilter{Writer: buf}); err != nil {
 		return nil, nil, err
 	}
+
+	if initializer {
+		if _, err := fmt.Fprint(buf, "};"); err != nil {
+			return nil, nil, err
+		}
+	}
+
 	sha := sha1.New()
 	if _, err := sha.Write(buf.Bytes()); err != nil {
 		return nil, nil, err
@@ -812,4 +842,29 @@ func hasGopathPrefix(file, gopath string) (hasGopathPrefix bool, prefixLen int) 
 		}
 	}
 	return false, 0
+}
+
+func UnvendorPath(path string) string {
+	i, ok := findVendor(path)
+	if !ok {
+		return path
+	}
+	return path[i+len("vendor/"):]
+}
+
+// FindVendor looks for the last non-terminating "vendor" path element in the given import path.
+// If there isn't one, FindVendor returns ok=false.
+// Otherwise, FindVendor returns ok=true and the index of the "vendor".
+// Copied from cmd/go/internal/load
+func findVendor(path string) (index int, ok bool) {
+	// Two cases, depending on internal at start of string or not.
+	// The order matters: we must return the index of the final element,
+	// because the final one is where the effective import path starts.
+	switch {
+	case strings.Contains(path, "/vendor/"):
+		return strings.LastIndex(path, "/vendor/") + 1, true
+	case strings.HasPrefix(path, "vendor/"):
+		return 0, true
+	}
+	return 0, false
 }

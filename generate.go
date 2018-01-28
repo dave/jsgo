@@ -1,5 +1,7 @@
 package jsgo
 
-//go:generate ./assets/builder/update.sh
-//go:generate go run -tags="dev" ./assets/builder/builder.go
-//go:generate go run -tags="dev" ./compiler/builder/main.go
+//go:generate go run ./gen/gen.go
+
+// DISABLED go:generate ./assets/builder/update.sh
+// DISABLED go:generate go run -tags="dev" ./assets/builder/builder.go
+// DISABLED  go:generate go run -tags="dev" ./compiler/builder/main.go
