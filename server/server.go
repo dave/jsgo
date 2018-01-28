@@ -174,6 +174,7 @@ func serveCompile(w http.ResponseWriter, req *http.Request) {
 			</body>
 			<script>
 				document.getElementById("btn").onclick = function() {
+					document.getElementById("log").innerHTML += "Compiling...\n";
 
 					// Unbuffered HTTP method (doesn't work in App Engine):
 					var xhr = new XMLHttpRequest();
@@ -268,6 +269,17 @@ func doCompile(path string, logger io.Writer, req *http.Request) error {
 	if err := save(ctx, path, data); err != nil {
 		return err
 	}
+
+	fmt.Fprintln(logger, "\nPage:")
+	fmt.Fprintf(logger, "https://jsgo.io/%s (minified)\n", path)
+	fmt.Fprintf(logger, "https://jsgo.io/%s?max (non-minified)\n", path)
+
+	fmt.Fprintln(logger, "\nJavascript:")
+	fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.min.js (minified)\n", path, hashMin)
+	fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.js (non-minified)\n", path, hashMax)
+
+	fmt.Fprintln(logger, "\nCompile link:")
+	fmt.Fprintf(logger, "https://jsgo.io/%s?compile\n", path)
 
 	fmt.Fprintln(logger, "\nDone!")
 
