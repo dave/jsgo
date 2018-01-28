@@ -47,7 +47,8 @@ func main() {
 }
 
 func Src() error {
-	fs, err := getRootFilesystem()
+	fmt.Println("Loading...")
+	root, err := getRootFilesystem()
 	if err != nil {
 		return err
 	}
@@ -56,8 +57,8 @@ func Src() error {
 	w := zip.NewWriter(buf)
 
 	fmt.Println("Zipping...")
-	var compress func(dir string) error
-	compress = func(dir string) error {
+	var compress func(billy.Filesystem, string) error
+	compress = func(fs billy.Filesystem, dir string) error {
 		fis, err := fs.ReadDir(dir)
 		if err != nil {
 			return err
@@ -65,7 +66,7 @@ func Src() error {
 		for _, fi := range fis {
 			fpath := filepath.Join(dir, fi.Name())
 			if fi.IsDir() {
-				if err := compress(fpath); err != nil {
+				if err := compress(fs, fpath); err != nil {
 					return err
 				}
 				continue
@@ -90,7 +91,10 @@ func Src() error {
 		}
 		return nil
 	}
-	if err := compress("/"); err != nil {
+	if err := compress(root, "/"); err != nil {
+		return err
+	}
+	if err := compress(osfs.New("./assets/static"), "/"); err != nil {
 		return err
 	}
 	if err := w.Flush(); err != nil {
@@ -114,6 +118,7 @@ func Src() error {
 	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), "assets.zip"); err != nil {
 		return err
 	}
+	fmt.Println("Done.")
 
 	return nil
 }
