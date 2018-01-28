@@ -44,7 +44,7 @@ func main() {
 }
 
 func faviconHandler(w http.ResponseWriter, req *http.Request) {
-	if err := serveStatic("favicon.ico", w, req); err != nil {
+	if err := serveStatic("favicon.ico", w, req, "image/x-icon"); err != nil {
 		http.Error(w, "error serving static file", 500)
 	}
 }
@@ -310,7 +310,7 @@ func key(path string) *datastore.Key {
 	return datastore.NameKey("package", path, nil)
 }
 
-func serveStatic(name string, w http.ResponseWriter, req *http.Request) error {
+func serveStatic(name string, w http.ResponseWriter, req *http.Request, mimeType string) error {
 	var file billy.File
 	var err error
 	file, err = assets.Assets.Open(name)
@@ -325,7 +325,11 @@ func serveStatic(name string, w http.ResponseWriter, req *http.Request) error {
 	defer file.Close()
 
 	w.Header().Set("Cache-Control", "max-age=31536000")
-	w.Header().Set("Content-Type", mime.TypeByExtension(pathpkg.Ext(req.URL.Path)))
+	if mimeType == "" {
+		w.Header().Set("Content-Type", mime.TypeByExtension(pathpkg.Ext(req.URL.Path)))
+	} else {
+		w.Header().Set("Content-Type", mimeType)
+	}
 
 	_, noCompress := file.(httpgzip.NotWorthGzipCompressing)
 	gzb, isGzb := file.(httpgzip.GzipByter)
