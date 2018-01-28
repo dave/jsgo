@@ -23,8 +23,7 @@ import (
 
 	"context"
 
-	"github.com/dave/jsgo/compiler"
-	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/compile"
 	"github.com/dave/jsgo/getter"
 	"github.com/dustin/go-humanize"
 	"github.com/shurcooL/httpgzip"
@@ -99,12 +98,13 @@ var rootTpl = template.Must(template.New("root").Parse(`
 	</head>
 	<body id="wrapper">
 		<span id="log">Loading...</span>
-		<script src="https://storage.googleapis.com/jsgo/js/{{ .Path }}/main.{{ .Hash }}{{ .Min }}.js"></script>
+		<script src="https://storage.googleapis.com/jsgo/pkg/{{ .Path }}.{{ .Hash }}{{ .Min }}.js"></script>
 	</body>
 </html>`))
 
 func serveRoot(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
+	max := hasQuery(req, "max")
 	found, data, err := lookup(context.Background(), path)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -114,13 +114,17 @@ func serveRoot(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, fmt.Sprintf("/%s?compile", path), http.StatusFound)
 		return
 	}
-	min := ""
-	if data.Min {
+	var hash, min string
+	if max {
+		min = ""
+		hash = fmt.Sprintf("%x", data.HashMax)
+	} else {
 		min = ".min"
+		hash = fmt.Sprintf("%x", data.HashMin)
 	}
 	vars := rootVars{
 		Path: path,
-		Hash: data.Hash,
+		Hash: hash,
 		Min:  min,
 	}
 	if err := rootTpl.Execute(w, vars); err != nil {
@@ -142,14 +146,12 @@ func serveCompile(w http.ResponseWriter, req *http.Request) {
 		Found bool
 		Path  string
 		Last  string
-		Hash  string
 	}
 
 	v := vars{}
 	v.Path = path
 	if found {
 		v.Found = true
-		v.Hash = data.Hash
 		v.Last = humanize.Time(data.Time)
 	}
 
@@ -161,7 +163,7 @@ func serveCompile(w http.ResponseWriter, req *http.Request) {
 			</head>
 			<body id="wrapper">
 				{{ if .Found }}
-					<p>{{ .Path }} was last compiled {{ .Last }}, with hash {{ .Hash }}.</p>
+					<p>{{ .Path }} was last compiled {{ .Last }}.</p>
 				{{ else }}
 					<p>{{ .Path }} has never been compiled.</p>
 				{{ end }}
@@ -233,13 +235,13 @@ func serveCompilePost(w http.ResponseWriter, req *http.Request) {
 	// TODO: https://friendlybit.com/js/partial-xmlhttprequest-responses/
 	w.Write([]byte(strings.Repeat(".", 1024) + "\n"))
 	logger := progressWriter{w}
-	if err := compile(path, logger, req); err != nil {
+	if err := doCompile(path, logger, req); err != nil {
 		fmt.Fprintln(w, "error", err.Error())
 		return
 	}
 }
 
-func compile(path string, logger io.Writer, req *http.Request) error {
+func doCompile(path string, logger io.Writer, req *http.Request) error {
 
 	fs := memfs.New()
 
@@ -248,23 +250,21 @@ func compile(path string, logger io.Writer, req *http.Request) error {
 		return err
 	}
 
-	c := compiler.New(fs)
-	if err := c.Compile(path, logger); err != nil {
-		return err
-	}
-
 	ctx := appengine.NewContext(req)
-	if err := c.Store(ctx, path, logger); err != nil {
+
+	c := compile.New(assets.Assets, fs, logger)
+	hashMin, hashMax, err := c.Compile(ctx, path)
+	if err != nil {
 		return err
 	}
 
 	data := Data{
-		Time: time.Now(),
-		Hash: fmt.Sprintf("%x", c.Hash(path)),
-		Min:  !config.DEV,
+		Time:    time.Now(),
+		HashMin: hashMin,
+		HashMax: hashMax,
 	}
 
-	if err := save(context.Background(), path, data); err != nil {
+	if err := save(ctx, path, data); err != nil {
 		return err
 	}
 
@@ -274,9 +274,9 @@ func compile(path string, logger io.Writer, req *http.Request) error {
 }
 
 type Data struct {
-	Time time.Time
-	Hash string
-	Min  bool
+	Time    time.Time
+	HashMin []byte
+	HashMax []byte
 }
 
 func save(ctx context.Context, path string, data Data) error {

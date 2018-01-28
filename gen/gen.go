@@ -78,12 +78,12 @@ func Src() error {
 				}
 				continue
 			}
+			if strings.HasSuffix(fpath, "_test.go") {
+				continue
+			}
 			z, err := w.Create(fpath)
 			if err != nil {
 				return err
-			}
-			if strings.HasSuffix(fpath, "_test.go") {
-				continue
 			}
 			f, err := fs.Open(fpath)
 			if err != nil {

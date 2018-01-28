@@ -502,7 +502,7 @@ func (s *Session) InstallSuffix() string {
 	return ""
 }
 
-func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
+func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string, standard StandardFunc) (*CommandOutput, error) {
 	buildPkg, err := s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
 	if err != nil {
 		return nil, err
@@ -520,14 +520,14 @@ func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string)
 	if !pkg.IsCommand() {
 		return nil, nil
 	}
-	cp, err := s.WriteCommandPackage(archive)
+	cp, err := s.WriteCommandPackage(archive, standard)
 	if err != nil {
 		return nil, err
 	}
 	return cp, nil
 }
 
-func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
+func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string, standard StandardFunc) (*CommandOutput, error) {
 	pkg := &PackageData{
 		Package: &build.Package{
 			Name:       "main",
@@ -551,7 +551,7 @@ func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath stri
 	if s.Types["main"].Name() != "main" {
 		return nil, fmt.Errorf("cannot build/run non-main package")
 	}
-	return s.WriteCommandPackage(archive)
+	return s.WriteCommandPackage(archive, standard)
 }
 
 func (s *Session) BuildImportPath(path string) (*compiler.Archive, error) {
@@ -740,9 +740,10 @@ type PackageOutput struct {
 	Path     string
 	Hash     []byte
 	Contents []byte
+	Standard bool
 }
 
-func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput, error) {
+func (s *Session) WriteCommandPackage(archive *compiler.Archive, standard StandardFunc) (*CommandOutput, error) {
 	deps, err := compiler.ImportDependencies(archive, func(path string) (*compiler.Archive, error) {
 		if archive, ok := s.Archives[path]; ok {
 			return archive, nil
@@ -754,7 +755,7 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput
 		return nil, err
 	}
 
-	commandPath, packages, err := GetProgramCode(deps, s.options.Initializer)
+	commandPath, packages, err := GetProgramCode(deps, s.options.Initializer, standard)
 	if err != nil {
 		return nil, err
 	}
@@ -766,7 +767,9 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput
 	return c, nil
 }
 
-func GetProgramCode(pkgs []*compiler.Archive, initializer bool) (string, []*PackageOutput, error) {
+type StandardFunc func(path string, min bool) (hash []byte, ok bool)
+
+func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard StandardFunc) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -774,6 +777,16 @@ func GetProgramCode(pkgs []*compiler.Archive, initializer bool) (string, []*Pack
 	// write packages
 	var packageOutputs []*PackageOutput
 	for _, pkg := range pkgs {
+		if standard != nil {
+			if hash, ok := standard(pkg.ImportPath, minify); ok {
+				packageOutputs = append(packageOutputs, &PackageOutput{
+					Path:     pkg.ImportPath,
+					Hash:     hash,
+					Standard: true,
+				})
+				continue
+			}
+		}
 		contents, hash, err := GetPackageCode(pkg, minify, initializer)
 		if err != nil {
 			return "", nil, err
