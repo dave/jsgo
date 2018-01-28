@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"context"
 	"fmt"
 	"go/build"
@@ -14,6 +15,10 @@ import (
 	"bytes"
 	"io"
 
+	"flag"
+
+	"io/ioutil"
+
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
@@ -24,12 +29,96 @@ import (
 )
 
 func main() {
-	if err := Main(); err != nil {
-		log.Fatal(err)
+
+	flag.Parse()
+	command := flag.Arg(0)
+
+	switch command {
+	case "js":
+		if err := Js(); err != nil {
+			log.Fatal(err)
+		}
+	case "src":
+		if err := Src(); err != nil {
+			log.Fatal(err)
+		}
 	}
+
 }
 
-func Main() error {
+func Src() error {
+	fs, err := getRootFilesystem()
+	if err != nil {
+		return err
+	}
+
+	buf := new(bytes.Buffer)
+	w := zip.NewWriter(buf)
+
+	fmt.Println("Zipping...")
+	var compress func(dir string) error
+	compress = func(dir string) error {
+		fis, err := fs.ReadDir(dir)
+		if err != nil {
+			return err
+		}
+		for _, fi := range fis {
+			fpath := filepath.Join(dir, fi.Name())
+			if fi.IsDir() {
+				if err := compress(fpath); err != nil {
+					return err
+				}
+				continue
+			}
+			z, err := w.Create(fpath)
+			if err != nil {
+				return err
+			}
+			if strings.HasSuffix(fpath, "_test.go") {
+				continue
+			}
+			f, err := fs.Open(fpath)
+			if err != nil {
+				return err
+			}
+			if _, err := io.Copy(z, f); err != nil {
+				f.Close()
+				return err
+			}
+			f.Close()
+			w.Flush()
+		}
+		return nil
+	}
+	if err := compress("/"); err != nil {
+		return err
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+	if err := w.Close(); err != nil {
+		return err
+	}
+	if err := ioutil.WriteFile("./assets/assets.zip", buf.Bytes(), 0777); err != nil {
+		return err
+	}
+
+	fmt.Println("Uploading...")
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+	bucket := client.Bucket("jsgo")
+	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), "assets.zip"); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func Js() error {
 	packages, err := getStandardLibraryPackages()
 	if err != nil {
 		return err
@@ -146,6 +235,16 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 	wc := bucket.Object(filename).NewWriter(ctx)
 	defer wc.Close()
 	wc.ContentType = "application/javascript"
+	if _, err := io.Copy(wc, reader); err != nil {
+		return err
+	}
+	return nil
+}
+
+func storeZip(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader, filename string) error {
+	wc := bucket.Object(filename).NewWriter(ctx)
+	defer wc.Close()
+	wc.ContentType = "application/zip"
 	if _, err := io.Copy(wc, reader); err != nil {
 		return err
 	}
