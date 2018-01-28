@@ -1,6 +1,6 @@
 package std
 
-import "github.com/dave/jsgo/builder"
+import builder "github.com/dave/jsgo/builder"
 
 var Index = map[string]builder.PackageHash{
 	"archive/tar": {

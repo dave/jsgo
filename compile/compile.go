@@ -44,7 +44,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 	defer client.Close()
-	bucket := client.Bucket("jsgo")
+	bucket := client.Bucket("cdn.jsgo.io")
 
 	options := func(min bool, verbose bool) *builder.Options {
 		return &builder.Options{
@@ -231,10 +231,10 @@ var load = function(url) {
     tag.onreadystatechange = done;
     document.head.appendChild(tag);
 }
-load("https://storage.googleapis.com/jsgo/sys/prelude.{{ .Prelude }}.js");
+load("https://cdn.jsgo.io/sys/prelude.{{ .Prelude }}.js");
 $pkgs.forEach(function(pkg){
 	var dir = pkg.std ? "sys" : "pkg";
 	var min = $min ? ".min" : "";
-	load("https://storage.googleapis.com/jsgo/" + dir + "/" + pkg.path + "." + pkg.hash + min + ".js");
+	load("https://cdn.jsgo.io/" + dir + "/" + pkg.path + "." + pkg.hash + min + ".js");
 });
 `))

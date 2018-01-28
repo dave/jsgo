@@ -120,7 +120,7 @@ func Src() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket("jsgo")
+	bucket := client.Bucket("cdn.jsgo.io")
 	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), "assets.zip"); err != nil {
 		return err
 	}
@@ -143,7 +143,7 @@ func Prelude() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket("jsgo")
+	bucket := client.Bucket("cdn.jsgo.io")
 
 	hash := fmt.Sprintf("%x", s.Sum(nil))
 
@@ -183,7 +183,7 @@ func Js() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket("jsgo")
+	bucket := client.Bucket("cdn.jsgo.io")
 
 	sessionMin := builder.NewSession(&builder.Options{
 		Root:        rootfs,

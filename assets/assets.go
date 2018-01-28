@@ -49,7 +49,7 @@ func loadAssets(fs billy.Filesystem) error {
 			return err
 		}
 		defer client.Close()
-		gcsReader, err := client.Bucket("jsgo").Object("assets.zip").NewReader(ctx)
+		gcsReader, err := client.Bucket("cdn.jsgo.io").Object("assets.zip").NewReader(ctx)
 		if err != nil {
 			return err
 		}

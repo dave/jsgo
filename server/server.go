@@ -98,7 +98,7 @@ var rootTpl = template.Must(template.New("root").Parse(`
 	</head>
 	<body id="wrapper">
 		<span id="log">Loading...</span>
-		<script src="https://storage.googleapis.com/jsgo/pkg/{{ .Path }}.{{ .Hash }}{{ .Min }}.js"></script>
+		<script src="https://cdn.jsgo.io/pkg/{{ .Path }}.{{ .Hash }}{{ .Min }}.js"></script>
 	</body>
 </html>`))
 
