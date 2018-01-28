@@ -423,6 +423,7 @@ type Options struct {
 
 	Unvendor       bool // Render JS with unvendored paths
 	Initializer    bool // Render JS with deferred initialization
+	Log            io.Writer
 	Verbose        bool
 	Quiet          bool
 	CreateMapFile  bool
@@ -672,7 +673,7 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 	}
 
 	if s.options.Verbose {
-		fmt.Println(pkg.ImportPath)
+		fmt.Fprintln(s.options.Log, pkg.ImportPath)
 	}
 
 	s.Archives[pkg.ImportPath] = archive
