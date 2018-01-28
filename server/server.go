@@ -104,6 +104,9 @@ var rootTpl = template.Must(template.New("root").Parse(`
 
 func serveRoot(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
+	if path == "" {
+		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)
+	}
 	max := hasQuery(req, "max")
 	found, data, err := lookup(context.Background(), path)
 	if err != nil {
