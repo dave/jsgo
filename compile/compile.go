@@ -193,42 +193,40 @@ type PkgJson struct {
 
 var tpl = template.Must(template.New("main").Parse(`
 "use strict";
-var $load = {};
-var $path = "{{ .Path }}";
-var $info = {{ .Json }};
-var $count = 0;
-var $total = 0;
 var $mainPkg;
-var $get = function(url) {
-	var logger = function(s) {
-		if (document.getElementById("log")) {
-			document.getElementById("log").innerHTML = s;
-		}
-	}
-	$total++;
-    var tag = document.createElement('script');
-    tag.src = url;
-	var done = function() {
-		$count++;
-		logger("Loading " + $count + " / " + $total);
-		if ($count == $total) {
-			logger("Initialising...");
-			for (var i = 0; i < $info.length; i++) {
-				$load[$info[i].path]();
+var $load = {};
+(function(){
+	var count = 0;
+	var total = 0;
+	var path = "{{ .Path }}";
+	var info = {{ .Json }};
+	var logger = function(s) { var log = document.getElementById("log"); if (log) { log.innerHTML = s; } }
+	var get = function(url) {
+		total++;
+		var tag = document.createElement('script');
+		tag.src = url;
+		var done = function() {
+			count++;
+			logger("Loading " + count + " / " + total);
+			if (count == total) {
+				logger("Initialising...");
+				for (var i = 0; i < info.length; i++) {
+					$load[info[i].path]();
+				}
+				$mainPkg = $packages[path];
+				$synthesizeMethods();
+				$packages["runtime"].$init();
+				$go($mainPkg.$init, []);
+				$flushConsole();
 			}
-			$mainPkg = $packages[$path];
-			$synthesizeMethods();
-			$packages["runtime"].$init();
-			$go($mainPkg.$init, []);
-			$flushConsole();
 		}
+		tag.onload = done;
+		tag.onreadystatechange = done;
+		document.head.appendChild(tag);
 	}
-    tag.onload = done;
-    tag.onreadystatechange = done;
-    document.head.appendChild(tag);
-}
-$get("https://cdn.jsgo.io/sys/prelude.{{ .Prelude }}.js");
-for (var i = 0; i < $info.length; i++) {
-	$get("https://cdn.jsgo.io/" + ($info[i].std ? "std" : "pkg") + "/" + $info[i].path + "." + $info[i].hash + ".js");
-}
+	get("https://cdn.jsgo.io/sys/prelude.{{ .Prelude }}.js");
+	for (var i = 0; i < info.length; i++) {
+		get("https://cdn.jsgo.io/" + (info[i].std ? "std" : "pkg") + "/" + info[i].path + "." + info[i].hash + ".js");
+	}
+})();
 `))
