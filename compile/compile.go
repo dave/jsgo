@@ -207,7 +207,9 @@ var $pkgs = {{ .Json }};
 var $progressCount = 0;
 var $progressTotal = 0;
 var logger = function(s) {
-	document.getElementById("log").innerHTML = s;
+	if (document.getElementById("log")) {
+		document.getElementById("log").innerHTML = s;
+	}
 }
 var finished = function() {
 	logger("Initialising...");
