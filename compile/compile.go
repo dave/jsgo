@@ -224,7 +224,7 @@ var $load = {};
 		tag.onreadystatechange = done;
 		document.head.appendChild(tag);
 	}
-	get("https://cdn.jsgo.io/sys/prelude.{{ .Prelude }}.js");
+	get("https://cdn.jsgo.io/std/prelude.{{ .Prelude }}.js");
 	for (var i = 0; i < info.length; i++) {
 		get("https://cdn.jsgo.io/" + (info[i].std ? "std" : "pkg") + "/" + info[i].path + "." + info[i].hash + ".js");
 	}
