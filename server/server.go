@@ -87,7 +87,6 @@ func serveJs(w http.ResponseWriter, req *http.Request) {
 type rootVars struct {
 	Path string
 	Hash string
-	Min  string
 }
 
 var rootTpl = template.Must(template.New("root").Parse(`
@@ -98,7 +97,7 @@ var rootTpl = template.Must(template.New("root").Parse(`
 	</head>
 	<body id="wrapper">
 		<span id="log">Loading...</span>
-		<script src="https://cdn.jsgo.io/pkg/{{ .Path }}.{{ .Hash }}{{ .Min }}.js"></script>
+		<script src="https://cdn.jsgo.io/pkg/{{ .Path }}.{{ .Hash }}.js"></script>
 	</body>
 </html>`))
 
@@ -117,18 +116,15 @@ func serveRoot(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, fmt.Sprintf("/%s?compile", path), http.StatusFound)
 		return
 	}
-	var hash, min string
+	var hash string
 	if max {
-		min = ""
 		hash = fmt.Sprintf("%x", data.HashMax)
 	} else {
-		min = ".min"
 		hash = fmt.Sprintf("%x", data.HashMin)
 	}
 	vars := rootVars{
 		Path: path,
 		Hash: hash,
-		Min:  min,
 	}
 	if err := rootTpl.Execute(w, vars); err != nil {
 		http.Error(w, err.Error(), 500)
@@ -278,7 +274,7 @@ func doCompile(path string, logger io.Writer, req *http.Request) error {
 	fmt.Fprintf(logger, "https://jsgo.io/%s?max (non-minified)\n", path)
 
 	fmt.Fprintln(logger, "\nJavascript:")
-	fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.min.js (minified)\n", path, hashMin)
+	fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.js (minified)\n", path, hashMin)
 	fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.js (non-minified)\n", path, hashMax)
 
 	fmt.Fprintln(logger, "\nCompile link:")

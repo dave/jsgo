@@ -840,7 +840,7 @@ func GetPackageCode(archive *compiler.Archive, minify, initializer bool) (conten
 	buf := new(bytes.Buffer)
 
 	if initializer {
-		if _, err := fmt.Fprintf(buf, `$initialisers["%s"] = function () {`, archive.ImportPath); err != nil {
+		if _, err := fmt.Fprintf(buf, `$load["%s"] = function () {`, archive.ImportPath); err != nil {
 			return nil, nil, err
 		}
 	}

@@ -100,10 +100,10 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 			continue
 		}
 		fmt.Fprintln(c.log, poMin.Path)
-		if err := sendToStorage(ctx, bucket, poMin.Path, poMin.Contents, poMin.Hash, true); err != nil {
+		if err := sendToStorage(ctx, bucket, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
 			return nil, nil, err
 		}
-		if err := sendToStorage(ctx, bucket, poMax.Path, poMax.Contents, poMax.Hash, false); err != nil {
+		if err := sendToStorage(ctx, bucket, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -139,7 +139,6 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	m := MainVars{
 		Prelude: std.PreludeHash,
 		Path:    output.Path,
-		Min:     min,
 		Json:    string(pkgJson),
 	}
 
@@ -155,19 +154,15 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 
 	hash := s.Sum(nil)
 
-	if err := sendToStorage(ctx, bucket, output.Path, buf.Bytes(), hash, min); err != nil {
+	if err := sendToStorage(ctx, bucket, output.Path, buf.Bytes(), hash); err != nil {
 		return nil, err
 	}
 
 	return hash, nil
 }
 
-func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte, minified bool) error {
-	min := ""
-	if minified {
-		min = ".min"
-	}
-	fpath := fmt.Sprintf("pkg/%s.%x%s.js", path, hash, min)
+func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
+	fpath := fmt.Sprintf("pkg/%s.%x.js", path, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
 		return err
 	}
@@ -186,7 +181,6 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 
 type MainVars struct {
 	Prelude string
-	Min     bool
 	Path    string
 	Json    string
 }
@@ -199,48 +193,42 @@ type PkgJson struct {
 
 var tpl = template.Must(template.New("main").Parse(`
 "use strict";
-var $initialisers = {};
-var $mainPkg;
-var $min = {{ .Min }};
+var $load = {};
 var $path = "{{ .Path }}";
-var $pkgs = {{ .Json }};
-var $progressCount = 0;
-var $progressTotal = 0;
-var logger = function(s) {
-	if (document.getElementById("log")) {
-		document.getElementById("log").innerHTML = s;
+var $info = {{ .Json }};
+var $count = 0;
+var $total = 0;
+var $mainPkg;
+var $get = function(url) {
+	var logger = function(s) {
+		if (document.getElementById("log")) {
+			document.getElementById("log").innerHTML = s;
+		}
 	}
-}
-var finished = function() {
-	logger("Initialising...");
-	$pkgs.forEach(function(pkg){
-		$initialisers[pkg.path]();
-	});
-	$mainPkg = $packages[$path];
-	$synthesizeMethods();
-	$packages["runtime"].$init();
-	$go($mainPkg.$init, []);
-	$flushConsole();
-}
-var load = function(url) {
-	$progressTotal++;
+	$total++;
     var tag = document.createElement('script');
     tag.src = url;
 	var done = function() {
-		$progressCount++;
-		logger("Loading " + $progressCount + " / " + $progressTotal);
-		if ($progressCount == $progressTotal) {
-			finished();
+		$count++;
+		logger("Loading " + $count + " / " + $total);
+		if ($count == $total) {
+			logger("Initialising...");
+			for (var i = 0; i < $info.length; i++) {
+				$load[$info[i].path]();
+			}
+			$mainPkg = $packages[$path];
+			$synthesizeMethods();
+			$packages["runtime"].$init();
+			$go($mainPkg.$init, []);
+			$flushConsole();
 		}
 	}
     tag.onload = done;
     tag.onreadystatechange = done;
     document.head.appendChild(tag);
 }
-load("https://cdn.jsgo.io/sys/prelude.{{ .Prelude }}.js");
-$pkgs.forEach(function(pkg){
-	var dir = pkg.std ? "sys" : "pkg";
-	var min = $min ? ".min" : "";
-	load("https://cdn.jsgo.io/" + dir + "/" + pkg.path + "." + pkg.hash + min + ".js");
-});
+$get("https://cdn.jsgo.io/sys/prelude.{{ .Prelude }}.js");
+for (var i = 0; i < $info.length; i++) {
+	$get("https://cdn.jsgo.io/" + ($info[i].std ? "std" : "pkg") + "/" + $info[i].path + "." + $info[i].hash + ".js");
+}
 `))

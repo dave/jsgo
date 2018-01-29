@@ -147,7 +147,7 @@ func Prelude() error {
 
 	hash := fmt.Sprintf("%x", s.Sum(nil))
 
-	fname := fmt.Sprintf("sys/prelude.%s.js", hash)
+	fname := fmt.Sprintf("std/prelude.%s.js", hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
 		return nil
 	}
@@ -229,10 +229,10 @@ func Js() error {
 		if err != nil {
 			return err
 		}
-		if err := sendToStorage(ctx, bucket, path, contentsMin, hashMin, true); err != nil {
+		if err := sendToStorage(ctx, bucket, path, contentsMin, hashMin); err != nil {
 			return err
 		}
-		if err := sendToStorage(ctx, bucket, path, contentsMax, hashMax, false); err != nil {
+		if err := sendToStorage(ctx, bucket, path, contentsMax, hashMax); err != nil {
 			return err
 		}
 		output[path] = builder.PackageHash{
@@ -267,12 +267,8 @@ func Js() error {
 	return nil
 }
 
-func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte, minified bool) error {
-	min := ""
-	if minified {
-		min = ".min"
-	}
-	fpath := fmt.Sprintf("sys/%s.%x%s.js", path, hash, min)
+func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
+	fpath := fmt.Sprintf("std/%s.%x.js", path, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
 		return err
 	}
