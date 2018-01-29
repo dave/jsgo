@@ -201,25 +201,26 @@ var $load = {};
 	var path = "{{ .Path }}";
 	var info = {{ .Json }};
 	var logger = function(s) { var log = document.getElementById("log"); if (log) { log.innerHTML = s; } }
+	var finished = function() {
+		logger("Running...");
+		for (var i = 0; i < info.length; i++) {
+			$load[info[i].path]();
+		}
+		$mainPkg = $packages[path];
+		$synthesizeMethods();
+		$packages["runtime"].$init();
+		$go($mainPkg.$init, []);
+		$flushConsole();
+	}
+	var done = function() {
+		count++;
+		logger("Loading " + count + " / " + total);
+		if (count == total) { finished(); }
+	}
 	var get = function(url) {
 		total++;
 		var tag = document.createElement('script');
 		tag.src = url;
-		var done = function() {
-			count++;
-			logger("Loading " + count + " / " + total);
-			if (count == total) {
-				logger("Initialising...");
-				for (var i = 0; i < info.length; i++) {
-					$load[info[i].path]();
-				}
-				$mainPkg = $packages[path];
-				$synthesizeMethods();
-				$packages["runtime"].$init();
-				$go($mainPkg.$init, []);
-				$flushConsole();
-			}
-		}
 		tag.onload = done;
 		tag.onreadystatechange = done;
 		document.head.appendChild(tag);
