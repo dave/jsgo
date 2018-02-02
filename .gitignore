@@ -4,3 +4,4 @@
 coverage.out
 .coverage/
 /assets/assets.zip
+out/server-bin
