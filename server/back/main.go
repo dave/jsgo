@@ -117,7 +117,7 @@ func doCompile(path string, logger io.Writer, req *http.Request) error {
 	fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.js (non-minified)\n", path, hashMax)
 
 	fmt.Fprintln(logger, "\nCompile link:")
-	fmt.Fprintf(logger, "https://jsgo.io/%s?compile\n", path)
+	fmt.Fprintf(logger, "https://compile.jsgo.io/%s\n", path)
 
 	fmt.Fprintln(logger, "\nDone!")
 

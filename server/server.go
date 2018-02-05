@@ -40,6 +40,7 @@ func ServeCompile(w http.ResponseWriter, req *http.Request) {
 		Found bool
 		Path  string
 		Last  string
+		Host  string
 	}
 
 	v := vars{}
@@ -47,6 +48,9 @@ func ServeCompile(w http.ResponseWriter, req *http.Request) {
 	if found {
 		v.Found = true
 		v.Last = humanize.Time(data.Time)
+	}
+	if req.Host == "jsgo.io" {
+		v.Host = "https://compile.jsgo.io"
 	}
 
 	page := `
@@ -72,7 +76,7 @@ func ServeCompile(w http.ResponseWriter, req *http.Request) {
 
 					// Unbuffered HTTP method (doesn't work in App Engine):
 					var xhr = new XMLHttpRequest();
-					var url = "/{{ .Path }}";
+					var url = "{{ .Host }}/{{ .Path }}";
 					xhr.open("POST", url, true);
 					xhr.send();
 					var last_index = 0;

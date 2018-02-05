@@ -30,8 +30,6 @@ func handler(w http.ResponseWriter, req *http.Request) {
 	switch {
 	case strings.HasSuffix(req.URL.Path, ".js"):
 		serveJs(w, req)
-	case hasQuery(req, "compile"):
-		server.ServeCompile(w, req)
 	default:
 		serveRoot(w, req)
 	}
@@ -86,7 +84,7 @@ func serveRoot(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	if !found {
-		http.Redirect(w, req, fmt.Sprintf("/%s?compile", path), http.StatusFound)
+		http.Redirect(w, req, fmt.Sprintf("https://compile.jsgo.io/%s", path), http.StatusFound)
 		return
 	}
 	var hash string

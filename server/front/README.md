@@ -30,7 +30,7 @@ use the old versions until they are recompiled.
 2b) If found, redirect to <cdn-host>/<package-path>/main.<hash>.js
 
 ### Compile page
-`jsgo.io/<package-path>?compile`
+`compile.jsgo.io/<package-path>`
 Shows interactive compile page. On compile:
 1) Gets all dependencies (git only)
 2) Compiles all code to JS

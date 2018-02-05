@@ -2,11 +2,18 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v2
+VER=v3
+CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
 DEPLOYMENT=back-deployment
 
+# Set the default cluster for the kebectl command
+setup:
+	gcloud container clusters get-credentials ${CLUSTER} --zone us-central1-a --project ${PROJECT}
+	kubectl config set-cluster ${CLUSTER}
+
+# Build dockerfile, push to Google Container Registry:
 build:
 	mkdir -p out
 	CGO_ENABLED=0 GOOS=linux go build -o out/server-bin -a -tags netgo -ldflags '-w' .
@@ -14,30 +21,36 @@ build:
 	rm -rf out
 	gcloud docker -- push gcr.io/${PROJECT}/${IMAGE}:${VER}
 
+# Run dockerfile on localhost:8080:
 run:
 	docker run --rm -p 8080:8080 -v ~/.config/:/root/.config gcr.io/${PROJECT}/${IMAGE}:${VER}
-	
+
+# Undeploy (have to do this before deploy if it's already deployed):
 undeploy:
 	kubectl delete deployment ${DEPLOYMENT}
 	
+# Deploy to GKE:
 deploy:
 	kubectl run ${DEPLOYMENT} --image=gcr.io/${PROJECT}/${IMAGE}:${VER} --port 8080
-	
+
+# Make this the live version:	
 roll:
 	kubectl set image deployment/${DEPLOYMENT} ${DEPLOYMENT}=gcr.io/${PROJECT}/${IMAGE}:${VER}
 
+# Show stats:
 show:
 	kubectl get pods
 	kubectl get service
-	
-expose:
-	#kubectl expose deployment ${DEPLOYMENT} --type=LoadBalancer --port 80 --target-port 8080
-	kubectl expose deployment ${DEPLOYMENT} --port 80 --target-port 8080
 
+# Create a load balancer exposing port 80 and use a public static IP:
+expose:
+	kubectl expose deployment ${DEPLOYMENT} --type=LoadBalancer --port 80 --target-port 8080
+	#kubectl expose deployment ${DEPLOYMENT} --port 80 --target-port 8080
+
+# Delete the load balancer:
 delete:
-	# Delete the Service: This step will deallocate the Cloud Load Balancer created for your Service:
 	kubectl delete service ${DEPLOYMENT}
 
+# Check here to be sure the load balancer is deleted:
 delete-info:
 	gcloud compute forwarding-rules list
-	

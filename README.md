@@ -16,10 +16,10 @@ Please don't use this in production just yet!
 ### How it works
 
 Start the JS on a blank page: https://jsgo.io/GOPHERJS_PACKAGE_PATH  
-Recompile: https://jsgo.io/GOPHERJS_PACKAGE_PATH?compile  
+Recompile: https://compile.jsgo.io/GOPHERJS_PACKAGE_PATH  
 
 Try it with [github.com/dave/jstest](https://github.com/dave/jstest/blob/master/main.go) - a very simple 
-hello world: Open [jsgo.io/github.com/dave/jstest?compile](https://jsgo.io/github.com/dave/jstest?compile), 
+hello world: Open [compile.jsgo.io/github.com/dave/jstest](https://compile.jsgo.io/github.com/dave/jstest), 
 and click the `Compile now` button. 
 
 After it's finished, the URL of the compiled JS will be shown, or [jsgo.io/github.com/dave/jstest](https://jsgo.io/github.com/dave/jstest) 
