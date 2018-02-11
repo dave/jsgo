@@ -1,6 +1,6 @@
-# jsgo
+# jsgo.io
 
-jsgo is a GopherJS serving framework and CDN.
+jsgo.io is a GopherJS serving framework and CDN. 
 
 Please don't use this in production just yet!
 
@@ -15,30 +15,33 @@ Please don't use this in production just yet!
 
 ### How it works
 
-Start the JS on a blank page: https://jsgo.io/GOPHERJS_PACKAGE_PATH  
-Recompile: https://compile.jsgo.io/GOPHERJS_PACKAGE_PATH  
+Run your code in a blank page: `https://jsgo.io/<path>`  
+Recompile your code: `https://compile.jsgo.io/<path>`  
 
-Try it with [github.com/dave/jstest](https://github.com/dave/jstest/blob/master/main.go) - a very simple 
-hello world: Open [compile.jsgo.io/github.com/dave/jstest](https://compile.jsgo.io/github.com/dave/jstest), 
-and click the `Compile now` button. 
+Try it with a very simple hello world: Open [compile.jsgo.io/github.com/dave/jstest](https://compile.jsgo.io/github.com/dave/jstest)
+and click `Compile`. 
 
-After it's finished, the URL of the compiled JS will be shown, or [jsgo.io/github.com/dave/jstest](https://jsgo.io/github.com/dave/jstest) 
-loads the JS in an empty page.
-
-It also works with Github gists: https://jsgo.io/gist.github.com/dave/d6b70ceef39da20906ddf709d4a054c6
+After it's finished, you'll be shown a [link to the page](https://jsgo.io/github.com/dave/jstest). If 
+you look at the `Network` panel in your browser inspector as the page loads, you'll see the packages 
+downloading separately.
 
 ### Demos
 
-https://jsgo.io/github.com/gopherjs/vecty/example/markdown
-https://jsgo.io/github.com/dave/todomvc
+* https://jsgo.io/github.com/gopherjs/vecty/example/markdown  
+* https://jsgo.io/github.com/dave/todomvc  
+* https://jsgo.io/gist.github.com/dave/d6b70ceef39da20906ddf709d4a054c6  
+
+### Index
+
+You can customize the HTML by adding a file named `index.jsgo.html` to your package. Use `{{ .Script }}`
+as the script src. See [todomvc](https://github.com/dave/todomvc/blob/master/index.jsgo.html) for an example.
+
+### Progress
+
+If the page contains an element with `id="log"`, the bootstrap code will update it with a loading progress. 
+To disable this, simply remove the log element from the page.
 
 ### Limitations
 
-1) The pages served on jsgo.io don't have any css or html - that's why the vecty demos above don't 
-look quite right. Workaround: drop the JS file in your own page.  
-
-2) If there's any non-git repositories in your dependency tree, it will fail. This is unlikely to 
-change. Workaround: vendor the dependencies and it'll work fine.  
-
-3) The compile page should update the progress as it's happening, but App Engine doesn't support 
-unbuffered HTTP responses. This may be fixed soon.  
+If there's any non-git repositories in your dependency tree, it will fail. This is unlikely to change. 
+Workaround: vendor the dependencies and it'll work fine.  
