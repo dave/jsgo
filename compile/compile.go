@@ -20,16 +20,17 @@ import (
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/common"
+	"github.com/dave/jsgo/server/logger"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 type Compiler struct {
 	root, path, temp billy.Filesystem
-	log              io.Writer
+	log              *logger.Logger
 }
 
-func New(goroot, gopath billy.Filesystem, log io.Writer) *Compiler {
+func New(goroot, gopath billy.Filesystem, log *logger.Logger) *Compiler {
 	c := &Compiler{}
 	c.root = goroot
 	c.path = gopath
@@ -38,8 +39,18 @@ func New(goroot, gopath billy.Filesystem, log io.Writer) *Compiler {
 	return c
 }
 
+type funcWriter struct {
+	f func(b []byte) error
+}
+
+func (f funcWriter) Write(b []byte) (n int, err error) {
+	if err := f.f(b); err != nil {
+		return 0, err
+	}
+	return len(b), nil
+}
+
 func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, err error) {
-	fmt.Fprintln(c.log, "\nCompiling...")
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -48,6 +59,12 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 	bucketCdn := client.Bucket("cdn.jsgo.io")
 	bucketIndex := client.Bucket("jsgo.io")
 
+	c.log.Log(logger.Compile, logger.CompilingPayload{Done: false})
+	compileLogger := funcWriter{func(b []byte) error {
+		return c.log.Log(logger.Compile, logger.CompilingPayload{
+			Path: string(b),
+		})
+	}}
 	options := func(min bool, verbose bool) *builder.Options {
 		return &builder.Options{
 			Root:        c.root,
@@ -55,7 +72,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 			Temporary:   c.temp,
 			Unvendor:    true,
 			Initializer: true,
-			Log:         c.log,
+			Log:         compileLogger,
 			Verbose:     verbose,
 			Minify:      min,
 			Standard:    std.Index,
@@ -74,6 +91,8 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
+	c.log.Log(logger.Compile, logger.CompilingPayload{Done: true})
+
 	if archiveMin.Name != "main" {
 		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
 	}
@@ -91,7 +110,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, errors.New("minified output has different number of packages to non-minified")
 	}
 
-	fmt.Fprintln(c.log, "\nStoring...")
+	c.log.Log(logger.Store, logger.StoringPayload{Done: false})
 	for i := range outputMin.Packages {
 		poMin := outputMin.Packages[i]
 		poMax := outputMax.Packages[i]
@@ -101,7 +120,9 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		if poMin.Standard {
 			continue
 		}
-		fmt.Fprintln(c.log, poMin.Path)
+		c.log.Log(logger.Store, logger.StoringPayload{
+			Path: poMin.Path,
+		})
 		if err := sendToStorage(ctx, bucketCdn, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
 			return nil, nil, err
 		}
@@ -109,6 +130,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 			return nil, nil, err
 		}
 	}
+	c.log.Log(logger.Store, logger.StoringPayload{Done: true})
 
 	hashMin, err := genMain(ctx, bucketCdn, outputMin, true)
 	if err != nil {
@@ -119,14 +141,14 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
-	fmt.Fprintln(c.log, "\nGenerating index...")
+	c.log.Log(logger.Index, logger.IndexPayload{Done: false})
 	if err := genIndex(ctx, bucketIndex, path, hashMin, true); err != nil {
 		return nil, nil, err
 	}
 	if err := genIndex(ctx, bucketIndex, path, hashMax, false); err != nil {
 		return nil, nil, err
 	}
-	fmt.Fprintln(c.log, path)
+	c.log.Log(logger.Index, logger.IndexPayload{Done: true})
 
 	return hashMin, hashMax, nil
 

@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/dave/jsgo/server"
+	"golang.org/x/net/websocket"
 )
 
 func main() {
@@ -15,6 +16,7 @@ func main() {
 	}
 
 	http.HandleFunc("/", server.Handler)
+	http.Handle("/_ws/", websocket.Handler(server.SocketHandler))
 	http.HandleFunc("/favicon.ico", server.FaviconHandler)
 	http.HandleFunc("/_ah/health", server.HealthCheckHandler)
 	log.Print("Listening on port " + port)
