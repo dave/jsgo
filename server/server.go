@@ -359,7 +359,7 @@ body {
 							</div>
 
 							<div id="progress-panel" style="display: none;">
-								<table class="table table-sm table-dark">
+								<table class="table table-dark">
 									<tbody>
 										<tr id="download-item" style="display: none;">
 											<th scope="row" class="w-25">Downloading:</th>
@@ -400,7 +400,7 @@ body {
 									</p>
 
 									<p>
-										<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">minified</label>
+										<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">Minify</label>
 									</p>
 								</div>
 							</div>
@@ -452,7 +452,7 @@ body {
 						case "download":
 							downloadItem.style.display = "";
 							if (message.payload.done) {
-								downloadSpan.innerHTML = "done.";
+								downloadSpan.innerHTML = "Done";
 							} else if (message.payload.path) {
 								downloadSpan.innerHTML = message.payload.path;
 							}
@@ -460,7 +460,7 @@ body {
 						case "compile":
 							compileItem.style.display = "";
 							if (message.payload.done) {
-								compileSpan.innerHTML = "done.";
+								compileSpan.innerHTML = "Done";
 							} else if (message.payload.path) {
 								compileSpan.innerHTML = message.payload.path;
 							}
@@ -468,7 +468,7 @@ body {
 						case "store":
 							storeItem.style.display = "";
 							if (message.payload.done) {
-								storeSpan.innerHTML = "done.";
+								storeSpan.innerHTML = "Done";
 							} else if (message.payload.path) {
 								storeSpan.innerHTML = message.payload.path;
 							}
@@ -476,7 +476,7 @@ body {
 						case "index":
 							indexItem.style.display = "";
 							if (message.payload.done) {
-								indexSpan.innerHTML = "done.";
+								indexSpan.innerHTML = "Done";
 							} else if (message.payload.path) {
 								indexSpan.innerHTML = message.payload.path;
 							}

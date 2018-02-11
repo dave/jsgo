@@ -132,6 +132,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 	}
 	c.log.Log(logger.Store, logger.StoringPayload{Done: true})
 
+	c.log.Log(logger.Index, logger.IndexPayload{Path: path})
 	hashMin, err := genMain(ctx, bucketCdn, outputMin, true)
 	if err != nil {
 		return nil, nil, err
@@ -141,7 +142,6 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
-	c.log.Log(logger.Index, logger.IndexPayload{Path: path})
 	if err := genIndex(ctx, bucketIndex, path, hashMin, true); err != nil {
 		return nil, nil, err
 	}
