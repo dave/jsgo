@@ -12,7 +12,6 @@ import (
 
 	"sync"
 
-	"github.com/dave/jsgo/common"
 	"golang.org/x/sync/singleflight"
 	"gopkg.in/src-d/go-billy.v4"
 )
@@ -28,7 +27,7 @@ func New(fs billy.Filesystem, log io.Writer) *Cache {
 	c.repoRoots = make(map[string]*repoRoot)    // key is the root dir of the repo
 	c.repoPackages = make(map[string]*repoRoot) // key is the path of the package. NOTE: not all packages are included, but the ones we're interested in should be.
 	c.fetchCache = make(map[string]fetchResult)
-	c.buildContext = common.NewBuildContext(fs, false) // getter doesn't need goroot
+	c.buildContext = NewBuildContext(fs, false) // getter doesn't need goroot
 	return c
 
 }

@@ -28,6 +28,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	"gopkg.in/src-d/go-billy.v4/osfs"
+	"github.com/dave/jsgo/common"
 )
 
 func main() {
@@ -134,6 +135,9 @@ func Prelude() error {
 	b := []byte(prelude.Prelude)
 	s := sha1.New()
 	if _, err := s.Write(b); err != nil {
+		return err
+	}
+	if _, err := s.Write([]byte{common.HASH_VERSION}); err != nil {
 		return err
 	}
 
@@ -279,6 +283,7 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 	wc := bucket.Object(filename).NewWriter(ctx)
 	defer wc.Close()
 	wc.ContentType = "application/javascript"
+	wc.CacheControl = "public, max-age=31536000"
 	if _, err := io.Copy(wc, reader); err != nil {
 		return err
 	}

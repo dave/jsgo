@@ -2,11 +2,17 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v3
+VER=v6
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
 DEPLOYMENT=back-deployment
+
+all:
+	make build
+	make undeploy
+	make deploy
+	make roll
 
 # Set the default cluster for the kebectl command
 setup:

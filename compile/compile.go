@@ -19,6 +19,7 @@ import (
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
+	"github.com/dave/jsgo/common"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -44,7 +45,8 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 	defer client.Close()
-	bucket := client.Bucket("cdn.jsgo.io")
+	bucketCdn := client.Bucket("cdn.jsgo.io")
+	bucketIndex := client.Bucket("jsgo.io")
 
 	options := func(min bool, verbose bool) *builder.Options {
 		return &builder.Options{
@@ -100,24 +102,105 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 			continue
 		}
 		fmt.Fprintln(c.log, poMin.Path)
-		if err := sendToStorage(ctx, bucket, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
+		if err := sendToStorage(ctx, bucketCdn, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
 			return nil, nil, err
 		}
-		if err := sendToStorage(ctx, bucket, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
+		if err := sendToStorage(ctx, bucketCdn, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
 			return nil, nil, err
 		}
 	}
 
-	hashMin, err := genMain(ctx, bucket, outputMin, true)
+	hashMin, err := genMain(ctx, bucketCdn, outputMin, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	hashMax, err := genMain(ctx, bucket, outputMax, false)
+	hashMax, err := genMain(ctx, bucketCdn, outputMax, false)
 	if err != nil {
 		return nil, nil, err
 	}
+
+	fmt.Fprintln(c.log, "\nGenerating index...")
+	if err := genIndex(ctx, bucketIndex, path, hashMin, true); err != nil {
+		return nil, nil, err
+	}
+	if err := genIndex(ctx, bucketIndex, path, hashMax, false); err != nil {
+		return nil, nil, err
+	}
+	fmt.Fprintln(c.log, path)
+
 	return hashMin, hashMax, nil
 
+}
+
+type IndexVars struct {
+	Path   string
+	Hash   string
+	Script string
+}
+
+var indexTpl = template.Must(template.New("main").Parse(`
+<html>
+	<head>
+		<meta charset="utf-8">
+	</head>
+	<body id="wrapper">
+		<span id="log">Loading...</span>
+		<script src="{{ .Script }}"></script>
+	</body>
+</html>
+`))
+
+func genIndex(ctx context.Context, bucket *storage.BucketHandle, path string, hash []byte, min bool) error {
+
+	v := IndexVars{
+		Path:   path,
+		Hash:   fmt.Sprintf("%x", hash),
+		Script: fmt.Sprintf("https://cdn.jsgo.io/pkg/%s.%x.js", path, hash),
+	}
+
+	buf := &bytes.Buffer{}
+	if err := indexTpl.Execute(buf, v); err != nil {
+		return err
+	}
+
+	fullpath := path
+	if !min {
+		fullpath = fmt.Sprintf("%s$max", path)
+	}
+
+	if err := sendIndex(ctx, bucket, fullpath, buf.Bytes()); err != nil {
+		return err
+	}
+
+	return nil
+
+}
+
+func sendIndex(ctx context.Context, bucket *storage.BucketHandle, path string, contents []byte) error {
+
+	// For URLs of the form jsgo.io/path
+	if err := storeHtml(ctx, bucket, bytes.NewBuffer(contents), path); err != nil {
+		return err
+	}
+
+	// For URLs of the form jsgo.io/path/
+	fpath := fmt.Sprintf("%s/index.html", path)
+	if err := storeHtml(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func storeHtml(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader, filename string) error {
+	wc := bucket.Object(filename).NewWriter(ctx)
+	defer wc.Close()
+	wc.ContentType = "text/html"
+	wc.CacheControl = "no-cache"
+	if _, err := io.Copy(wc, reader); err != nil {
+		return err
+	}
+	return nil
 }
 
 func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.CommandOutput, min bool) ([]byte, error) {
@@ -151,6 +234,9 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	if _, err := s.Write(buf.Bytes()); err != nil {
 		return nil, err
 	}
+	if _, err := s.Write([]byte{common.HASH_VERSION}); err != nil {
+		return nil, err
+	}
 
 	hash := s.Sum(nil)
 
@@ -173,6 +259,7 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 	wc := bucket.Object(filename).NewWriter(ctx)
 	defer wc.Close()
 	wc.ContentType = "application/javascript"
+	wc.CacheControl = "public, max-age=31536000"
 	if _, err := io.Copy(wc, reader); err != nil {
 		return err
 	}

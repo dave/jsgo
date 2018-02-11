@@ -29,6 +29,7 @@ import (
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
+	"github.com/dave/jsgo/common"
 )
 
 type ImportCError struct {
@@ -857,6 +858,9 @@ func GetPackageCode(archive *compiler.Archive, minify, initializer bool) (conten
 
 	sha := sha1.New()
 	if _, err := sha.Write(buf.Bytes()); err != nil {
+		return nil, nil, err
+	}
+	if _, err := sha.Write([]byte{common.HASH_VERSION}); err != nil {
 		return nil, nil, err
 	}
 	return buf.Bytes(), sha.Sum(nil), nil

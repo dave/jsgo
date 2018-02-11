@@ -64,7 +64,6 @@ var rootTpl = template.Must(template.New("root").Parse(`
 <html>
 	<head>
 		<meta charset="utf-8">
-		<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
 	</head>
 	<body id="wrapper">
 		<span id="log">Loading...</span>

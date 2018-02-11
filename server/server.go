@@ -30,6 +30,11 @@ const WriteTimeout = time.Second * 2
 func ServeCompile(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
 
+	if path == "" {
+		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)
+		return
+	}
+
 	found, data, err := Lookup(context.Background(), path)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
@@ -40,24 +45,21 @@ func ServeCompile(w http.ResponseWriter, req *http.Request) {
 		Found bool
 		Path  string
 		Last  string
-		Host  string
+		Root  string
 	}
 
 	v := vars{}
+	v.Root = CompileRoot(req)
 	v.Path = path
 	if found {
 		v.Found = true
 		v.Last = humanize.Time(data.Time)
-	}
-	if req.Host == "jsgo.io" {
-		v.Host = "https://compile.jsgo.io"
 	}
 
 	page := `
 		<html>
 			<head>
 				<meta charset="utf-8">
-				<link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgo=">
 			</head>
 			<body id="wrapper">
 				{{ if .Found }}
@@ -76,7 +78,7 @@ func ServeCompile(w http.ResponseWriter, req *http.Request) {
 
 					// Unbuffered HTTP method (doesn't work in App Engine):
 					var xhr = new XMLHttpRequest();
-					var url = "{{ .Host }}/{{ .Path }}";
+					var url = "{{ .Root }}{{ .Path }}";
 					xhr.open("POST", url, true);
 					xhr.send();
 					var last_index = 0;
@@ -118,6 +120,13 @@ func ServeCompile(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
+}
+
+func CompileRoot(req *http.Request) string {
+	if req.Host == "jsgo.io" {
+		return "https://compile.jsgo.io/"
+	}
+	return "/"
 }
 
 type Data struct {
