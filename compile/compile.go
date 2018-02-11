@@ -17,6 +17,12 @@ import (
 
 	"errors"
 
+	"path/filepath"
+
+	"os"
+
+	"io/ioutil"
+
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/common"
@@ -82,11 +88,11 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 	sessionMin := builder.NewSession(options(true, true))
 	sessionMax := builder.NewSession(options(false, false))
 
-	archiveMin, err := sessionMin.BuildImportPath(path)
+	bp, archiveMin, err := sessionMin.BuildImportPath(path)
 	if err != nil {
 		return nil, nil, err
 	}
-	archiveMax, err := sessionMax.BuildImportPath(path)
+	_, archiveMax, err := sessionMax.BuildImportPath(path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -142,16 +148,46 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
-	if err := genIndex(ctx, bucketIndex, path, hashMin, true); err != nil {
+	tpl, err := c.getIndexTpl(bp.Dir)
+	if err != nil {
 		return nil, nil, err
 	}
-	if err := genIndex(ctx, bucketIndex, path, hashMax, false); err != nil {
+
+	if err := genIndex(ctx, bucketIndex, tpl, path, hashMin, true); err != nil {
+		return nil, nil, err
+	}
+	if err := genIndex(ctx, bucketIndex, tpl, path, hashMax, false); err != nil {
 		return nil, nil, err
 	}
 	c.log.Log(logger.Index, logger.IndexPayload{Done: true})
 
 	return hashMin, hashMax, nil
 
+}
+
+func (c *Compiler) getIndexTpl(dir string) (*template.Template, error) {
+	fname := filepath.Join(dir, "index.jsgo.html")
+	_, err := c.path.Stat(fname)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return indexTpl, nil
+		}
+		return nil, err
+	}
+	f, err := c.path.Open(fname)
+	if err != nil {
+		return nil, err
+	}
+	defer f.Close()
+	b, err := ioutil.ReadAll(f)
+	if err != nil {
+		return nil, err
+	}
+	tpl, err := template.New("main").Parse(string(b))
+	if err != nil {
+		return nil, err
+	}
+	return tpl, nil
 }
 
 type IndexVars struct {
@@ -172,7 +208,7 @@ var indexTpl = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func genIndex(ctx context.Context, bucket *storage.BucketHandle, path string, hash []byte, min bool) error {
+func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.Template, path string, hash []byte, min bool) error {
 
 	v := IndexVars{
 		Path:   path,
@@ -181,7 +217,7 @@ func genIndex(ctx context.Context, bucket *storage.BucketHandle, path string, ha
 	}
 
 	buf := &bytes.Buffer{}
-	if err := indexTpl.Execute(buf, v); err != nil {
+	if err := tpl.Execute(buf, v); err != nil {
 		return err
 	}
 

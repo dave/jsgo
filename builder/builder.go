@@ -25,11 +25,11 @@ import (
 
 	"encoding/hex"
 
+	"github.com/dave/jsgo/common"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
-	"github.com/dave/jsgo/common"
 )
 
 type ImportCError struct {
@@ -580,9 +580,8 @@ func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath stri
 	return s.WriteCommandPackage(archive)
 }
 
-func (s *Session) BuildImportPath(path string) (*compiler.Archive, error) {
-	_, archive, err := s.buildImportPathWithSrcDir(path, "")
-	return archive, err
+func (s *Session) BuildImportPath(path string) (*PackageData, *compiler.Archive, error) {
+	return s.buildImportPathWithSrcDir(path, "")
 }
 
 func (s *Session) buildImportPathWithSrcDir(path string, srcDir string) (*PackageData, *compiler.Archive, error) {

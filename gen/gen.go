@@ -24,11 +24,11 @@ import (
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
+	"github.com/dave/jsgo/common"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	"gopkg.in/src-d/go-billy.v4/osfs"
-	"github.com/dave/jsgo/common"
 )
 
 func main() {
@@ -208,10 +208,10 @@ func Js() error {
 
 	for _, p := range packages {
 		fmt.Println("Compiling", p)
-		if _, err := sessionMin.BuildImportPath(p); err != nil {
+		if _, _, err := sessionMin.BuildImportPath(p); err != nil {
 			return err
 		}
-		if _, err := sessionMax.BuildImportPath(p); err != nil {
+		if _, _, err := sessionMax.BuildImportPath(p); err != nil {
 			return err
 		}
 	}

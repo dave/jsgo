@@ -162,7 +162,7 @@ func testPackage(path, goroot, gopath string, goroot1 billy.Filesystem, masterLi
 		Path:      gopath1,
 		Temporary: temp,
 	})
-	a, err := s.BuildImportPath(path)
+	_, a, err := s.BuildImportPath(path)
 	if err != nil {
 		return err
 	}

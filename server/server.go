@@ -97,20 +97,6 @@ func doSocketCompile(path string, log *logger.Logger) error {
 		HashMax: fmt.Sprintf("%x", hashMax),
 	})
 
-	/*
-		fmt.Fprintln(logger, "\nPage:")
-		fmt.Fprintf(logger, "https://jsgo.io/%s (minified)\n", path)
-		fmt.Fprintf(logger, "https://jsgo.io/%s$max (non-minified)\n", path)
-
-		fmt.Fprintln(logger, "\nJavascript:")
-		fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.js (minified)\n", path, hashMin)
-		fmt.Fprintf(logger, "https://cdn.jsgo.io/pkg/%s.%x.js (non-minified)\n", path, hashMax)
-
-		fmt.Fprintln(logger, "\nCompile link:")
-		fmt.Fprintf(logger, "https://compile.jsgo.io/%s\n", path)
-
-		fmt.Fprintln(logger, "\nDone!")*/
-
 	return nil
 }
 
@@ -206,7 +192,9 @@ body {
 body {
   color: #fff;
   text-align: center;
-  text-shadow: 0 .05rem .1rem rgba(0,0,0,.5);
+}
+#error-panel {
+	text-align: left;
 }
 
 /* Extra markup and styles for table-esque vertical and horizontal centering */
@@ -380,8 +368,9 @@ body {
 									</tbody>
 								</table>
 							</div>
-							<div id="error-panel" style="display: none;">
-								<p id="error-message"></p>
+							<div id="error-panel" style="display: none;" class="alert alert-warning" role="alert">
+								<h4 class="alert-heading">Error</h4>
+								<pre id="error-message"></pre>
 							</div>
 							<div id="complete-panel" style="display: none;">
 								<div class="inner cover">

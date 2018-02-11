@@ -30,7 +30,7 @@ It also works with Github gists: https://jsgo.io/gist.github.com/dave/d6b70ceef3
 ### Demos
 
 https://jsgo.io/github.com/gopherjs/vecty/example/markdown
-https://jsgo.io/github.com/gopherjs/vecty/example/todomvc
+https://jsgo.io/github.com/dave/todomvc
 
 ### Limitations
 
