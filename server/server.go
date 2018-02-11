@@ -149,12 +149,18 @@ func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 		//Found bool
 		Path string
 		//Last  string
-		Host string
+		Host   string
+		Scheme string
 	}
 
 	v := vars{}
 	v.Host = req.Host
 	v.Path = path
+	if req.Host == "compile.jsgo.io" {
+		v.Scheme = "wss"
+	} else {
+		v.Scheme = "ws"
+	}
 	//if found {
 	//	v.Found = true
 	//	v.Last = humanize.Time(data.Time)
@@ -335,6 +341,10 @@ body {
 							<div class="masthead clearfix">
 								<div class="inner">
 									<h3 class="masthead-brand">jsgo</h3>
+									<nav class="nav nav-masthead">
+										<a class="nav-link active" href="">Compile</a>
+										<a class="nav-link" href="https://github.com/dave/jsgo">Info</a>
+									</nav>
 								</div>
 							</div>
 
@@ -378,20 +388,19 @@ body {
 									<h1 class="cover-heading">
 										Complete!
 									</h1>
-									<p class="lead">
-										Link:
-									</p>
-									<p class="lead">
+
+									<h3><small class="text-muted">Link</small></h3>
+									<p>
 										<a id="complete-link" target="_blank" href=""></a>
 									</p>
-									<p class="lead">
-										Script:
-									</p>
+
+									<h3><small class="text-muted">Script</small></h3>
 									<p>
 										<input id="complete-script" type="text" onclick="this.select()" class="form-control" />
 									</p>
+
 									<p>
-										<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox">minified</label>
+										<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">minified</label>
 									</p>
 								</div>
 							</div>
@@ -411,7 +420,7 @@ body {
 				}
 				document.getElementById("btn").onclick = function(event) {
 					event.preventDefault();
-					var socket = new WebSocket("ws://{{ .Host }}/_ws/{{ .Path }}");
+					var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/{{ .Path }}");
 
 					var headerPanel = document.getElementById("header-panel");
 					var buttonPanel = document.getElementById("button-panel");
@@ -468,8 +477,8 @@ body {
 							indexItem.style.display = "";
 							if (message.payload.done) {
 								indexSpan.innerHTML = "done.";
-							} else {
-								indexSpan.innerHTML = "...";
+							} else if (message.payload.path) {
+								indexSpan.innerHTML = message.payload.path;
 							}
 							break;
 						case "complete":

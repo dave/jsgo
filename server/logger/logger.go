@@ -63,7 +63,8 @@ type StoringPayload struct {
 }
 
 type IndexPayload struct {
-	Done bool `json:"done"`
+	Path string `json:"path,omitempty"`
+	Done bool   `json:"done"`
 }
 
 type CompletePayload struct {

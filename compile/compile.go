@@ -141,7 +141,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max []byte, e
 		return nil, nil, err
 	}
 
-	c.log.Log(logger.Index, logger.IndexPayload{Done: false})
+	c.log.Log(logger.Index, logger.IndexPayload{Path: path})
 	if err := genIndex(ctx, bucketIndex, path, hashMin, true); err != nil {
 		return nil, nil, err
 	}
