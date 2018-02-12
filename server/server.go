@@ -16,6 +16,8 @@ import (
 
 	"errors"
 
+	"regexp"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/compile"
 	"github.com/dave/jsgo/getter"
@@ -32,6 +34,8 @@ const WriteTimeout = time.Second * 2
 
 func SocketHandler(ws *websocket.Conn) {
 	path := strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/")
+
+	path = normalizePath(path)
 
 	log := logger.New(ws)
 
@@ -114,8 +118,23 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "ok")
 }
 
+var gistWithUsernameRegex = regexp.MustCompile(`^gist\.github\.com/[A-Za-z0-9_.\-]+/([a-f0-9]+)(/[\p{L}0-9_.\-]+)*$`)
+
+// We should normalize gist urls by removing the username part
+func normalizePath(path string) string {
+	if strings.HasPrefix(path, "gist.github.com/") {
+		matches := gistWithUsernameRegex.FindStringSubmatch(path)
+		if len(matches) > 1 {
+			return fmt.Sprintf("gist.github.com/%s", matches[1])
+		}
+	}
+	return path
+}
+
 func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
+
+	path = normalizePath(path)
 
 	if path == "" {
 		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)

@@ -29,10 +29,10 @@ downloading separately.
 
 * https://jsgo.io/github.com/dave/todomvc
 * https://jsgo.io/github.com/gopherjs/vecty/example/markdown  
-* https://jsgo.io/gist.github.com/dave/d6b70ceef39da20906ddf709d4a054c6  
+* https://jsgo.io/gist.github.com/d6b70ceef39da20906ddf709d4a054c6  
 
-The power of aggressive caching is apparent when loading pages which share common packages... The ebiten
-examples are a great demonstration of this:  
+The power of aggressive caching is apparent when loading pages which share common packages... The [ebiten](https://github.com/hajimehoshi/ebiten)
+game library examples are a great demonstration of this:  
 
 * https://jsgo.io/github.com/dave/ebiten/examples/2048
 * https://jsgo.io/github.com/dave/ebiten/examples/airship
