@@ -380,7 +380,7 @@ body {
 
 									<h3><small class="text-muted">Link</small></h3>
 									<p>
-										<a id="complete-link" target="_blank" href=""></a>
+										<a id="complete-link" href=""></a>
 									</p>
 
 									<h3><small class="text-muted">Script</small></h3>
