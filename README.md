@@ -27,9 +27,20 @@ downloading separately.
 
 ### Demos
 
+* https://jsgo.io/github.com/dave/todomvc
 * https://jsgo.io/github.com/gopherjs/vecty/example/markdown  
-* https://jsgo.io/github.com/dave/todomvc  
 * https://jsgo.io/gist.github.com/dave/d6b70ceef39da20906ddf709d4a054c6  
+
+The power of aggressive caching is apparent when loading pages which share common packages... The ebiten
+examples are a great demonstration of this:  
+
+* https://jsgo.io/github.com/dave/ebiten/examples/2048
+* https://jsgo.io/github.com/dave/ebiten/examples/airship
+* https://jsgo.io/github.com/dave/ebiten/examples/alphablending
+* https://jsgo.io/github.com/dave/ebiten/examples/audio
+* https://jsgo.io/github.com/dave/ebiten/examples/infinitescroll
+* https://jsgo.io/github.com/dave/ebiten/examples/rotate
+* https://jsgo.io/github.com/dave/ebiten/examples/sprites
 
 ### Index
 
