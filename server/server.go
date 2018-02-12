@@ -66,7 +66,7 @@ func doSocketCompile(path string, log *logger.Logger) error {
 		})
 	}}
 	g := getter.New(fs, downloadLogger)
-	if err := g.Get(path, true, false); err != nil {
+	if err := g.Get(path, false, false); err != nil {
 		return err
 	}
 	log.Log(logger.Download, logger.DownloadingPayload{Done: true})

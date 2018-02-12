@@ -27,7 +27,7 @@ func New(fs billy.Filesystem, log io.Writer) *Cache {
 	c.repoRoots = make(map[string]*repoRoot)    // key is the root dir of the repo
 	c.repoPackages = make(map[string]*repoRoot) // key is the path of the package. NOTE: not all packages are included, but the ones we're interested in should be.
 	c.fetchCache = make(map[string]fetchResult)
-	c.buildContext = NewBuildContext(fs, false) // getter doesn't need goroot
+	c.buildContext = NewBuildContext(fs)
 	return c
 
 }
@@ -149,7 +149,9 @@ func (c *Cache) get(path string, parent *Package, stk *importStack, update bool,
 			if i >= len(p.Imports) {
 				path = c.vendoredImportPath(p, path)
 			}
-			c.get(path, p, stk, update, insecure)
+			if err := c.get(path, p, stk, update, insecure); err != nil {
+				return err
+			}
 		}
 	}
 

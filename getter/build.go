@@ -13,7 +13,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
+func NewBuildContext(fs billy.Filesystem) *build.Context {
 	return &build.Context{
 		GOARCH:      build.Default.GOARCH, // target architecture
 		GOOS:        build.Default.GOOS,   // target operating system
@@ -43,7 +43,7 @@ func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
 		// IsDir reports whether the path names a directory.
 		// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
 		IsDir: func(path string) bool {
-			if strings.HasPrefix(path, "/goroot/") && root {
+			if strings.HasPrefix(path, "/goroot/") {
 				fi, err := assets.Assets.Stat(path)
 				if err != nil {
 					return false
@@ -78,7 +78,7 @@ func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
 		// describing the content of the named directory.
 		// If ReadDir is nil, Import uses ioutil.ReadDir.
 		ReadDir: func(path string) ([]os.FileInfo, error) {
-			if strings.HasPrefix(path, "/goroot/") && root {
+			if strings.HasPrefix(path, "/goroot/") {
 				fi, err := assets.Assets.ReadDir(path)
 				if err != nil {
 					return nil, err
@@ -91,7 +91,7 @@ func NewBuildContext(fs billy.Filesystem, root bool) *build.Context {
 		// OpenFile opens a file (not a directory) for reading.
 		// If OpenFile is nil, Import uses os.Open.
 		OpenFile: func(path string) (io.ReadCloser, error) {
-			if strings.HasPrefix(path, "/goroot/") && root {
+			if strings.HasPrefix(path, "/goroot/") {
 				f, err := assets.Assets.Open(path)
 				if err != nil {
 					return nil, err

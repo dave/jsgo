@@ -15,7 +15,7 @@ import (
 func TestNew(t *testing.T) {
 	fs := memfs.New()
 	c := New(fs, os.Stdout)
-	if err := c.Get("github.com/dave/brenda", true, false); err != nil {
+	if err := c.Get("github.com/dave/ebiten/examples/2048", false, false); err != nil {
 		t.Fatal(err.Error())
 	}
 	var printDir func(string) error
