@@ -69,6 +69,7 @@ type IndexPayload struct {
 
 type CompletePayload struct {
 	Path    string `json:"path"`
+	Short   string `json:"short"`
 	HashMin string `json:"hashmin"`
 	HashMax string `json:"hashmax"`
 }

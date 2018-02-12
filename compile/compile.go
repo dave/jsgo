@@ -23,6 +23,8 @@ import (
 
 	"io/ioutil"
 
+	"strings"
+
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/common"
@@ -226,7 +228,9 @@ func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.T
 		fullpath = fmt.Sprintf("%s$max", path)
 	}
 
-	if err := sendIndex(ctx, bucket, fullpath, buf.Bytes()); err != nil {
+	shortpath := strings.TrimPrefix(fullpath, "github.com/")
+
+	if err := sendIndex(ctx, bucket, shortpath, buf.Bytes()); err != nil {
 		return err
 	}
 

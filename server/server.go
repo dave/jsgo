@@ -97,6 +97,7 @@ func doSocketCompile(path string, log *logger.Logger) error {
 
 	log.Log(logger.Complete, logger.CompletePayload{
 		Path:    path,
+		Short:   strings.TrimPrefix(path, "github.com/"),
 		HashMin: fmt.Sprintf("%x", hashMin),
 		HashMax: fmt.Sprintf("%x", hashMax),
 	})
@@ -119,15 +120,26 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var gistWithUsernameRegex = regexp.MustCompile(`^gist\.github\.com/[A-Za-z0-9_.\-]+/([a-f0-9]+)(/[\p{L}0-9_.\-]+)*$`)
+var githubUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9\-]{0,38}$`)
 
-// We should normalize gist urls by removing the username part
 func normalizePath(path string) string {
+
+	// We should normalize gist urls by removing the username part
 	if strings.HasPrefix(path, "gist.github.com/") {
 		matches := gistWithUsernameRegex.FindStringSubmatch(path)
 		if len(matches) > 1 {
 			return fmt.Sprintf("gist.github.com/%s", matches[1])
 		}
 	}
+
+	// Add github.com if the first part of the path is not a hostname and matches the github username regex
+	if strings.Contains(path, "/") {
+		firstPart := path[:strings.Index(path, "/")]
+		if !strings.Contains(firstPart, ".") && githubUsernameRegex.MatchString(firstPart) {
+			return fmt.Sprintf("github.com/%s", path)
+		}
+	}
+
 	return path
 }
 
@@ -422,8 +434,8 @@ body {
 					var value = document.getElementById("minify-checkbox").checked;
 					var completeLink = document.getElementById("complete-link");
 					var completeScript = document.getElementById("complete-script");
-					completeLink.href = "https://jsgo.io/" + complete.path + (value ? "" : "$max");
-					completeLink.innerHTML = "jsgo.io/" + complete.path + (value ? "" : "$max");
+					completeLink.href = "https://jsgo.io/" + complete.short + (value ? "" : "$max");
+					completeLink.innerHTML = "jsgo.io/" + complete.short + (value ? "" : "$max");
 					completeScript.value = "https://cdn.jsgo.io/pkg/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
 				}
 				document.getElementById("btn").onclick = function(event) {
@@ -494,8 +506,8 @@ body {
 							progressPanel.style.display = "none";
 							headerPanel.style.display = "none";
 							complete = message.payload;
-							completeLink.href = "https://jsgo.io/" + message.payload.path
-							completeLink.innerHTML = "jsgo.io/" + message.payload.path
+							completeLink.href = "https://jsgo.io/" + message.payload.short
+							completeLink.innerHTML = "jsgo.io/" + message.payload.short
 							completeScript.value = "https://cdn.jsgo.io/pkg/" + message.payload.path + "." + message.payload.hashmin + ".js"
 							break;
 						case "error":
