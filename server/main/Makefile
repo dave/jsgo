@@ -8,17 +8,16 @@ PROJECT=jsgo-192815
 IMAGE=back-image
 DEPLOYMENT=back-deployment
 
+# Run this to do a full deploy (remember to increment VER first)
 all:
 	make build
 	make undeploy
 	make deploy
 	make roll
+	make scale
 	
-create-indexes: 
-	gcloud datastore create-indexes index.yaml
-
-cleanup-indexes:
-	gcloud datastore cleanup-indexes index.yaml
+scale:
+	kubectl autoscale deployment ${DEPLOYMENT} --min=3 --max=15 --cpu-percent=75
 
 # Set the default cluster for the kebectl command
 setup:
@@ -37,7 +36,7 @@ build:
 run:
 	docker run --rm -p 8080:8080 -v ~/.config/:/root/.config gcr.io/${PROJECT}/${IMAGE}:${VER}
 
-# Undeploy (have to do this before deploy if it's already deployed):
+# Undeploy (have to do this before deploy if it's already deployed?):
 undeploy:
 	kubectl delete deployment ${DEPLOYMENT}
 	
@@ -57,7 +56,6 @@ show:
 # Create a load balancer exposing port 80 and use a public static IP:
 expose:
 	kubectl expose deployment ${DEPLOYMENT} --type=LoadBalancer --port 80 --target-port 8080
-	#kubectl expose deployment ${DEPLOYMENT} --port 80 --target-port 8080
 
 # Delete the load balancer:
 delete:
@@ -66,3 +64,9 @@ delete:
 # Check here to be sure the load balancer is deleted:
 delete-info:
 	gcloud compute forwarding-rules list
+	
+create-indexes: 
+	gcloud datastore create-indexes index.yaml
+
+cleanup-indexes:
+	gcloud datastore cleanup-indexes index.yaml
