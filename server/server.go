@@ -85,7 +85,7 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 			Time:    time.Now(),
 			Success: false,
 			Error:   err.Error(),
-			Ip:      ws.Request().RemoteAddr,
+			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 		}
 		Save(ctx, path, data) // ignore error
 		return err
@@ -100,7 +100,7 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 			Time:    time.Now(),
 			Success: false,
 			Error:   err.Error(),
-			Ip:      ws.Request().RemoteAddr,
+			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 		}
 		Save(ctx, path, data) // ignore error
 		return err
@@ -126,7 +126,7 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 		Success: true,
 		Min:     getCc(hashMin, outputMin),
 		Max:     getCc(hashMax, outputMax),
-		Ip:      ws.Request().RemoteAddr,
+		Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 	}
 
 	if err := Save(ctx, path, data); err != nil {
