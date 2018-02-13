@@ -1,0 +1,7 @@
+indexes:
+#- kind: Compile
+#  properties:
+#  - name: Path
+#  - name: Success
+#  - name: Time
+#    direction: desc

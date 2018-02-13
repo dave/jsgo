@@ -12,6 +12,10 @@ import (
 	"strings"
 	"time"
 
+	"cloud.google.com/go/datastore"
+
+	"google.golang.org/appengine"
+
 	"path"
 
 	"errors"
@@ -19,9 +23,12 @@ import (
 	"regexp"
 
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/builder"
+	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/compile"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/logger"
+	"github.com/dustin/go-humanize"
 	"github.com/shurcooL/httpgzip"
 	"golang.org/x/net/websocket"
 	"gopkg.in/src-d/go-billy.v4"
@@ -39,7 +46,7 @@ func SocketHandler(ws *websocket.Conn) {
 
 	log := logger.New(ws)
 
-	if err := doSocketCompile(path, log); err != nil {
+	if err := doSocketCompile(ws, path, log); err != nil {
 		log.Log(logger.Error, logger.ErrorPayload{
 			Path:    path,
 			Message: err.Error(),
@@ -59,9 +66,11 @@ func (f funcWriter) Write(b []byte) (n int, err error) {
 	return len(b), nil
 }
 
-func doSocketCompile(path string, log *logger.Logger) error {
+func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error {
 
 	fs := memfs.New()
+
+	ctx := context.Background()
 
 	log.Log(logger.Download, logger.DownloadingPayload{Done: false})
 	downloadLogger := funcWriter{func(b []byte) error {
@@ -71,29 +80,58 @@ func doSocketCompile(path string, log *logger.Logger) error {
 	}}
 	g := getter.New(fs, downloadLogger)
 	if err := g.Get(path, false, false); err != nil {
+		data := CompileData{
+			Path:    path,
+			Time:    time.Now(),
+			Success: false,
+			Error:   err.Error(),
+			Ip:      ws.Request().RemoteAddr,
+		}
+		Save(ctx, path, data) // ignore error
 		return err
 	}
 	log.Log(logger.Download, logger.DownloadingPayload{Done: true})
 
-	ctx := context.Background()
-
 	c := compile.New(assets.Assets, fs, log)
-	hashMin, hashMax, err := c.Compile(ctx, path)
+	hashMin, hashMax, outputMin, outputMax, err := c.Compile(ctx, path)
 	if err != nil {
+		data := CompileData{
+			Path:    path,
+			Time:    time.Now(),
+			Success: false,
+			Error:   err.Error(),
+			Ip:      ws.Request().RemoteAddr,
+		}
+		Save(ctx, path, data) // ignore error
 		return err
 	}
 
-	/*
-		data := Data{
-			Time:    time.Now(),
-			HashMin: hashMin,
-			HashMax: hashMax,
+	getCc := func(hash []byte, output *builder.CommandOutput) CompileContents {
+		val := CompileContents{}
+		val.Main = fmt.Sprintf("%x", hash)
+		val.Prelude = std.PreludeHash
+		for _, p := range output.Packages {
+			val.Packages = append(val.Packages, CompilePackage{
+				Path:     p.Path,
+				Standard: p.Standard,
+				Hash:     fmt.Sprintf("%x", p.Hash),
+			})
 		}
+		return val
+	}
 
-		if err := Save(ctx, path, data); err != nil {
-			return err
-		}
-	*/
+	data := CompileData{
+		Path:    path,
+		Time:    time.Now(),
+		Success: true,
+		Min:     getCc(hashMin, outputMin),
+		Max:     getCc(hashMax, outputMax),
+		Ip:      ws.Request().RemoteAddr,
+	}
+
+	if err := Save(ctx, path, data); err != nil {
+		return err
+	}
 
 	log.Log(logger.Complete, logger.CompletePayload{
 		Path:    path,
@@ -153,19 +191,17 @@ func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	/*
-		ctx := appengine.NewContext(req)
-		found, data, err := Lookup(ctx, path)
-		if err != nil {
-			http.Error(w, err.Error(), 500)
-			return
-		}
-	*/
+	ctx := appengine.NewContext(req)
+	found, data, err := Lookup(ctx, path)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
 
 	type vars struct {
-		//Found bool
-		Path string
-		//Last  string
+		Found  bool
+		Path   string
+		Last   string
 		Host   string
 		Scheme string
 	}
@@ -178,10 +214,10 @@ func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 	} else {
 		v.Scheme = "ws"
 	}
-	//if found {
-	//	v.Found = true
-	//	v.Last = humanize.Time(data.Time)
-	//}
+	if found {
+		v.Found = true
+		v.Last = humanize.Time(data.Time)
+	}
 
 	page := `
 		<html>
@@ -371,6 +407,7 @@ body {
 								<h1 class="cover-heading">Compile</h1>
 								<p class="lead">
 									{{ .Path }}
+									{{ if .Found }} was compiled {{ .Last }} {{ end }}
 								</p>
 								<p class="lead" id="button-panel">
 									<a href="#" class="btn btn-lg btn-secondary" id="btn">Compile</a>
@@ -532,43 +569,76 @@ body {
 	}
 }
 
-/*
-type Data struct {
+type CompileData struct {
+	Path    string
 	Time    time.Time
-	HashMin []byte
-	HashMax []byte
+	Success bool
+	Error   string
+	Min     CompileContents
+	Max     CompileContents
+	Ip      string
 }
 
-func Save(ctx context.Context, path string, data Data) error {
+type CompileContents struct {
+	Main     string
+	Prelude  string
+	Packages []CompilePackage
+}
+
+type CompilePackage struct {
+	Path     string
+	Standard bool
+	Hash     string
+}
+
+func Save(ctx context.Context, path string, data CompileData) error {
 	client, err := datastore.NewClient(ctx, PROJECT_ID)
 	if err != nil {
 		return err
 	}
-	if _, err := client.Put(ctx, key(path), &data); err != nil {
+	if _, err := client.Put(ctx, compileKey(), &data); err != nil {
 		return err
+	}
+	if data.Success {
+		if _, err := client.Put(ctx, packageKey(path), &data); err != nil {
+			return err
+		}
 	}
 	return nil
 }
 
-func Lookup(ctx context.Context, path string) (bool, Data, error) {
+func Lookup(ctx context.Context, path string) (bool, CompileData, error) {
 	client, err := datastore.NewClient(ctx, PROJECT_ID)
 	if err != nil {
-		return false, Data{}, err
+		return false, CompileData{}, err
 	}
-	var data Data
-	if err := client.Get(ctx, key(path), &data); err != nil {
-		if err == datastore.ErrNoSuchEntity {
-			return false, Data{}, nil
+	var data CompileData
+
+	/*q := datastore.NewQuery("Compile").Filter("Success =", true).Filter("Path =", path).Order("-Time").Limit(1)
+
+	if _, err := client.Run(ctx, q).Next(&data); err != nil {
+		if err == iterator.Done {
+			return false, CompileData{}, nil
 		}
-		return false, Data{}, err
+		return false, CompileData{}, err
+	}*/
+
+	if err := client.Get(ctx, packageKey(path), &data); err != nil {
+		if err == datastore.ErrNoSuchEntity {
+			return false, CompileData{}, nil
+		}
+		return false, CompileData{}, err
 	}
 	return true, data, nil
 }
 
-func key(path string) *datastore.Key {
-	return datastore.NameKey("package", path, nil)
+func compileKey() *datastore.Key {
+	return datastore.IncompleteKey("Compile", nil)
 }
-*/
+
+func packageKey(path string) *datastore.Key {
+	return datastore.NameKey("Package", path, nil)
+}
 
 func ServeStatic(name string, w http.ResponseWriter, req *http.Request, mimeType string) error {
 	var file billy.File

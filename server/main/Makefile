@@ -2,7 +2,7 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v16
+VER=v20
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
@@ -13,6 +13,12 @@ all:
 	make undeploy
 	make deploy
 	make roll
+	
+create-indexes: 
+	gcloud datastore create-indexes index.yaml
+
+cleanup-indexes:
+	gcloud datastore cleanup-indexes index.yaml
 
 # Set the default cluster for the kebectl command
 setup:
