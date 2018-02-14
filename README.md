@@ -32,14 +32,15 @@ the individual package files to download, and runs the JS.
 
 ### Demos
 
-* https://jsgo.io/dave/todomvc
 * https://jsgo.io/hajimehoshi/go-inovation
+* https://jsgo.io/dave/ebiten/examples/2048
+* https://jsgo.io/shurcooL/tictactoe/cmd/tictactoe
+* https://jsgo.io/dave/todomvc
 * https://jsgo.io/gopherjs/vecty/example/markdown  
 
 The power of aggressive caching is apparent when loading pages which share common packages... The examples
 in the [ebiten](https://github.com/hajimehoshi/ebiten) game library are a great demonstration of this:  
 
-* https://jsgo.io/dave/ebiten/examples/2048
 * https://jsgo.io/dave/ebiten/examples/airship
 * https://jsgo.io/dave/ebiten/examples/alphablending
 * https://jsgo.io/dave/ebiten/examples/audio
