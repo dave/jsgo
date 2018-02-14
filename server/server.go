@@ -43,14 +43,32 @@ const PROJECT_ID = "jsgo-192815"
 
 const WriteTimeout = time.Second * 2
 
+//const CompileTimeout = time.Second * 300
+
 var queuer = queue.New(MAX_COMPILES, MAX_QUEUE)
 
 func SocketHandler(ws *websocket.Conn) {
+	//ctx := context.Background()
+
+	//ctx, cancel := context.WithTimeout(ctx)
+
 	path := strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/")
 
 	path = normalizePath(path)
 
 	log := logger.New(ws)
+
+	/*
+		defer func() {
+			if r := recover(); r != nil {
+				// TODO: Write error to database here
+				log.Log(logger.Error, logger.ErrorPayload{
+					Path:    path,
+					Message: fmt.Sprintf("Panic recovered: %s", r),
+				})
+			}
+		}()
+	*/
 
 	start, end, err := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
 	if err != nil {

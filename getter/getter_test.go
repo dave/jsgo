@@ -1,21 +1,33 @@
 package getter
 
 import (
+	"os"
 	"testing"
 
 	"fmt"
-
 	"path/filepath"
 
-	"os"
-
 	"gopkg.in/src-d/go-billy.v4/memfs"
+	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/storage/memory"
 )
+
+func TestClone(t *testing.T) {
+	_, err := git.Clone(memory.NewStorage(), memfs.New(), &git.CloneOptions{
+		URL:               "https://gitlab.com/agamigo/material.git",
+		SingleBranch:      true,
+		Depth:             1,
+		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+}
 
 func TestNew(t *testing.T) {
 	fs := memfs.New()
 	c := New(fs, os.Stdout)
-	if err := c.Get("github.com/dave/ebiten/examples/2048", false, false); err != nil {
+	if err := c.Get("github.com/dave/material", false, false); err != nil {
 		t.Fatal(err.Error())
 	}
 	var printDir func(string) error
