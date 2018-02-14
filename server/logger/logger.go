@@ -42,6 +42,8 @@ const Complete LoggerType = "complete"
 
 const Error LoggerType = "error"
 
+const Queue LoggerType = "queue"
+
 type Message struct {
 	Type    string      `json:"type"`
 	Payload interface{} `json:"payload"`
@@ -77,4 +79,9 @@ type CompletePayload struct {
 type ErrorPayload struct {
 	Path    string `json:"path"`
 	Message string `json:"message"`
+}
+
+type QueuePayload struct {
+	Position int  `json:"position"`
+	Done     bool `json:"done"`
 }
