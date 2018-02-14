@@ -28,6 +28,7 @@ import (
 	"github.com/dave/jsgo/compile"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/logger"
+	"github.com/dave/jsgo/server/queue"
 	"github.com/dustin/go-humanize"
 	"github.com/shurcooL/httpgzip"
 	"golang.org/x/net/websocket"
@@ -35,9 +36,14 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
+const MAX_COMPILES = 3
+const MAX_QUEUE = 100
+
 const PROJECT_ID = "jsgo-192815"
 
 const WriteTimeout = time.Second * 2
+
+var queuer = queue.New(MAX_COMPILES, MAX_QUEUE)
 
 func SocketHandler(ws *websocket.Conn) {
 	path := strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/")
@@ -45,6 +51,18 @@ func SocketHandler(ws *websocket.Conn) {
 	path = normalizePath(path)
 
 	log := logger.New(ws)
+
+	start, end, err := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
+	if err != nil {
+		log.Log(logger.Error, logger.ErrorPayload{
+			Path:    path,
+			Message: err.Error(),
+		})
+		return
+	}
+	defer close(end)
+	<-start
+	log.Log(logger.Queue, logger.QueuePayload{Done: true})
 
 	if err := doSocketCompile(ws, path, log); err != nil {
 		log.Log(logger.Error, logger.ErrorPayload{
@@ -417,6 +435,10 @@ body {
 							<div id="progress-panel" style="display: none;">
 								<table class="table table-dark">
 									<tbody>
+										<tr id="queue-item" style="display: none;">
+											<th scope="row" class="w-25">Queued:</th>
+											<td class="w-75"><span id="queue-span"></span></td>
+										</tr>
 										<tr id="download-item" style="display: none;">
 											<th scope="row" class="w-25">Downloading:</th>
 											<td class="w-75"><span id="download-span"></span></td>
@@ -485,11 +507,13 @@ body {
 					var errorPanel = document.getElementById("error-panel");
 					var completePanel = document.getElementById("complete-panel");
 
+					var queueItem = document.getElementById("queue-item");
 					var downloadItem = document.getElementById("download-item");
 					var compileItem = document.getElementById("compile-item");
 					var storeItem = document.getElementById("store-item");
 					var indexItem = document.getElementById("index-item");
 
+					var queueSpan = document.getElementById("queue-span");
 					var downloadSpan = document.getElementById("download-span");
 					var compileSpan = document.getElementById("compile-span");
 					var storeSpan = document.getElementById("store-span");
@@ -498,6 +522,8 @@ body {
 					var completeLink = document.getElementById("complete-link");
 					var completeScript = document.getElementById("complete-script");
 					var errorMessage = document.getElementById("error-message");
+					
+					var ignoreMoreQueueMessages = false;
 
 					socket.onopen = function() {
 						buttonPanel.style.display = "none";
@@ -506,6 +532,20 @@ body {
 					socket.onmessage = function (e) {
 						var message = JSON.parse(e.data)
 						switch (message.type) {
+						case "queue":
+							if (ignoreMoreQueueMessages) {
+								// Queue messages can come out of order... Once we get a "done", ignore 
+								// any more.
+								break;
+							}
+							queueItem.style.display = "";
+							if (message.payload.done) {
+								queueSpan.innerHTML = "Done";
+								ignoreMoreQueueMessages = true;
+							} else {
+								queueSpan.innerHTML = "Position " + message.payload.position;
+							}
+							break;
 						case "download":
 							downloadItem.style.display = "";
 							if (message.payload.done) {
