@@ -204,7 +204,7 @@ var indexTpl = template.Must(template.New("main").Parse(`
 		<meta charset="utf-8">
 	</head>
 	<body id="wrapper">
-		<span id="log">Loading...</span>
+		<span id="log"></span>
 		<script src="{{ .Script }}"></script>
 	</body>
 </html>
@@ -349,9 +349,8 @@ var $load = {};
 	var total = 0;
 	var path = "{{ .Path }}";
 	var info = {{ .Json }};
-	var logger = function(s) { var log = document.getElementById("log"); if (log) { log.innerHTML = s; } }
+	var log = document.getElementById("log");
 	var finished = function() {
-		logger("Running...");
 		for (var i = 0; i < info.length; i++) {
 			$load[info[i].path]();
 		}
@@ -363,7 +362,7 @@ var $load = {};
 	}
 	var done = function() {
 		count++;
-		logger("Loading " + count + " / " + total);
+		if (log) { log.innerHTML = count + " / " + total; }
 		if (count == total) { finished(); }
 	}
 	var get = function(url) {
