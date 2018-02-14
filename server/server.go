@@ -36,13 +36,14 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
-const MAX_COMPILES = 2
+const MAX_COMPILES = 3
+const MAX_QUEUE = 100
 
 const PROJECT_ID = "jsgo-192815"
 
 const WriteTimeout = time.Second * 2
 
-var queuer = queue.New(MAX_COMPILES)
+var queuer = queue.New(MAX_COMPILES, MAX_QUEUE)
 
 func SocketHandler(ws *websocket.Conn) {
 	path := strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/")
@@ -51,7 +52,14 @@ func SocketHandler(ws *websocket.Conn) {
 
 	log := logger.New(ws)
 
-	start, end := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
+	start, end, err := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
+	if err != nil {
+		log.Log(logger.Error, logger.ErrorPayload{
+			Path:    path,
+			Message: err.Error(),
+		})
+		return
+	}
 	defer close(end)
 	<-start
 	log.Log(logger.Queue, logger.QueuePayload{Done: true})
