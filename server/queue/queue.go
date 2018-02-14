@@ -20,9 +20,14 @@ type Queue struct {
 
 func (q *Queue) worker() {
 	for i := range q.queue {
+
 		// remove from the waiting list and broadcast to the others waiting that their position has
 		// changed
 		q.waiting.dequeue(i)
+
+		// we can close the start channel to signal to the consumer that it should start processing.
+		close(i.start)
+
 		// wait for the consumer to close the end channel
 		<-i.end
 	}
@@ -35,23 +40,23 @@ func (q *Queue) Slot(log func(int)) (start, end chan struct{}) {
 	start = make(chan struct{})
 	end = make(chan struct{})
 
-	i := &item{log: log, end: end}
+	i := &item{log: log, start: start, end: end}
+
+	// add the item to the waiting list, and send it's position to the client
 	q.waiting.enqueue(i)
 
 	go func() {
+		// send the item to the workers. If no worker is available, this will block.
 		q.queue <- i
-		// as soon as the item is accepted by one of the workers, we can close the start channel to signal
-		// to the consumer that it should start processing.
-		close(start)
 	}()
 
 	return start, end
 }
 
 type item struct {
-	log      func(int)
-	end      chan struct{}
-	position int
+	log        func(int)
+	start, end chan struct{}
+	position   int
 }
 
 func (i *item) send(position int) {
@@ -78,7 +83,6 @@ func (l list) dequeue(i *item) {
 	l.Lock()
 	defer l.Unlock()
 	delete(l.m, i)
-	i.send(0)
 	for v := range l.m {
 		// decrement the position of all the others waiting and fire a log for the new position
 		v.position--
