@@ -16,7 +16,7 @@ import (
 
 	"google.golang.org/appengine"
 
-	"path"
+	pathpkg "path"
 
 	"errors"
 
@@ -696,7 +696,7 @@ func ServeStatic(name string, w http.ResponseWriter, req *http.Request, mimeType
 
 	w.Header().Set("Cache-Control", "max-age=31536000")
 	if mimeType == "" {
-		w.Header().Set("Content-Type", mime.TypeByExtension(path.Ext(req.URL.Path)))
+		w.Header().Set("Content-Type", mime.TypeByExtension(pathpkg.Ext(req.URL.Path)))
 	} else {
 		w.Header().Set("Content-Type", mimeType)
 	}
