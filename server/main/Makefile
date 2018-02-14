@@ -2,7 +2,7 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v22
+VER=v23
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
@@ -14,7 +14,6 @@ all:
 	make undeploy
 	make deploy
 	make roll
-	make scale
 	
 scale:
 	kubectl autoscale deployment ${DEPLOYMENT} --min=3 --max=15 --cpu-percent=75
