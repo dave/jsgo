@@ -1,6 +1,7 @@
 package getter
 
 import (
+	"context"
 	pathpkg "path"
 	"path/filepath"
 	"strings"
@@ -212,4 +213,20 @@ func (p *PackageError) Error() string {
 		return p.Err
 	}
 	return "package " + strings.Join(p.ImportStack, "\n\timports ") + ": " + p.Err
+}
+
+// WithCancel executes the provided function, but returns early with true if the context cancellation
+// signal was recieved.
+func WithCancel(ctx context.Context, f func()) bool {
+	finished := make(chan struct{})
+	go func() {
+		f()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return false
+	case <-ctx.Done():
+		return true
+	}
 }

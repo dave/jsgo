@@ -23,13 +23,16 @@ import (
 	"crypto/tls"
 	"time"
 
+	"context"
+
+	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-git.v4/storage"
 )
 
 // downloadPackage runs the create or download command
 // to make the first copy of or update a copy of the given package.
-func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
+func (c *Cache) downloadPackage(ctx context.Context, p *Package, update bool, insecure bool) error {
 
 	var root *repoRoot
 	var err error
@@ -43,7 +46,7 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 	} else {
 		// Analyze the import path to determine the version control system,
 		// repository, and the import path for the root of the repository.
-		root, err = c.repoRootForImportPath(p.ImportPath, insecure)
+		root, err = c.repoRootForImportPath(ctx, p.ImportPath, insecure)
 		if err != nil {
 			return err
 		}
@@ -119,7 +122,7 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 		if c.log != nil {
 			fmt.Fprintln(c.log, root.path)
 		}
-		if err = root.create(c.fs); err != nil {
+		if err = root.create(ctx, c.fs); err != nil {
 			return err
 		}
 	} else {
@@ -129,7 +132,7 @@ func (c *Cache) downloadPackage(p *Package, update bool, insecure bool) error {
 			fmt.Fprintln(c.log, root.path)
 		}
 
-		if err = root.download(); err != nil {
+		if err = root.download(ctx); err != nil {
 			return err
 		}
 	}
@@ -192,16 +195,16 @@ func (c *Cache) vcsFromDir(dir, srcRoot string) (root *repoRoot, err error) {
 
 // repoRootForImportPath analyzes importPath to determine the
 // version control system, and code repository to use.
-func (c *Cache) repoRootForImportPath(importPath string, insecure bool) (*repoRoot, error) {
-	rr, err := repoRootFromVCSPaths(importPath, "", insecure, vcsPaths)
+func (c *Cache) repoRootForImportPath(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
+	rr, err := repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPaths)
 	if err == errUnknownSite {
-		rr, err = c.repoRootForImportDynamic(importPath, insecure)
+		rr, err = c.repoRootForImportDynamic(ctx, importPath, insecure)
 		if err != nil {
 			err = fmt.Errorf("unrecognized import path %q (%v)", importPath, err)
 		}
 	}
 	if err != nil {
-		rr1, err1 := repoRootFromVCSPaths(importPath, "", insecure, vcsPathsAfterDynamic)
+		rr1, err1 := repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPathsAfterDynamic)
 		if err1 == nil {
 			rr = rr1
 			err = nil
@@ -220,7 +223,7 @@ func (c *Cache) repoRootForImportPath(importPath string, insecure bool) (*repoRo
 // statically known by repoRootForImportPathStatic.
 //
 // This handles custom import paths like "name.tld/pkg/foo" or just "name.tld".
-func (c *Cache) repoRootForImportDynamic(importPath string, insecure bool) (*repoRoot, error) {
+func (c *Cache) repoRootForImportDynamic(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
 	slash := strings.Index(importPath, "/")
 	if slash < 0 {
 		slash = len(importPath)
@@ -229,7 +232,7 @@ func (c *Cache) repoRootForImportDynamic(importPath string, insecure bool) (*rep
 	if !strings.Contains(host, ".") {
 		return nil, errors.New("import path does not begin with hostname")
 	}
-	urlStr, body, err := webGetMaybeInsecure(importPath, insecure)
+	urlStr, body, err := webGetMaybeInsecure(ctx, importPath, insecure)
 	if err != nil {
 		msg := "https fetch: %v"
 		if insecure {
@@ -265,7 +268,7 @@ func (c *Cache) repoRootForImportDynamic(importPath string, insecure bool) (*rep
 		//}
 		urlStr0 := urlStr
 		var imports []metaImport
-		urlStr, imports, err = c.metaImportsForPrefix(mmi.Prefix, insecure)
+		urlStr, imports, err = c.metaImportsForPrefix(ctx, mmi.Prefix, insecure)
 		if err != nil {
 			return nil, err
 		}
@@ -298,7 +301,7 @@ func (c *Cache) repoRootForImportDynamic(importPath string, insecure bool) (*rep
 // It is an error if no imports are found.
 // urlStr will still be valid if err != nil.
 // The returned urlStr will be of the form "https://golang.org/x/tools?go-get=1"
-func (c *Cache) metaImportsForPrefix(importPrefix string, insecure bool) (urlStr string, imports []metaImport, err error) {
+func (c *Cache) metaImportsForPrefix(ctx context.Context, importPrefix string, insecure bool) (urlStr string, imports []metaImport, err error) {
 	setCache := func(res fetchResult) (fetchResult, error) {
 		c.fetchCacheMu.Lock()
 		defer c.fetchCacheMu.Unlock()
@@ -314,7 +317,7 @@ func (c *Cache) metaImportsForPrefix(importPrefix string, insecure bool) (urlStr
 		}
 		c.fetchCacheMu.Unlock()
 
-		urlStr, body, err := webGetMaybeInsecure(importPrefix, insecure)
+		urlStr, body, err := webGetMaybeInsecure(ctx, importPrefix, insecure)
 		if err != nil {
 			return setCache(fetchResult{urlStr: urlStr, err: fmt.Errorf("fetch %s: %v", urlStr, err)})
 		}
@@ -465,7 +468,7 @@ func charsetReader(charset string, input io.Reader) (io.Reader, error) {
 // repoRootFromVCSPaths attempts to map importPath to a repoRoot
 // using the mappings defined in vcsPaths.
 // If scheme is non-empty, that scheme is forced.
-func repoRootFromVCSPaths(importPath, scheme string, insecure bool, vcsPaths []*vcsPath) (*repoRoot, error) {
+func repoRootFromVCSPaths(ctx context.Context, importPath, scheme string, insecure bool, vcsPaths []*vcsPath) (*repoRoot, error) {
 	// A common error is to use https://packagepath because that's what
 	// hg and git require. Diagnose this helpfully.
 	if loc := httpPrefixRE.FindStringIndex(importPath); loc != nil {
@@ -502,7 +505,7 @@ func repoRootFromVCSPaths(importPath, scheme string, insecure bool, vcsPaths []*
 			match["repo"] = expand(match, srv.repo)
 		}
 		if srv.check != nil {
-			if err := srv.check(match); err != nil {
+			if err := srv.check(ctx, match); err != nil {
 				return nil, err
 			}
 		}
@@ -518,7 +521,7 @@ func repoRootFromVCSPaths(importPath, scheme string, insecure bool, vcsPaths []*
 					if !insecure && !defaultSecureScheme[scheme] {
 						continue
 					}
-					if provider.ping(scheme, match["repo"]) == nil {
+					if provider.ping(ctx, scheme, match["repo"]) == nil {
 						match["repo"] = scheme + "://" + match["repo"]
 						break
 					}
@@ -563,8 +566,8 @@ func (r *repoRoot) Hash() string {
 	return r.hash
 }
 
-func (r *repoRoot) create(fs billy.Filesystem) error {
-	if err := r.vcs.create(r.url, r.dir, fs); err != nil {
+func (r *repoRoot) create(ctx context.Context, fs billy.Filesystem) error {
+	if err := r.vcs.create(ctx, r.url, r.dir, fs); err != nil {
 		return err
 	}
 	r.exists = true
@@ -572,8 +575,8 @@ func (r *repoRoot) create(fs billy.Filesystem) error {
 	return nil
 }
 
-func (r *repoRoot) download() error {
-	if err := r.vcs.download(); err != nil {
+func (r *repoRoot) download(ctx context.Context) error {
+	if err := r.vcs.download(ctx); err != nil {
 		return err
 	}
 	r.hash = r.vcs.hash()
@@ -682,11 +685,11 @@ var vcsPathsAfterDynamic = []*vcsPath{
 // "foo" could be a series name registered in Launchpad with its own branch,
 // and it could also be the name of a directory within the main project
 // branch one level up.
-func launchpadVCS(match map[string]string) error {
+func launchpadVCS(ctx context.Context, match map[string]string) error {
 	if match["project"] == "" || match["series"] == "" {
 		return nil
 	}
-	_, err := webGet(expand(match, "https://code.launchpad.net/{project}{series}/.bzr/branch-format"))
+	_, err := webGet(ctx, expand(match, "https://code.launchpad.net/{project}{series}/.bzr/branch-format"))
 	if err != nil {
 		match["root"] = expand(match, "launchpad.net/{project}")
 		match["repo"] = expand(match, "https://{root}")
@@ -697,12 +700,12 @@ func launchpadVCS(match map[string]string) error {
 // A vcsPath describes how to convert an import path into a
 // version control system and repository name.
 type vcsPath struct {
-	prefix string                              // prefix this description applies to
-	re     string                              // pattern for import path
-	repo   string                              // repository to use (expand with match of re)
-	vcs    string                              // version control system to use (expand with match of re)
-	check  func(match map[string]string) error // additional checks
-	ping   bool                                // ping for scheme to use to download repo
+	prefix string                                                   // prefix this description applies to
+	re     string                                                   // pattern for import path
+	repo   string                                                   // repository to use (expand with match of re)
+	vcs    string                                                   // version control system to use (expand with match of re)
+	check  func(ctx context.Context, match map[string]string) error // additional checks
+	ping   bool                                                     // ping for scheme to use to download repo
 
 	regexp *regexp.Regexp // cached compiled form of re
 }
@@ -722,7 +725,7 @@ func init() {
 // noVCSSuffix checks that the repository name does not
 // end in .foo for any version control system foo.
 // The usual culprit is ".git".
-func noVCSSuffix(match map[string]string) error {
+func noVCSSuffix(ctx context.Context, match map[string]string) error {
 	repo := match["repo"]
 	for _, cmd := range vcsList {
 		if strings.HasSuffix(repo, "."+cmd) {
@@ -734,8 +737,8 @@ func noVCSSuffix(match map[string]string) error {
 
 // bitbucketVCS determines the version control system for a
 // Bitbucket repository, by using the Bitbucket API.
-func bitbucketVCS(match map[string]string) error {
-	if err := noVCSSuffix(match); err != nil {
+func bitbucketVCS(ctx context.Context, match map[string]string) error {
+	if err := noVCSSuffix(ctx, match); err != nil {
 		return err
 	}
 
@@ -743,7 +746,7 @@ func bitbucketVCS(match map[string]string) error {
 		SCM string `json:"scm"`
 	}
 	url := expand(match, "https://api.bitbucket.org/2.0/repositories/{bitname}?fields=scm")
-	data, err := webGet(url)
+	data, err := webGet(ctx, url)
 	if err != nil {
 		if httpErr, ok := err.(*HTTPError); ok && httpErr.StatusCode == 403 {
 			// this may be a private repository. If so, attempt to determine which
@@ -751,7 +754,7 @@ func bitbucketVCS(match map[string]string) error {
 			root := match["root"]
 			for _, cmd := range []string{"git", "hg"} {
 				provider := vcsByCmd(cmd)
-				if provider != nil && provider.ping("https", root) == nil {
+				if provider != nil && provider.ping(ctx, "https", root) == nil {
 					resp.SCM = cmd
 					break
 				}
@@ -796,10 +799,10 @@ func vcsByCmd(cmd string) vcsProvider {
 
 type vcsProvider interface {
 	cmd() string
-	ping(scheme, repo string) error
+	ping(ctx context.Context, scheme, repo string) error
 	schemes() []string
-	create(url, dir string, fs billy.Filesystem) error
-	download() error
+	create(ctx context.Context, url, dir string, fs billy.Filesystem) error
+	download(ctx context.Context) error
 	hash() string
 }
 
@@ -814,7 +817,7 @@ func (g *gitProvider) hash() string {
 	return g.hashString
 }
 
-func (g *gitProvider) create(url, dir string, fs billy.Filesystem) error {
+func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
 	// git clone {repo} {dir}
 	// git -go-internal-cd {dir} submodule update --init --recursive
 	g.store = memory.NewStorage()
@@ -822,7 +825,7 @@ func (g *gitProvider) create(url, dir string, fs billy.Filesystem) error {
 	if err != nil {
 		return err
 	}
-	repo, err := git.Clone(g.store, dirfs, &git.CloneOptions{
+	repo, err := git.CloneContext(ctx, g.store, dirfs, &git.CloneOptions{
 		URL:               url,
 		SingleBranch:      true,
 		Depth:             1,
@@ -861,10 +864,10 @@ func (g *gitProvider) create(url, dir string, fs billy.Filesystem) error {
 	return nil
 }
 
-func (g *gitProvider) download() error {
+func (g *gitProvider) download(ctx context.Context) error {
 	// git pull --ff-only
 	// git submodule update --init --recursive
-	err := g.worktree.Pull(&git.PullOptions{
+	err := g.worktree.PullContext(ctx, &git.PullOptions{
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 		Force:             true,
@@ -903,7 +906,7 @@ func (g *gitProvider) schemes() []string {
 	return []string{"git", "https", "http", "git+ssh", "ssh"}
 }
 
-func (g *gitProvider) ping(scheme, repo string) error {
+func (g *gitProvider) ping(ctx context.Context, scheme, repo string) error {
 	repository, _ := git.Init(memory.NewStorage(), nil)
 
 	// Add a new remote, with the default fetch refspec
@@ -914,7 +917,11 @@ func (g *gitProvider) ping(scheme, repo string) error {
 	if err != nil {
 		return err
 	}
-	_, err = remote.List(&git.ListOptions{})
+	if WithCancel(ctx, func() {
+		_, err = remote.List(&git.ListOptions{})
+	}) {
+		return ctx.Err()
+	}
 	return err
 }
 
@@ -951,8 +958,8 @@ func (e *HTTPError) Error() string {
 }
 
 // Get returns the data from an HTTP GET request for the given URL.
-func webGet(url string) ([]byte, error) {
-	resp, err := httpClient.Get(url)
+func webGet(ctx context.Context, url string) ([]byte, error) {
+	resp, err := ctxhttp.Get(ctx, httpClient, url)
 	if err != nil {
 		return nil, err
 	}
@@ -971,7 +978,7 @@ func webGet(url string) ([]byte, error) {
 
 // GetMaybeInsecure returns the body of either the importPath's
 // https resource or, if unavailable and permitted by the security mode, the http resource.
-func webGetMaybeInsecure(importPath string, insecure bool) (urlStr string, body io.ReadCloser, err error) {
+func webGetMaybeInsecure(ctx context.Context, importPath string, insecure bool) (urlStr string, body io.ReadCloser, err error) {
 	fetch := func(scheme string) (urlStr string, res *http.Response, err error) {
 		u, err := url.Parse(scheme + "://" + importPath)
 		if err != nil {
@@ -983,9 +990,9 @@ func webGetMaybeInsecure(importPath string, insecure bool) (urlStr string, body 
 		//	log.Printf("Fetching %s", urlStr)
 		//}
 		if insecure && scheme == "https" { // fail earlier
-			res, err = impatientInsecureHTTPClient.Get(urlStr)
+			res, err = ctxhttp.Get(ctx, impatientInsecureHTTPClient, urlStr)
 		} else {
-			res, err = httpClient.Get(urlStr)
+			res, err = ctxhttp.Get(ctx, httpClient, urlStr)
 		}
 		return
 	}

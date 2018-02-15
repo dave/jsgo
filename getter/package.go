@@ -14,6 +14,7 @@ import (
 	"bytes"
 	"unicode/utf8"
 
+	"context"
 	"crypto/sha1"
 )
 
@@ -45,7 +46,7 @@ type Package struct {
 
 // load populates p using information from bp, err, which should
 // be the result of calling build.Context.Import.
-func (p *Package) load(stk *importStack, bp *build.Package, err error) *Package {
+func (p *Package) load(ctx context.Context, stk *importStack, bp *build.Package, err error) *Package {
 	p.copyBuild(bp)
 
 	// The localPrefix is the path we interpret ./ imports relative to.
@@ -129,7 +130,7 @@ func (p *Package) load(stk *importStack, bp *build.Package, err error) *Package 
 		if path == "C" {
 			continue
 		}
-		p1 := p.cache.Import(path, p.Dir, p, stk, true)
+		p1 := p.cache.Import(ctx, path, p.Dir, p, stk, true)
 		if p.Standard && p.Error == nil && !p1.Standard && p1.Error == nil {
 			p.Error = &PackageError{
 				ImportStack: stk.Copy(),

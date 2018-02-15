@@ -266,6 +266,9 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 
 func (h *Handler) SocketHandler(ws *websocket.Conn) {
 
+	fmt.Println("socket opening.")
+	defer fmt.Println("socket closing.")
+
 	ctx := ws.Request().Context()
 
 	ctx, cancel := context.WithTimeout(ctx, config.CompileTimeout)

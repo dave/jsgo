@@ -56,9 +56,9 @@ func (c *Cache) Get(ctx context.Context, path string, update bool, insecure bool
 func (c *Cache) get(ctx context.Context, path string, parent *Package, stk *importStack, update bool, insecure bool) error {
 	load1 := func(path string, useVendor bool) *Package {
 		if parent == nil {
-			return c.Import(path, "/", nil, stk, false)
+			return c.Import(ctx, path, "/", nil, stk, false)
 		}
-		return c.Import(path, parent.Dir, parent, stk, useVendor)
+		return c.Import(ctx, path, parent.Dir, parent, stk, useVendor)
 	}
 	p := load1(path, false)
 	if p.Error != nil && p.Error.Hard {
@@ -94,7 +94,7 @@ func (c *Cache) get(ctx context.Context, path string, parent *Package, stk *impo
 	if p.Dir == "" || update {
 		// The actual download.
 		stk.Push(path)
-		err := c.downloadPackage(p, update, insecure)
+		err := c.downloadPackage(ctx, p, update, insecure)
 		if err != nil {
 			perr := &PackageError{ImportStack: stk.Copy(), Err: err.Error()}
 			stk.Pop()
@@ -170,7 +170,7 @@ func (c *Cache) clearPackageCachePartial(args []string) {
 	}
 }
 
-func (c *Cache) Import(path, srcDir string, parent *Package, stk *importStack, useVendor bool) *Package {
+func (c *Cache) Import(ctx context.Context, path, srcDir string, parent *Package, stk *importStack, useVendor bool) *Package {
 	stk.Push(path)
 	defer stk.Pop()
 
@@ -211,13 +211,19 @@ func (c *Cache) Import(path, srcDir string, parent *Package, stk *importStack, u
 			// Not vendoring, or we already found the vendored path.
 			buildMode |= build.IgnoreVendor
 		}
-		bp, err := c.buildContext.Import(path, srcDir, buildMode)
+		var bp *build.Package
+		var err error
+		if WithCancel(ctx, func() {
+			bp, err = c.buildContext.Import(path, srcDir, buildMode)
+		}) {
+			err = ctx.Err()
+		}
 		bp.ImportPath = importPath
 		if err == nil && !isLocal && bp.ImportComment != "" && bp.ImportComment != path &&
 			!strings.Contains(path, "/vendor/") && !strings.HasPrefix(path, "vendor/") {
 			err = fmt.Errorf("code in directory %s expects import %q", bp.Dir, bp.ImportComment)
 		}
-		p.load(stk, bp, err)
+		p.load(ctx, stk, bp, err)
 
 		if origPath != cleanImport(origPath) {
 			p.Error = &PackageError{
