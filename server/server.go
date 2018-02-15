@@ -164,8 +164,14 @@ func Handler(w http.ResponseWriter, req *http.Request) {
 	serveCompilePage(w, req)
 }
 
-func FaviconHandler(w http.ResponseWriter, req *http.Request) {
-	if err := ServeStatic("favicon.ico", w, req, "image/x-icon"); err != nil {
+func IconHandler(w http.ResponseWriter, req *http.Request) {
+	if err := ServeStatic(req.URL.Path, w, req, "image/x-icon"); err != nil {
+		http.Error(w, "error serving static file", 500)
+	}
+}
+
+func CssHandler(w http.ResponseWriter, req *http.Request) {
+	if err := ServeStatic(req.URL.Path, w, req, "text/css"); err != nil {
 		http.Error(w, "error serving static file", 500)
 	}
 }
@@ -174,14 +180,11 @@ func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "ok")
 }
 
-var gistWithUsernameRegex = regexp.MustCompile(`^gist\.github\.com/[A-Za-z0-9_.\-]+/([a-f0-9]+)(/[\p{L}0-9_.\-]+)*$`)
-var githubUsernameRegex = regexp.MustCompile(`^[a-zA-Z0-9\-]{0,38}$`)
-
 func normalizePath(path string) string {
 
 	// We should normalize gist urls by removing the username part
 	if strings.HasPrefix(path, "gist.github.com/") {
-		matches := gistWithUsernameRegex.FindStringSubmatch(path)
+		matches := gistWithUsername.FindStringSubmatch(path)
 		if len(matches) > 1 {
 			return fmt.Sprintf("gist.github.com/%s", matches[1])
 		}
@@ -190,13 +193,16 @@ func normalizePath(path string) string {
 	// Add github.com if the first part of the path is not a hostname and matches the github username regex
 	if strings.Contains(path, "/") {
 		firstPart := path[:strings.Index(path, "/")]
-		if !strings.Contains(firstPart, ".") && githubUsernameRegex.MatchString(firstPart) {
+		if !strings.Contains(firstPart, ".") && githubUsername.MatchString(firstPart) {
 			return fmt.Sprintf("github.com/%s", path)
 		}
 	}
 
 	return path
 }
+
+var gistWithUsername = regexp.MustCompile(`^gist\.github\.com/[A-Za-z0-9_.\-]+/([a-f0-9]+)(/[\p{L}0-9_.\-]+)*$`)
+var githubUsername = regexp.MustCompile(`^[a-zA-Z0-9\-]{0,38}$`)
 
 func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
@@ -241,170 +247,7 @@ func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 			<head>
 				<meta charset="utf-8">
 				<link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-				<style>
-/*
- * Globals
- */
-
-/* Links */
-a,
-a:focus,
-a:hover {
-  color: #fff;
-}
-
-/* Custom default button */
-.btn-secondary,
-.btn-secondary:hover,
-.btn-secondary:focus {
-  color: #333;
-  text-shadow: none; /* Prevent inheritance from body */
-  background-color: #fff;
-  border: .05rem solid #fff;
-}
-
-
-/*
- * Base structure
- */
-
-html,
-body {
-  height: 100%;
-  background-color: #333;
-}
-body {
-  color: #fff;
-  text-align: center;
-}
-#error-panel {
-	text-align: left;
-}
-
-/* Extra markup and styles for table-esque vertical and horizontal centering */
-.site-wrapper {
-  display: table;
-  width: 100%;
-  height: 100%; /* For at least Firefox */
-  min-height: 100%;
-  -webkit-box-shadow: inset 0 0 5rem rgba(0,0,0,.5);
-          box-shadow: inset 0 0 5rem rgba(0,0,0,.5);
-}
-.site-wrapper-inner {
-  display: table-cell;
-  vertical-align: top;
-}
-.cover-container {
-  margin-right: auto;
-  margin-left: auto;
-}
-
-/* Padding for spacing */
-.inner {
-  padding: 2rem;
-}
-
-
-/*
- * Header
- */
-
-.masthead {
-  margin-bottom: 2rem;
-}
-
-.masthead-brand {
-  margin-bottom: 0;
-}
-
-.nav-masthead .nav-link {
-  padding: .25rem 0;
-  font-weight: bold;
-  color: rgba(255,255,255,.5);
-  background-color: transparent;
-  border-bottom: .25rem solid transparent;
-}
-
-.nav-masthead .nav-link:hover,
-.nav-masthead .nav-link:focus {
-  border-bottom-color: rgba(255,255,255,.25);
-}
-
-.nav-masthead .nav-link + .nav-link {
-  margin-left: 1rem;
-}
-
-.nav-masthead .active {
-  color: #fff;
-  border-bottom-color: #fff;
-}
-
-@media (min-width: 48em) {
-  .masthead-brand {
-    float: left;
-  }
-  .nav-masthead {
-    float: right;
-  }
-}
-
-
-/*
- * Cover
- */
-
-.cover {
-  padding: 0 1.5rem;
-}
-.cover .btn-lg {
-  padding: .75rem 1.25rem;
-  font-weight: bold;
-}
-
-
-/*
- * Footer
- */
-
-.mastfoot {
-  color: rgba(255,255,255,.5);
-}
-
-
-/*
- * Affix and center
- */
-
-@media (min-width: 40em) {
-  /* Pull out the header and footer */
-  .masthead {
-    position: fixed;
-    top: 0;
-  }
-  .mastfoot {
-    position: fixed;
-    bottom: 0;
-  }
-  /* Start the vertical centering */
-  .site-wrapper-inner {
-    vertical-align: middle;
-  }
-  /* Handle the widths */
-  .masthead,
-  .mastfoot,
-  .cover-container {
-    width: 100%; /* Must be percentage or pixels for horizontal alignment */
-  }
-}
-
-@media (min-width: 62em) {
-  .masthead,
-  .mastfoot,
-  .cover-container {
-    width: 42rem;
-  }
-}
-				</style>
+				<link href="/compile.css" rel="stylesheet">
 			</head>
 			<body>
 			    <div class="site-wrapper">
@@ -506,23 +349,11 @@ body {
 					var errorPanel = document.getElementById("error-panel");
 					var completePanel = document.getElementById("complete-panel");
 
-					var queueItem = document.getElementById("queue-item");
-					var downloadItem = document.getElementById("download-item");
-					var compileItem = document.getElementById("compile-item");
-					var storeItem = document.getElementById("store-item");
-					var indexItem = document.getElementById("index-item");
-
-					var queueSpan = document.getElementById("queue-span");
-					var downloadSpan = document.getElementById("download-span");
-					var compileSpan = document.getElementById("compile-span");
-					var storeSpan = document.getElementById("store-span");
-					var indexSpan = document.getElementById("index-span");
-
 					var completeLink = document.getElementById("complete-link");
 					var completeScript = document.getElementById("complete-script");
 					var errorMessage = document.getElementById("error-message");
 					
-					var ignoreMoreQueueMessages = false;
+					var done = {};
 
 					socket.onopen = function() {
 						buttonPanel.style.display = "none";
@@ -532,49 +363,27 @@ body {
 						var message = JSON.parse(e.data)
 						switch (message.type) {
 						case "queue":
-							if (ignoreMoreQueueMessages) {
-								// Queue messages can come out of order... Once we get a "done", ignore 
+						case "download":
+						case "compile":
+						case "store":
+						case "index":
+							if (done[message.type]) {
+								// Messages might arrive out of order... Once we get a "done", ignore 
 								// any more.
 								break;
 							}
-							queueItem.style.display = "";
+							var item = document.getElementById(message.type+"-item");
+							var span = document.getElementById(message.type+"-span");
+							item.style.display = "";
 							if (message.payload.done) {
-								queueSpan.innerHTML = "Done";
-								ignoreMoreQueueMessages = true;
+								span.innerHTML = "Done";
+								done[message.type] = true;
+							} else if (message.payload.path) {
+								span.innerHTML = message.payload.path;
+							} else if (message.payload.position) {
+								span.innerHTML = "Position " + message.payload.position;
 							} else {
-								queueSpan.innerHTML = "Position " + message.payload.position;
-							}
-							break;
-						case "download":
-							downloadItem.style.display = "";
-							if (message.payload.done) {
-								downloadSpan.innerHTML = "Done";
-							} else if (message.payload.path) {
-								downloadSpan.innerHTML = message.payload.path;
-							}
-							break;
-						case "compile":
-							compileItem.style.display = "";
-							if (message.payload.done) {
-								compileSpan.innerHTML = "Done";
-							} else if (message.payload.path) {
-								compileSpan.innerHTML = message.payload.path;
-							}
-							break;
-						case "store":
-							storeItem.style.display = "";
-							if (message.payload.done) {
-								storeSpan.innerHTML = "Done";
-							} else if (message.payload.path) {
-								storeSpan.innerHTML = message.payload.path;
-							}
-							break;
-						case "index":
-							indexItem.style.display = "";
-							if (message.payload.done) {
-								indexSpan.innerHTML = "Done";
-							} else if (message.payload.path) {
-								indexSpan.innerHTML = message.payload.path;
+								span.innerHTML = "Starting";
 							}
 							break;
 						case "complete":

@@ -17,7 +17,8 @@ func main() {
 
 	http.HandleFunc("/", server.Handler)
 	http.Handle("/_ws/", websocket.Handler(server.SocketHandler))
-	http.HandleFunc("/favicon.ico", server.FaviconHandler)
+	http.HandleFunc("/favicon.ico", server.IconHandler)
+	http.HandleFunc("/compile.css", server.CssHandler)
 	http.HandleFunc("/_ah/health", server.HealthCheckHandler)
 	log.Print("Listening on port " + port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
