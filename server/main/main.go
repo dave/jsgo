@@ -15,7 +15,7 @@ func main() {
 		port = fromEnv
 	}
 
-	http.HandleFunc("/", server.Handler)
+	http.HandleFunc("/", server.PageHandler)
 	http.Handle("/_ws/", websocket.Handler(server.SocketHandler))
 	http.HandleFunc("/favicon.ico", server.IconHandler)
 	http.HandleFunc("/compile.css", server.CssHandler)

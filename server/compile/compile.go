@@ -172,7 +172,7 @@ func (c *Compiler) getIndexTpl(dir string) (*template.Template, error) {
 	_, err := c.path.Stat(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
-			return indexTpl, nil
+			return indexTemplate, nil
 		}
 		return nil, err
 	}
@@ -198,7 +198,7 @@ type IndexVars struct {
 	Script string
 }
 
-var indexTpl = template.Must(template.New("main").Parse(`
+var indexTemplate = template.Must(template.New("main").Parse(`
 <html>
 	<head>
 		<meta charset="utf-8">
@@ -288,7 +288,7 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	}
 
 	buf := &bytes.Buffer{}
-	if err := tpl.Execute(buf, m); err != nil {
+	if err := mainTemplate.Execute(buf, m); err != nil {
 		return nil, err
 	}
 
@@ -340,7 +340,7 @@ type PkgJson struct {
 	Standard bool   `json:"std,omitempty"`
 }
 
-var tpl = template.Must(template.New("main").Parse(`
+var mainTemplate = template.Must(template.New("main").Parse(`
 "use strict";
 var $mainPkg;
 var $load = {};

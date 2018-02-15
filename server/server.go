@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/appengine"
-
 	pathpkg "path"
 
 	"errors"
@@ -23,9 +21,9 @@ import (
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
-	"github.com/dave/jsgo/compile"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
+	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/logger"
 	"github.com/dave/jsgo/server/queue"
 	"github.com/dave/jsgo/server/store"
@@ -37,6 +35,215 @@ import (
 )
 
 var queuer = queue.New(config.MaxConcurrentCompiles, config.MaxQueue)
+
+func PageHandler(w http.ResponseWriter, req *http.Request) {
+	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
+
+	path = normalizePath(path)
+
+	if path == "" {
+		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)
+		return
+	}
+
+	ctx := context.Background()
+
+	found, data, err := store.Lookup(ctx, path)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+
+	type vars struct {
+		Found  bool
+		Path   string
+		Last   string
+		Host   string
+		Scheme string
+	}
+
+	v := vars{}
+	v.Host = req.Host
+	v.Path = path
+	if req.Host == "compile.jsgo.io" {
+		v.Scheme = "wss"
+	} else {
+		v.Scheme = "ws"
+	}
+	if found {
+		v.Found = true
+		v.Last = humanize.Time(data.Time)
+	}
+
+	if err := pageTemplate.Execute(w, v); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+}
+
+var pageTemplate = template.Must(template.New("main").Parse(`
+<html>
+	<head>
+		<meta charset="utf-8">
+		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+		<link href="/compile.css" rel="stylesheet">
+	</head>
+	<body>
+		<div class="site-wrapper">
+			<div class="site-wrapper-inner">
+				<div class="cover-container">
+					<div class="masthead clearfix">
+						<div class="inner">
+							<h3 class="masthead-brand">jsgo</h3>
+							<nav class="nav nav-masthead">
+								<a class="nav-link active" href="">Compile</a>
+								<a class="nav-link" href="https://github.com/dave/jsgo">Info</a>
+							</nav>
+						</div>
+					</div>
+
+					<div id="header-panel" class="inner cover">
+						<h1 class="cover-heading">Compile</h1>
+						<p class="lead">
+							{{ .Path }}
+							{{ if .Found }} was compiled {{ .Last }} {{ end }}
+						</p>
+						<p class="lead" id="button-panel">
+							<a href="#" class="btn btn-lg btn-secondary" id="btn">Compile</a>
+						</p>
+					</div>
+
+					<div id="progress-panel" style="display: none;">
+						<table class="table table-dark">
+							<tbody>
+								<tr id="queue-item" style="display: none;">
+									<th scope="row" class="w-25">Queued:</th>
+									<td class="w-75"><span id="queue-span"></span></td>
+								</tr>
+								<tr id="download-item" style="display: none;">
+									<th scope="row" class="w-25">Downloading:</th>
+									<td class="w-75"><span id="download-span"></span></td>
+								</tr>
+								<tr id="compile-item" style="display: none;">
+									<th scope="row" class="w-25">Compiling:</th>
+									<td class="w-75"><span id="compile-span"></span></td>
+								</tr>
+								<tr id="store-item" style="display: none;">
+									<th scope="row" class="w-25">Storing:</th>
+									<td class="w-75"><span id="store-span"></span></td>
+								</tr>
+								<tr id="index-item" style="display: none;">
+									<th scope="row" class="w-25">Index:</th>
+									<td class="w-75"><span id="index-span"></span></td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<div id="error-panel" style="display: none;" class="alert alert-warning" role="alert">
+						<h4 class="alert-heading">Error</h4>
+						<pre id="error-message"></pre>
+					</div>
+					<div id="complete-panel" style="display: none;">
+						<div class="inner cover">
+							<h1 class="cover-heading">
+								Complete!
+							</h1>
+
+							<h3><small class="text-muted">Link</small></h3>
+							<p>
+								<a id="complete-link" href=""></a>
+							</p>
+
+							<h3><small class="text-muted">Script</small></h3>
+							<p>
+								<input id="complete-script" type="text" onclick="this.select()" class="form-control" />
+							</p>
+
+							<p>
+								<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">Minify</label>
+							</p>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+	</body>
+	<script>
+		var complete = {};
+		document.getElementById("minify-checkbox").onchange = function() {
+			var value = document.getElementById("minify-checkbox").checked;
+			var completeLink = document.getElementById("complete-link");
+			var completeScript = document.getElementById("complete-script");
+			completeLink.href = "https://jsgo.io/" + complete.short + (value ? "" : "$max");
+			completeLink.innerHTML = "jsgo.io/" + complete.short + (value ? "" : "$max");
+			completeScript.value = "https://cdn.jsgo.io/pkg/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
+		}
+		document.getElementById("btn").onclick = function(event) {
+			event.preventDefault();
+			var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/{{ .Path }}");
+
+			var headerPanel = document.getElementById("header-panel");
+			var buttonPanel = document.getElementById("button-panel");
+			var progressPanel = document.getElementById("progress-panel");
+			var errorPanel = document.getElementById("error-panel");
+			var completePanel = document.getElementById("complete-panel");
+
+			var completeLink = document.getElementById("complete-link");
+			var completeScript = document.getElementById("complete-script");
+			var errorMessage = document.getElementById("error-message");
+			
+			var done = {};
+
+			socket.onopen = function() {
+				buttonPanel.style.display = "none";
+				progressPanel.style.display = "";
+			};
+			socket.onmessage = function (e) {
+				var message = JSON.parse(e.data)
+				switch (message.type) {
+				case "queue":
+				case "download":
+				case "compile":
+				case "store":
+				case "index":
+					if (done[message.type]) {
+						// Messages might arrive out of order... Once we get a "done", ignore 
+						// any more.
+						break;
+					}
+					var item = document.getElementById(message.type+"-item");
+					var span = document.getElementById(message.type+"-span");
+					item.style.display = "";
+					if (message.payload.done) {
+						span.innerHTML = "Done";
+						done[message.type] = true;
+					} else if (message.payload.path) {
+						span.innerHTML = message.payload.path;
+					} else if (message.payload.position) {
+						span.innerHTML = "Position " + message.payload.position;
+					} else {
+						span.innerHTML = "Starting";
+					}
+					break;
+				case "complete":
+					completePanel.style.display = "";
+					progressPanel.style.display = "none";
+					headerPanel.style.display = "none";
+					complete = message.payload;
+					completeLink.href = "https://jsgo.io/" + message.payload.short
+					completeLink.innerHTML = "jsgo.io/" + message.payload.short
+					completeScript.value = "https://cdn.jsgo.io/pkg/" + message.payload.path + "." + message.payload.hashmin + ".js"
+					break;
+				case "error":
+					errorPanel.style.display = "";
+					errorMessage.innerHTML = message.payload.message;
+					break;
+				}
+			}
+		};
+	</script>
+</html>
+`))
 
 func SocketHandler(ws *websocket.Conn) {
 	//ctx := context.Background()
@@ -73,17 +280,6 @@ func SocketHandler(ws *websocket.Conn) {
 	<-start
 	log.Log(logger.Queue, logger.QueuePayload{Done: true})
 
-	if err := doSocketCompile(ws, path, log); err != nil {
-		log.Log(logger.Error, logger.ErrorPayload{
-			Path:    path,
-			Message: err.Error(),
-		})
-		return
-	}
-}
-
-func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error {
-
 	fs := memfs.New()
 
 	ctx := context.Background()
@@ -104,7 +300,11 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 		}
 		store.Save(ctx, path, data) // ignore error
-		return err
+		log.Log(logger.Error, logger.ErrorPayload{
+			Path:    path,
+			Message: err.Error(),
+		})
+		return
 	}
 	log.Log(logger.Download, logger.DownloadingPayload{Done: true})
 
@@ -119,7 +319,11 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 		}
 		store.Save(ctx, path, data) // ignore error
-		return err
+		log.Log(logger.Error, logger.ErrorPayload{
+			Path:    path,
+			Message: err.Error(),
+		})
+		return
 	}
 
 	getCc := func(hash []byte, output *builder.CommandOutput) store.CompileContents {
@@ -146,7 +350,11 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 	}
 
 	if err := store.Save(ctx, path, data); err != nil {
-		return err
+		log.Log(logger.Error, logger.ErrorPayload{
+			Path:    path,
+			Message: err.Error(),
+		})
+		return
 	}
 
 	log.Log(logger.Complete, logger.CompletePayload{
@@ -156,11 +364,7 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 		HashMax: fmt.Sprintf("%x", hashMax),
 	})
 
-	return nil
-}
-
-func Handler(w http.ResponseWriter, req *http.Request) {
-	serveCompilePage(w, req)
+	return
 }
 
 func IconHandler(w http.ResponseWriter, req *http.Request) {
@@ -202,219 +406,6 @@ func normalizePath(path string) string {
 
 var gistWithUsername = regexp.MustCompile(`^gist\.github\.com/[A-Za-z0-9_.\-]+/([a-f0-9]+)(/[\p{L}0-9_.\-]+)*$`)
 var githubUsername = regexp.MustCompile(`^[a-zA-Z0-9\-]{0,38}$`)
-
-func serveCompilePage(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
-
-	path = normalizePath(path)
-
-	if path == "" {
-		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)
-		return
-	}
-
-	ctx := appengine.NewContext(req)
-	found, data, err := store.Lookup(ctx, path)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	type vars struct {
-		Found  bool
-		Path   string
-		Last   string
-		Host   string
-		Scheme string
-	}
-
-	v := vars{}
-	v.Host = req.Host
-	v.Path = path
-	if req.Host == "compile.jsgo.io" {
-		v.Scheme = "wss"
-	} else {
-		v.Scheme = "ws"
-	}
-	if found {
-		v.Found = true
-		v.Last = humanize.Time(data.Time)
-	}
-
-	page := `
-		<html>
-			<head>
-				<meta charset="utf-8">
-				<link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-				<link href="/compile.css" rel="stylesheet">
-			</head>
-			<body>
-			    <div class="site-wrapper">
-					<div class="site-wrapper-inner">
-						<div class="cover-container">
-							<div class="masthead clearfix">
-								<div class="inner">
-									<h3 class="masthead-brand">jsgo</h3>
-									<nav class="nav nav-masthead">
-										<a class="nav-link active" href="">Compile</a>
-										<a class="nav-link" href="https://github.com/dave/jsgo">Info</a>
-									</nav>
-								</div>
-							</div>
-
-							<div id="header-panel" class="inner cover">
-								<h1 class="cover-heading">Compile</h1>
-								<p class="lead">
-									{{ .Path }}
-									{{ if .Found }} was compiled {{ .Last }} {{ end }}
-								</p>
-								<p class="lead" id="button-panel">
-									<a href="#" class="btn btn-lg btn-secondary" id="btn">Compile</a>
-								</p>
-							</div>
-
-							<div id="progress-panel" style="display: none;">
-								<table class="table table-dark">
-									<tbody>
-										<tr id="queue-item" style="display: none;">
-											<th scope="row" class="w-25">Queued:</th>
-											<td class="w-75"><span id="queue-span"></span></td>
-										</tr>
-										<tr id="download-item" style="display: none;">
-											<th scope="row" class="w-25">Downloading:</th>
-											<td class="w-75"><span id="download-span"></span></td>
-										</tr>
-										<tr id="compile-item" style="display: none;">
-											<th scope="row" class="w-25">Compiling:</th>
-											<td class="w-75"><span id="compile-span"></span></td>
-										</tr>
-										<tr id="store-item" style="display: none;">
-											<th scope="row" class="w-25">Storing:</th>
-											<td class="w-75"><span id="store-span"></span></td>
-										</tr>
-										<tr id="index-item" style="display: none;">
-											<th scope="row" class="w-25">Index:</th>
-											<td class="w-75"><span id="index-span"></span></td>
-										</tr>
-									</tbody>
-								</table>
-							</div>
-							<div id="error-panel" style="display: none;" class="alert alert-warning" role="alert">
-								<h4 class="alert-heading">Error</h4>
-								<pre id="error-message"></pre>
-							</div>
-							<div id="complete-panel" style="display: none;">
-								<div class="inner cover">
-									<h1 class="cover-heading">
-										Complete!
-									</h1>
-
-									<h3><small class="text-muted">Link</small></h3>
-									<p>
-										<a id="complete-link" href=""></a>
-									</p>
-
-									<h3><small class="text-muted">Script</small></h3>
-									<p>
-										<input id="complete-script" type="text" onclick="this.select()" class="form-control" />
-									</p>
-
-									<p>
-										<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">Minify</label>
-									</p>
-								</div>
-							</div>
-						</div>
-					</div>
-				</div>
-			</body>
-			<script>
-				var complete = {};
-				document.getElementById("minify-checkbox").onchange = function() {
-					var value = document.getElementById("minify-checkbox").checked;
-					var completeLink = document.getElementById("complete-link");
-					var completeScript = document.getElementById("complete-script");
-					completeLink.href = "https://jsgo.io/" + complete.short + (value ? "" : "$max");
-					completeLink.innerHTML = "jsgo.io/" + complete.short + (value ? "" : "$max");
-					completeScript.value = "https://cdn.jsgo.io/pkg/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
-				}
-				document.getElementById("btn").onclick = function(event) {
-					event.preventDefault();
-					var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/{{ .Path }}");
-
-					var headerPanel = document.getElementById("header-panel");
-					var buttonPanel = document.getElementById("button-panel");
-					var progressPanel = document.getElementById("progress-panel");
-					var errorPanel = document.getElementById("error-panel");
-					var completePanel = document.getElementById("complete-panel");
-
-					var completeLink = document.getElementById("complete-link");
-					var completeScript = document.getElementById("complete-script");
-					var errorMessage = document.getElementById("error-message");
-					
-					var done = {};
-
-					socket.onopen = function() {
-						buttonPanel.style.display = "none";
-						progressPanel.style.display = "";
-					};
-					socket.onmessage = function (e) {
-						var message = JSON.parse(e.data)
-						switch (message.type) {
-						case "queue":
-						case "download":
-						case "compile":
-						case "store":
-						case "index":
-							if (done[message.type]) {
-								// Messages might arrive out of order... Once we get a "done", ignore 
-								// any more.
-								break;
-							}
-							var item = document.getElementById(message.type+"-item");
-							var span = document.getElementById(message.type+"-span");
-							item.style.display = "";
-							if (message.payload.done) {
-								span.innerHTML = "Done";
-								done[message.type] = true;
-							} else if (message.payload.path) {
-								span.innerHTML = message.payload.path;
-							} else if (message.payload.position) {
-								span.innerHTML = "Position " + message.payload.position;
-							} else {
-								span.innerHTML = "Starting";
-							}
-							break;
-						case "complete":
-							completePanel.style.display = "";
-							progressPanel.style.display = "none";
-							headerPanel.style.display = "none";
-							complete = message.payload;
-							completeLink.href = "https://jsgo.io/" + message.payload.short
-							completeLink.innerHTML = "jsgo.io/" + message.payload.short
-							completeScript.value = "https://cdn.jsgo.io/pkg/" + message.payload.path + "." + message.payload.hashmin + ".js"
-							break;
-						case "error":
-							errorPanel.style.display = "";
-							errorMessage.innerHTML = message.payload.message;
-							break;
-						}
-					}
-				};
-			</script>
-		</html>`
-
-	tmpl, err := template.New("test").Parse(page)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-
-	if err := tmpl.Execute(w, v); err != nil {
-		http.Error(w, err.Error(), 500)
-		return
-	}
-}
 
 func ServeStatic(name string, w http.ResponseWriter, req *http.Request, mimeType string) error {
 	var file billy.File
