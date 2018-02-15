@@ -16,16 +16,42 @@ type Logger struct {
 	ws *websocket.Conn
 }
 
-func (l *Logger) Log(typ LoggerType, payload interface{}) error {
+func (l *Logger) Log(typ LoggerType, payload interface{}) {
 	m := Message{Type: string(typ), Payload: payload}
 	b, err := json.Marshal(m)
 	if err != nil {
-		return err
+		// This should never happen
+		l.ws.Write([]byte(`{"type":"error","payload":{"path":"error","message":"error marshaling payload"}}`))
+		return
 	}
-	if _, err := l.ws.Write(b); err != nil {
-		return err
-	}
-	return nil
+	l.ws.Write(b)
+	return
+}
+
+func (l *Logger) CompileWriter() compileWriter {
+	return compileWriter{l: l}
+}
+
+func (l *Logger) DownloadWriter() downloadWriter {
+	return downloadWriter{l: l}
+}
+
+type downloadWriter struct {
+	l *Logger
+}
+
+func (w downloadWriter) Write(b []byte) (n int, err error) {
+	w.l.Log(Download, DownloadingPayload{Path: string(b)})
+	return len(b), nil
+}
+
+type compileWriter struct {
+	l *Logger
+}
+
+func (w compileWriter) Write(b []byte) (n int, err error) {
+	w.l.Log(Compile, CompilingPayload{Path: string(b)})
+	return len(b), nil
 }
 
 type LoggerType string

@@ -80,11 +80,13 @@ type list struct {
 	max int
 }
 
+var TooManyItemsQueued = errors.New("Sorry, too many items queued - try later.")
+
 func (l list) enqueue(i *item) error {
 	l.Lock()
 	defer l.Unlock()
 	if len(l.m) > l.max {
-		return errors.New("Sorry, too many items queued - try later.")
+		return TooManyItemsQueued
 	}
 	l.m[i] = struct{}{}
 	i.position = len(l.m)

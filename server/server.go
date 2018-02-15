@@ -2,7 +2,6 @@ package server
 
 import (
 	"bytes"
-	"context"
 	"fmt"
 	"html/template"
 	"io"
@@ -17,6 +16,8 @@ import (
 	"errors"
 
 	"regexp"
+
+	"context"
 
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/builder"
@@ -37,6 +38,9 @@ import (
 var queuer = queue.New(config.MaxConcurrentCompiles, config.MaxQueue)
 
 func PageHandler(w http.ResponseWriter, req *http.Request) {
+
+	ctx := req.Context()
+
 	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
 
 	path = normalizePath(path)
@@ -45,8 +49,6 @@ func PageHandler(w http.ResponseWriter, req *http.Request) {
 		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)
 		return
 	}
-
-	ctx := context.Background()
 
 	found, data, err := store.Lookup(ctx, path)
 	if err != nil {
@@ -246,7 +248,8 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 `))
 
 func SocketHandler(ws *websocket.Conn) {
-	//ctx := context.Background()
+
+	ctx := ws.Request().Context()
 
 	//ctx, cancel := context.WithTimeout(ctx)
 
@@ -270,10 +273,7 @@ func SocketHandler(ws *websocket.Conn) {
 
 	start, end, err := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
 	if err != nil {
-		log.Log(logger.Error, logger.ErrorPayload{
-			Path:    path,
-			Message: err.Error(),
-		})
+		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
 	defer close(end)
@@ -282,28 +282,10 @@ func SocketHandler(ws *websocket.Conn) {
 
 	fs := memfs.New()
 
-	ctx := context.Background()
-
 	log.Log(logger.Download, logger.DownloadingPayload{Done: false})
-	downloadLogger := funcWriter{func(b []byte) error {
-		return log.Log(logger.Download, logger.DownloadingPayload{
-			Path: string(b),
-		})
-	}}
-	g := getter.New(fs, downloadLogger)
+	g := getter.New(fs, log.DownloadWriter())
 	if err := g.Get(path, false, false); err != nil {
-		data := store.CompileData{
-			Path:    path,
-			Time:    time.Now(),
-			Success: false,
-			Error:   err.Error(),
-			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
-		}
-		store.Save(ctx, path, data) // ignore error
-		log.Log(logger.Error, logger.ErrorPayload{
-			Path:    path,
-			Message: err.Error(),
-		})
+		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
 	log.Log(logger.Download, logger.DownloadingPayload{Done: true})
@@ -311,18 +293,7 @@ func SocketHandler(ws *websocket.Conn) {
 	c := compile.New(assets.Assets, fs, log)
 	hashMin, hashMax, outputMin, outputMax, err := c.Compile(ctx, path)
 	if err != nil {
-		data := store.CompileData{
-			Path:    path,
-			Time:    time.Now(),
-			Success: false,
-			Error:   err.Error(),
-			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
-		}
-		store.Save(ctx, path, data) // ignore error
-		log.Log(logger.Error, logger.ErrorPayload{
-			Path:    path,
-			Message: err.Error(),
-		})
+		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
 
@@ -350,10 +321,8 @@ func SocketHandler(ws *websocket.Conn) {
 	}
 
 	if err := store.Save(ctx, path, data); err != nil {
-		log.Log(logger.Error, logger.ErrorPayload{
-			Path:    path,
-			Message: err.Error(),
-		})
+		// don't save this one to the datastore because it's an error from the datastore.
+		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
 
@@ -365,6 +334,29 @@ func SocketHandler(ws *websocket.Conn) {
 	})
 
 	return
+}
+
+func logAndSendError(ctx context.Context, log *logger.Logger, path string, err error, req *http.Request) {
+
+	log.Log(logger.Error, logger.ErrorPayload{
+		Path:    path,
+		Message: err.Error(),
+	})
+
+	if err == queue.TooManyItemsQueued {
+		// If the server is getting flooded by a DOS, this will prevent database flooding
+		return
+	}
+
+	// ignore errors when logging an error
+	store.Save(ctx, path, store.CompileData{
+		Path:    path,
+		Time:    time.Now(),
+		Success: false,
+		Error:   err.Error(),
+		Ip:      req.Header.Get("X-Forwarded-For"),
+	})
+
 }
 
 func IconHandler(w http.ResponseWriter, req *http.Request) {
@@ -466,15 +458,4 @@ func StreamWithTimeout(w io.Writer, r io.Reader) error {
 
 func WriteWithTimeout(w io.Writer, b []byte) error {
 	return StreamWithTimeout(w, bytes.NewBuffer(b))
-}
-
-type funcWriter struct {
-	f func(b []byte) error
-}
-
-func (f funcWriter) Write(b []byte) (n int, err error) {
-	if err := f.f(b); err != nil {
-		return 0, err
-	}
-	return len(b), nil
 }

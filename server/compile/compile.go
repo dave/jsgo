@@ -47,17 +47,6 @@ func New(goroot, gopath billy.Filesystem, log *logger.Logger) *Compiler {
 	return c
 }
 
-type funcWriter struct {
-	f func(b []byte) error
-}
-
-func (f funcWriter) Write(b []byte) (n int, err error) {
-	if err := f.f(b); err != nil {
-		return 0, err
-	}
-	return len(b), nil
-}
-
 func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash []byte, minOutput, maxOutput *builder.CommandOutput, err error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -68,11 +57,6 @@ func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash [
 	bucketIndex := client.Bucket("jsgo.io")
 
 	c.log.Log(logger.Compile, logger.CompilingPayload{Done: false})
-	compileLogger := funcWriter{func(b []byte) error {
-		return c.log.Log(logger.Compile, logger.CompilingPayload{
-			Path: string(b),
-		})
-	}}
 	options := func(min bool, verbose bool) *builder.Options {
 		return &builder.Options{
 			Root:        c.root,
@@ -80,7 +64,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash [
 			Temporary:   c.temp,
 			Unvendor:    true,
 			Initializer: true,
-			Log:         compileLogger,
+			Log:         c.log.CompileWriter(),
 			Verbose:     verbose,
 			Minify:      min,
 			Standard:    std.Index,
