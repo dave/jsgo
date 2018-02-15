@@ -20,7 +20,6 @@ import (
 	"context"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
@@ -253,55 +252,75 @@ func SocketHandler(ws *websocket.Conn) {
 
 	//ctx, cancel := context.WithTimeout(ctx)
 
-	path := strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/")
-
-	path = normalizePath(path)
+	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/"))
 
 	log := logger.New(ws)
 
-	/*
-		defer func() {
-			if r := recover(); r != nil {
-				// TODO: Write error to database here
-				log.Log(logger.Error, logger.ErrorPayload{
-					Path:    path,
-					Message: fmt.Sprintf("Panic recovered: %s", r),
-				})
-			}
-		}()
-	*/
+	// Recover from any panic and log the error.
+	defer func() {
+		if r := recover(); r != nil {
+			logAndSendError(ctx, log, path, errors.New(fmt.Sprintf("Panic recovered: %s", r)), ws.Request())
+		}
+	}()
 
+	// Request a slot in the queue...
 	start, end, err := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
 	if err != nil {
 		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
+
+	// Signal to the queue that processing has finished.
 	defer close(end)
+
+	// Wait for the slot to become available.
 	<-start
+
+	// Send a message to the client that queue step has finished.
 	log.Log(logger.Queue, logger.QueuePayload{Done: true})
 
+	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
+	// Send a message to the client that downloading step has started.
 	log.Log(logger.Download, logger.DownloadingPayload{Done: false})
-	g := getter.New(fs, log.DownloadWriter())
-	if err := g.Get(path, false, false); err != nil {
+
+	// Start the download process - just like the "go get" command.
+	if err := getter.New(fs, log.DownloadWriter()).Get(path, false, false); err != nil {
 		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
+
+	// Send a message to the client that downloading step has finished.
 	log.Log(logger.Download, logger.DownloadingPayload{Done: true})
 
-	c := compile.New(assets.Assets, fs, log)
-	hashMin, hashMax, outputMin, outputMax, err := c.Compile(ctx, path)
+	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
+	min, max, err := compile.New(assets.Assets, fs, log).Compile(ctx, path)
 	if err != nil {
 		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
 
-	getCc := func(hash []byte, output *builder.CommandOutput) store.CompileContents {
+	// Logs the success in the datastore
+	logSuccess(ctx, log, path, ws.Request(), min, max)
+
+	// Send a message to the client that the process has successfully finished
+	log.Log(logger.Complete, logger.CompletePayload{
+		Path:    path,
+		Short:   strings.TrimPrefix(path, "github.com/"),
+		HashMin: fmt.Sprintf("%x", min.Hash),
+		HashMax: fmt.Sprintf("%x", max.Hash),
+	})
+
+	return
+}
+
+func logSuccess(ctx context.Context, log *logger.Logger, path string, req *http.Request, min, max *compile.CompileOutput) {
+	getCompileContents := func(c *compile.CompileOutput) store.CompileContents {
 		val := store.CompileContents{}
-		val.Main = fmt.Sprintf("%x", hash)
+		val.Main = fmt.Sprintf("%x", c.Hash)
 		val.Prelude = std.PreludeHash
-		for _, p := range output.Packages {
+		for _, p := range c.Packages {
 			val.Packages = append(val.Packages, store.CompilePackage{
 				Path:     p.Path,
 				Standard: p.Standard,
@@ -315,25 +334,17 @@ func SocketHandler(ws *websocket.Conn) {
 		Path:    path,
 		Time:    time.Now(),
 		Success: true,
-		Min:     getCc(hashMin, outputMin),
-		Max:     getCc(hashMax, outputMax),
-		Ip:      ws.Request().Header.Get("X-Forwarded-For"),
+		Min:     getCompileContents(min),
+		Max:     getCompileContents(max),
+		Ip:      req.Header.Get("X-Forwarded-For"),
 	}
 
 	if err := store.Save(ctx, path, data); err != nil {
 		// don't save this one to the datastore because it's an error from the datastore.
-		logAndSendError(ctx, log, path, err, ws.Request())
+		logAndSendError(ctx, log, path, err, req)
 		return
 	}
 
-	log.Log(logger.Complete, logger.CompletePayload{
-		Path:    path,
-		Short:   strings.TrimPrefix(path, "github.com/"),
-		HashMin: fmt.Sprintf("%x", hashMin),
-		HashMax: fmt.Sprintf("%x", hashMax),
-	})
-
-	return
 }
 
 func logAndSendError(ctx context.Context, log *logger.Logger, path string, err error, req *http.Request) {

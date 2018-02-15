@@ -47,10 +47,15 @@ func New(goroot, gopath billy.Filesystem, log *logger.Logger) *Compiler {
 	return c
 }
 
-func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash []byte, minOutput, maxOutput *builder.CommandOutput, err error) {
+type CompileOutput struct {
+	*builder.CommandOutput
+	Hash []byte
+}
+
+func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileOutput, err error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	defer client.Close()
 	bucketCdn := client.Bucket("cdn.jsgo.io")
@@ -76,30 +81,30 @@ func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash [
 
 	bp, archiveMin, err := sessionMin.BuildImportPath(path)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	_, archiveMax, err := sessionMax.BuildImportPath(path)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	c.log.Log(logger.Compile, logger.CompilingPayload{Done: true})
 
 	if archiveMin.Name != "main" {
-		return nil, nil, nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
+		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
 	}
 
 	outputMin, err := sessionMin.WriteCommandPackage(archiveMin)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	outputMax, err := sessionMax.WriteCommandPackage(archiveMax)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if len(outputMin.Packages) != len(outputMax.Packages) {
-		return nil, nil, nil, nil, errors.New("minified output has different number of packages to non-minified")
+		return nil, nil, errors.New("minified output has different number of packages to non-minified")
 	}
 
 	c.log.Log(logger.Store, logger.StoringPayload{Done: false})
@@ -107,7 +112,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash [
 		poMin := outputMin.Packages[i]
 		poMax := outputMax.Packages[i]
 		if poMin.Path != poMax.Path {
-			return nil, nil, nil, nil, errors.New("minified output has different order of packages to non-minified")
+			return nil, nil, errors.New("minified output has different order of packages to non-minified")
 		}
 		if poMin.Standard {
 			continue
@@ -116,10 +121,10 @@ func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash [
 			Path: poMin.Path,
 		})
 		if err := sendToStorage(ctx, bucketCdn, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		}
 		if err := sendToStorage(ctx, bucketCdn, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
-			return nil, nil, nil, nil, err
+			return nil, nil, err
 		}
 	}
 	c.log.Log(logger.Store, logger.StoringPayload{Done: true})
@@ -127,27 +132,27 @@ func (c *Compiler) Compile(ctx context.Context, path string) (minHash, maxHash [
 	c.log.Log(logger.Index, logger.IndexPayload{Path: path})
 	hashMin, err := genMain(ctx, bucketCdn, outputMin, true)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	hashMax, err := genMain(ctx, bucketCdn, outputMax, false)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	tpl, err := c.getIndexTpl(bp.Dir)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 
 	if err := genIndex(ctx, bucketIndex, tpl, path, hashMin, true); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	if err := genIndex(ctx, bucketIndex, tpl, path, hashMax, false); err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, err
 	}
 	c.log.Log(logger.Index, logger.IndexPayload{Done: true})
 
-	return hashMin, hashMax, outputMin, outputMax, nil
+	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
 
 }
 
