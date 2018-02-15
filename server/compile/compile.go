@@ -79,11 +79,11 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 	sessionMin := builder.NewSession(options(true, true))
 	sessionMax := builder.NewSession(options(false, false))
 
-	bp, archiveMin, err := sessionMin.BuildImportPath(path)
+	bp, archiveMin, err := sessionMin.BuildImportPath(ctx, path)
 	if err != nil {
 		return nil, nil, err
 	}
-	_, archiveMax, err := sessionMax.BuildImportPath(path)
+	_, archiveMax, err := sessionMax.BuildImportPath(ctx, path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -94,11 +94,11 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
 	}
 
-	outputMin, err := sessionMin.WriteCommandPackage(archiveMin)
+	outputMin, err := sessionMin.WriteCommandPackage(ctx, archiveMin)
 	if err != nil {
 		return nil, nil, err
 	}
-	outputMax, err := sessionMax.WriteCommandPackage(archiveMax)
+	outputMax, err := sessionMax.WriteCommandPackage(ctx, archiveMax)
 	if err != nil {
 		return nil, nil, err
 	}

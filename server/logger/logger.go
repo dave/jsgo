@@ -1,8 +1,6 @@
 package logger
 
 import (
-	"encoding/json"
-
 	"golang.org/x/net/websocket"
 )
 
@@ -18,13 +16,11 @@ type Logger struct {
 
 func (l *Logger) Log(typ LoggerType, payload interface{}) {
 	m := Message{Type: string(typ), Payload: payload}
-	b, err := json.Marshal(m)
-	if err != nil {
+	if err := websocket.JSON.Send(l.ws, m); err != nil {
 		// This should never happen
 		l.ws.Write([]byte(`{"type":"error","payload":{"path":"error","message":"error marshaling payload"}}`))
 		return
 	}
-	l.ws.Write(b)
 	return
 }
 

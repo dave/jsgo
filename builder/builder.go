@@ -25,6 +25,8 @@ import (
 
 	"encoding/hex"
 
+	"context"
+
 	"github.com/dave/jsgo/config"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
@@ -111,11 +113,11 @@ func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *bui
 //
 // If an error occurs, Import returns a non-nil error and a nil
 // *PackageData.
-func (s *Session) Import(path string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	return s.importWithSrcDir(path, "", mode, installSuffix, buildTags)
+func (s *Session) Import(ctx context.Context, path string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+	return s.importWithSrcDir(ctx, path, "", mode, installSuffix, buildTags)
 }
 
-func (s *Session) importWithSrcDir(path string, srcDir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+func (s *Session) importWithSrcDir(ctx context.Context, path string, srcDir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
 	bctx := s.NewBuildContext(installSuffix, buildTags)
 	switch path {
 	case "syscall":
@@ -132,7 +134,14 @@ func (s *Session) importWithSrcDir(path string, srcDir string, mode build.Import
 		// These stdlib packages have cgo and non-cgo versions (via build tags); we want the latter.
 		bctx.CgoEnabled = false
 	}
-	pkg, err := bctx.Import(path, srcDir, mode)
+
+	var pkg *build.Package
+	var err error
+	if WithCancel(ctx, func() {
+		pkg, err = bctx.Import(path, srcDir, mode)
+	}) {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -211,8 +220,15 @@ Outer:
 
 // ImportDir is like Import but processes the Go package found in the named
 // directory.
-func (s *Session) ImportDir(dir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	pkg, err := s.NewBuildContext(installSuffix, buildTags).ImportDir(dir, mode)
+func (s *Session) ImportDir(ctx context.Context, dir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+
+	var pkg *build.Package
+	var err error
+	if WithCancel(ctx, func() {
+		pkg, err = s.NewBuildContext(installSuffix, buildTags).ImportDir(dir, mode)
+	}) {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -528,8 +544,15 @@ func (s *Session) InstallSuffix() string {
 	return ""
 }
 
-func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
-	buildPkg, err := s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
+func (s *Session) BuildDir(ctx context.Context, packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
+
+	var buildPkg *build.Package
+	var err error
+	if WithCancel(ctx, func() {
+		buildPkg, err = s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
+	}) {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -539,21 +562,21 @@ func (s *Session) BuildDir(packagePath string, importPath string, pkgObj string)
 		return nil, err
 	}
 	pkg.JSFiles = jsFiles
-	archive, err := s.BuildPackage(pkg)
+	archive, err := s.BuildPackage(ctx, pkg)
 	if err != nil {
 		return nil, err
 	}
 	if !pkg.IsCommand() {
 		return nil, nil
 	}
-	cp, err := s.WriteCommandPackage(archive)
+	cp, err := s.WriteCommandPackage(ctx, archive)
 	if err != nil {
 		return nil, err
 	}
 	return cp, nil
 }
 
-func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
+func (s *Session) BuildFiles(ctx context.Context, filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
 	pkg := &PackageData{
 		Package: &build.Package{
 			Name:       "main",
@@ -570,27 +593,27 @@ func (s *Session) BuildFiles(filenames []string, pkgObj string, packagePath stri
 		pkg.GoFiles = append(pkg.GoFiles, file)
 	}
 
-	archive, err := s.BuildPackage(pkg)
+	archive, err := s.BuildPackage(ctx, pkg)
 	if err != nil {
 		return nil, err
 	}
 	if s.Types["main"].Name() != "main" {
 		return nil, fmt.Errorf("cannot build/run non-main package")
 	}
-	return s.WriteCommandPackage(archive)
+	return s.WriteCommandPackage(ctx, archive)
 }
 
-func (s *Session) BuildImportPath(path string) (*PackageData, *compiler.Archive, error) {
-	return s.buildImportPathWithSrcDir(path, "")
+func (s *Session) BuildImportPath(ctx context.Context, path string) (*PackageData, *compiler.Archive, error) {
+	return s.buildImportPathWithSrcDir(ctx, path, "")
 }
 
-func (s *Session) buildImportPathWithSrcDir(path string, srcDir string) (*PackageData, *compiler.Archive, error) {
-	pkg, err := s.importWithSrcDir(path, srcDir, 0, s.InstallSuffix(), s.options.BuildTags)
+func (s *Session) buildImportPathWithSrcDir(ctx context.Context, path string, srcDir string) (*PackageData, *compiler.Archive, error) {
+	pkg, err := s.importWithSrcDir(ctx, path, srcDir, 0, s.InstallSuffix(), s.options.BuildTags)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	archive, err := s.BuildPackage(pkg)
+	archive, err := s.BuildPackage(ctx, pkg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -598,7 +621,7 @@ func (s *Session) buildImportPathWithSrcDir(path string, srcDir string) (*Packag
 	return pkg, archive, nil
 }
 
-func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
+func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler.Archive, error) {
 
 	importPath := pkg.ImportPath
 	if s.options.Unvendor {
@@ -643,7 +666,7 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 			// package object exists, load from disk
 			pkg.UpToDate = true
 
-			archive, err := readArchive(s.options.Temporary, pkg.PkgObj, importPath, s.Types)
+			archive, err := readArchive(ctx, s.options.Temporary, pkg.PkgObj, importPath, s.Types)
 			if err != nil {
 				return nil, err
 			}
@@ -666,7 +689,7 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 			if archive, ok := localImportPathCache[path]; ok {
 				return archive, nil
 			}
-			_, archive, err := s.buildImportPathWithSrcDir(path, pkg.Dir)
+			_, archive, err := s.buildImportPathWithSrcDir(ctx, path, pkg.Dir)
 			if err != nil {
 				return nil, err
 			}
@@ -681,7 +704,12 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 		return fileSet.File(files[i].Pos()).Name() > fileSet.File(files[j].Pos()).Name()
 	})
 
-	archive, err := compiler.Compile(importPath, files, fileSet, importContext, s.options.Minify)
+	var archive *compiler.Archive
+	if WithCancel(ctx, func() {
+		archive, err = compiler.Compile(importPath, files, fileSet, importContext, s.options.Minify)
+	}) {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -717,21 +745,26 @@ func (s *Session) BuildPackage(pkg *PackageData) (*compiler.Archive, error) {
 		return archive, nil
 	}
 
-	if err := s.writeLibraryPackage(archive, pkg.PkgObj); err != nil {
+	if err := s.writeLibraryPackage(ctx, archive, pkg.PkgObj); err != nil {
 		return nil, err
 	}
 
 	return archive, nil
 }
 
-func readArchive(fs billy.Filesystem, fpath, path string, types map[string]*types.Package) (*compiler.Archive, error) {
+func readArchive(ctx context.Context, fs billy.Filesystem, fpath, path string, types map[string]*types.Package) (*compiler.Archive, error) {
 	objFile, err := fs.Open(fpath)
 	if err != nil {
 		return nil, err
 	}
 	defer objFile.Close()
 
-	archive, err := compiler.ReadArchive(fpath, path, objFile, types)
+	var archive *compiler.Archive
+	if WithCancel(ctx, func() {
+		archive, err = compiler.ReadArchive(fpath, path, objFile, types)
+	}) {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
@@ -751,7 +784,7 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *Session) writeLibraryPackage(archive *compiler.Archive, pkgObj string) error {
+func (s *Session) writeLibraryPackage(ctx context.Context, archive *compiler.Archive, pkgObj string) error {
 	if err := s.options.Temporary.MkdirAll(filepath.Dir(pkgObj), 0777); err != nil {
 		return err
 	}
@@ -762,7 +795,12 @@ func (s *Session) writeLibraryPackage(archive *compiler.Archive, pkgObj string) 
 	}
 	defer objFile.Close()
 
-	return compiler.WriteArchive(archive, objFile)
+	if WithCancel(ctx, func() {
+		err = compiler.WriteArchive(archive, objFile)
+	}) {
+		return ctx.Err()
+	}
+	return err
 }
 
 type CommandOutput struct {
@@ -777,19 +815,28 @@ type PackageOutput struct {
 	Standard bool
 }
 
-func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput, error) {
-	deps, err := compiler.ImportDependencies(archive, func(path string) (*compiler.Archive, error) {
+func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Archive) (*CommandOutput, error) {
+
+	importer := func(path string) (*compiler.Archive, error) {
 		if archive, ok := s.Archives[path]; ok {
 			return archive, nil
 		}
-		_, archive, err := s.buildImportPathWithSrcDir(path, "")
+		_, archive, err := s.buildImportPathWithSrcDir(ctx, path, "")
 		return archive, err
-	})
+	}
+
+	var deps []*compiler.Archive
+	var err error
+	if WithCancel(ctx, func() {
+		deps, err = compiler.ImportDependencies(archive, importer)
+	}) {
+		return nil, ctx.Err()
+	}
 	if err != nil {
 		return nil, err
 	}
 
-	commandPath, packages, err := GetProgramCode(deps, s.options.Initializer, s.options.Standard)
+	commandPath, packages, err := GetProgramCode(ctx, deps, s.options.Initializer, s.options.Standard)
 	if err != nil {
 		return nil, err
 	}
@@ -801,7 +848,7 @@ func (s *Session) WriteCommandPackage(archive *compiler.Archive) (*CommandOutput
 	return c, nil
 }
 
-func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard map[string]PackageHash) (string, []*PackageOutput, error) {
+func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer bool, standard map[string]PackageHash) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -819,7 +866,7 @@ func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard map[str
 				continue
 			}
 		}
-		contents, hash, err := GetPackageCode(pkg, minify, initializer)
+		contents, hash, err := GetPackageCode(ctx, pkg, minify, initializer)
 		if err != nil {
 			return "", nil, err
 		}
@@ -832,7 +879,7 @@ func GetProgramCode(pkgs []*compiler.Archive, initializer bool, standard map[str
 	return mainPkg.ImportPath, packageOutputs, nil
 }
 
-func GetPackageCode(archive *compiler.Archive, minify, initializer bool) (contents []byte, hash []byte, err error) {
+func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, initializer bool) (contents []byte, hash []byte, err error) {
 	dceSelection := make(map[*compiler.Decl]struct{})
 	for _, d := range archive.Declarations {
 		dceSelection[d] = struct{}{}
@@ -845,7 +892,12 @@ func GetPackageCode(archive *compiler.Archive, minify, initializer bool) (conten
 		}
 	}
 
-	if err := compiler.WritePkgCode(archive, dceSelection, minify, &compiler.SourceMapFilter{Writer: buf}); err != nil {
+	if WithCancel(ctx, func() {
+		err = compiler.WritePkgCode(archive, dceSelection, minify, &compiler.SourceMapFilter{Writer: buf})
+	}) {
+		return nil, nil, ctx.Err()
+	}
+	if err != nil {
 		return nil, nil, err
 	}
 
@@ -916,4 +968,20 @@ func findVendor(path string) (index int, ok bool) {
 		return 0, true
 	}
 	return 0, false
+}
+
+// WithCancel executes the provided function, but returns early with true if the context cancellation
+// signal was recieved.
+func WithCancel(ctx context.Context, f func()) bool {
+	finished := make(chan struct{})
+	go func() {
+		f()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return false
+	case <-ctx.Done():
+		return true
+	}
 }

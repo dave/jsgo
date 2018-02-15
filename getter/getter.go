@@ -12,6 +12,8 @@ import (
 
 	"sync"
 
+	"context"
+
 	"golang.org/x/sync/singleflight"
 	"gopkg.in/src-d/go-billy.v4"
 )
@@ -46,12 +48,12 @@ type Cache struct {
 	fetchCache    map[string]fetchResult // key is metaImportsForPrefix's importPrefix
 }
 
-func (c *Cache) Get(path string, update bool, insecure bool) error {
+func (c *Cache) Get(ctx context.Context, path string, update bool, insecure bool) error {
 	var stk importStack
-	return c.get(path, nil, &stk, update, insecure)
+	return c.get(ctx, path, nil, &stk, update, insecure)
 }
 
-func (c *Cache) get(path string, parent *Package, stk *importStack, update bool, insecure bool) error {
+func (c *Cache) get(ctx context.Context, path string, parent *Package, stk *importStack, update bool, insecure bool) error {
 	load1 := func(path string, useVendor bool) *Package {
 		if parent == nil {
 			return c.Import(path, "/", nil, stk, false)
@@ -149,7 +151,7 @@ func (c *Cache) get(path string, parent *Package, stk *importStack, update bool,
 			if i >= len(p.Imports) {
 				path = c.vendoredImportPath(p, path)
 			}
-			if err := c.get(path, p, stk, update, insecure); err != nil {
+			if err := c.get(ctx, path, p, stk, update, insecure); err != nil {
 				return err
 			}
 		}

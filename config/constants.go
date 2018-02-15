@@ -21,4 +21,4 @@ const WriteTimeout = time.Second * 2
 // CompileTimeout is the timeout when compiling a package.
 const CompileTimeout = time.Second * 300
 
-const ServerShutdownTimeout = time.Second * 5
+const ServerShutdownTimeout = time.Second * 10

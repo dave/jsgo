@@ -36,7 +36,25 @@ import (
 
 var queuer = queue.New(config.MaxConcurrentCompiles, config.MaxQueue)
 
-func PageHandler(w http.ResponseWriter, req *http.Request) {
+func New(shutdown chan struct{}) *Handler {
+	h := &Handler{
+		mux:      http.NewServeMux(),
+		shutdown: shutdown,
+	}
+	h.mux.Handle("/", http.HandlerFunc(h.PageHandler))
+	h.mux.Handle("/_ws/", websocket.Handler(h.SocketHandler))
+	h.mux.Handle("/favicon.ico", http.HandlerFunc(h.IconHandler))
+	h.mux.Handle("/compile.css", http.HandlerFunc(h.CssHandler))
+	h.mux.Handle("/_ah/health", http.HandlerFunc(h.HealthCheckHandler))
+	return h
+}
+
+type Handler struct {
+	mux      *http.ServeMux
+	shutdown chan struct{}
+}
+
+func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
 
 	ctx := req.Context()
 
@@ -246,11 +264,12 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func SocketHandler(ws *websocket.Conn) {
+func (h *Handler) SocketHandler(ws *websocket.Conn) {
 
 	ctx := ws.Request().Context()
 
-	//ctx, cancel := context.WithTimeout(ctx)
+	ctx, cancel := context.WithTimeout(ctx, config.CompileTimeout)
+	defer cancel()
 
 	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/"))
 
@@ -260,6 +279,28 @@ func SocketHandler(ws *websocket.Conn) {
 	defer func() {
 		if r := recover(); r != nil {
 			logAndSendError(ctx, log, path, errors.New(fmt.Sprintf("Panic recovered: %s", r)), ws.Request())
+		}
+	}()
+
+	// Cancel on client disconnect...
+	go func() {
+		for {
+			var i interface{}
+			if err := websocket.Message.Receive(ws, &i); err == io.EOF {
+				// Client disconnected
+				cancel()
+				return
+			}
+		}
+	}()
+
+	// React to the server shutdown signal
+	go func() {
+		select {
+		case <-h.shutdown:
+			logAndSendError(ctx, log, path, errors.New("server shut down"), ws.Request())
+			cancel()
+		case <-ctx.Done():
 		}
 	}()
 
@@ -274,7 +315,12 @@ func SocketHandler(ws *websocket.Conn) {
 	defer close(end)
 
 	// Wait for the slot to become available.
-	<-start
+	select {
+	case <-start:
+		// continue
+	case <-ctx.Done():
+		return
+	}
 
 	// Send a message to the client that queue step has finished.
 	log.Log(logger.Queue, logger.QueuePayload{Done: true})
@@ -286,7 +332,7 @@ func SocketHandler(ws *websocket.Conn) {
 	log.Log(logger.Download, logger.DownloadingPayload{Done: false})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, log.DownloadWriter()).Get(path, false, false); err != nil {
+	if err := getter.New(fs, log.DownloadWriter()).Get(ctx, path, false, false); err != nil {
 		logAndSendError(ctx, log, path, err, ws.Request())
 		return
 	}
@@ -370,20 +416,24 @@ func logAndSendError(ctx context.Context, log *logger.Logger, path string, err e
 
 }
 
-func IconHandler(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) IconHandler(w http.ResponseWriter, req *http.Request) {
 	if err := ServeStatic(req.URL.Path, w, req, "image/x-icon"); err != nil {
 		http.Error(w, "error serving static file", 500)
 	}
 }
 
-func CssHandler(w http.ResponseWriter, req *http.Request) {
+func (h *Handler) CssHandler(w http.ResponseWriter, req *http.Request) {
 	if err := ServeStatic(req.URL.Path, w, req, "text/css"); err != nil {
 		http.Error(w, "error serving static file", 500)
 	}
 }
 
-func HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "ok")
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
 }
 
 func normalizePath(path string) string {

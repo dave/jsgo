@@ -6,13 +6,12 @@ import (
 	"os"
 
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server"
 
 	"context"
 	"os/signal"
 	"syscall"
 
-	"golang.org/x/net/websocket"
+	"github.com/dave/jsgo/server"
 )
 
 func main() {
@@ -21,19 +20,13 @@ func main() {
 		port = fromEnv
 	}
 
-	h := &handler{
-		mux: http.NewServeMux(),
-	}
+	shutdown := make(chan struct{})
+
+	h := server.New(shutdown)
 	s := &http.Server{
 		Addr:    ":" + port,
 		Handler: h,
 	}
-
-	h.mux.Handle("/", http.HandlerFunc(server.PageHandler))
-	h.mux.Handle("/_ws/", websocket.Handler(server.SocketHandler))
-	h.mux.Handle("/favicon.ico", http.HandlerFunc(server.IconHandler))
-	h.mux.Handle("/compile.css", http.HandlerFunc(server.CssHandler))
-	h.mux.Handle("/_ah/health", http.HandlerFunc(server.HealthCheckHandler))
 
 	go func() {
 		log.Print("Listening on port " + port)
@@ -50,6 +43,9 @@ func main() {
 	// Wait for shutdown signal
 	<-stop
 
+	// Signal to all the compile handlers that the server wants to shut down
+	close(shutdown)
+
 	ctx, cancel := context.WithTimeout(context.Background(), config.ServerShutdownTimeout)
 	defer cancel()
 
@@ -59,12 +55,4 @@ func main() {
 		log.Println("Server stopped")
 	}
 
-}
-
-type handler struct {
-	mux *http.ServeMux
-}
-
-func (h *handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	h.mux.ServeHTTP(w, r)
 }
