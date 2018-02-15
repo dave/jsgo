@@ -12,8 +12,6 @@ import (
 	"strings"
 	"time"
 
-	"cloud.google.com/go/datastore"
-
 	"google.golang.org/appengine"
 
 	pathpkg "path"
@@ -30,6 +28,7 @@ import (
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/logger"
 	"github.com/dave/jsgo/server/queue"
+	"github.com/dave/jsgo/server/store"
 	"github.com/dustin/go-humanize"
 	"github.com/shurcooL/httpgzip"
 	"golang.org/x/net/websocket"
@@ -97,14 +96,14 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 	}}
 	g := getter.New(fs, downloadLogger)
 	if err := g.Get(path, false, false); err != nil {
-		data := CompileData{
+		data := store.CompileData{
 			Path:    path,
 			Time:    time.Now(),
 			Success: false,
 			Error:   err.Error(),
 			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 		}
-		Save(ctx, path, data) // ignore error
+		store.Save(ctx, path, data) // ignore error
 		return err
 	}
 	log.Log(logger.Download, logger.DownloadingPayload{Done: true})
@@ -112,23 +111,23 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 	c := compile.New(assets.Assets, fs, log)
 	hashMin, hashMax, outputMin, outputMax, err := c.Compile(ctx, path)
 	if err != nil {
-		data := CompileData{
+		data := store.CompileData{
 			Path:    path,
 			Time:    time.Now(),
 			Success: false,
 			Error:   err.Error(),
 			Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 		}
-		Save(ctx, path, data) // ignore error
+		store.Save(ctx, path, data) // ignore error
 		return err
 	}
 
-	getCc := func(hash []byte, output *builder.CommandOutput) CompileContents {
-		val := CompileContents{}
+	getCc := func(hash []byte, output *builder.CommandOutput) store.CompileContents {
+		val := store.CompileContents{}
 		val.Main = fmt.Sprintf("%x", hash)
 		val.Prelude = std.PreludeHash
 		for _, p := range output.Packages {
-			val.Packages = append(val.Packages, CompilePackage{
+			val.Packages = append(val.Packages, store.CompilePackage{
 				Path:     p.Path,
 				Standard: p.Standard,
 				Hash:     fmt.Sprintf("%x", p.Hash),
@@ -137,7 +136,7 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 		return val
 	}
 
-	data := CompileData{
+	data := store.CompileData{
 		Path:    path,
 		Time:    time.Now(),
 		Success: true,
@@ -146,7 +145,7 @@ func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error 
 		Ip:      ws.Request().Header.Get("X-Forwarded-For"),
 	}
 
-	if err := Save(ctx, path, data); err != nil {
+	if err := store.Save(ctx, path, data); err != nil {
 		return err
 	}
 
@@ -215,7 +214,7 @@ func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 	}
 
 	ctx := appengine.NewContext(req)
-	found, data, err := Lookup(ctx, path)
+	found, data, err := store.Lookup(ctx, path)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -415,77 +414,6 @@ func serveCompilePage(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), 500)
 		return
 	}
-}
-
-type CompileData struct {
-	Path    string
-	Time    time.Time
-	Success bool
-	Error   string
-	Min     CompileContents
-	Max     CompileContents
-	Ip      string
-}
-
-type CompileContents struct {
-	Main     string
-	Prelude  string
-	Packages []CompilePackage
-}
-
-type CompilePackage struct {
-	Path     string
-	Standard bool
-	Hash     string
-}
-
-func Save(ctx context.Context, path string, data CompileData) error {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
-		return err
-	}
-	if _, err := client.Put(ctx, compileKey(), &data); err != nil {
-		return err
-	}
-	if data.Success {
-		if _, err := client.Put(ctx, packageKey(path), &data); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func Lookup(ctx context.Context, path string) (bool, CompileData, error) {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
-		return false, CompileData{}, err
-	}
-	var data CompileData
-
-	/*q := datastore.NewQuery("Compile").Filter("Success =", true).Filter("Path =", path).Order("-Time").Limit(1)
-
-	if _, err := client.Run(ctx, q).Next(&data); err != nil {
-		if err == iterator.Done {
-			return false, CompileData{}, nil
-		}
-		return false, CompileData{}, err
-	}*/
-
-	if err := client.Get(ctx, packageKey(path), &data); err != nil {
-		if err == datastore.ErrNoSuchEntity {
-			return false, CompileData{}, nil
-		}
-		return false, CompileData{}, err
-	}
-	return true, data, nil
-}
-
-func compileKey() *datastore.Key {
-	return datastore.IncompleteKey("Compile", nil)
-}
-
-func packageKey(path string) *datastore.Key {
-	return datastore.NameKey("Package", path, nil)
 }
 
 func ServeStatic(name string, w http.ResponseWriter, req *http.Request, mimeType string) error {
