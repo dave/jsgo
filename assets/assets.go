@@ -15,6 +15,8 @@ import (
 
 	"os"
 
+	"strings"
+
 	"github.com/dave/jsgo/config"
 	"github.com/dave/patsy"
 	"github.com/dave/patsy/vos"
@@ -36,7 +38,7 @@ func loadAssets(fs billy.Filesystem) error {
 
 	hostname, _ := os.Hostname()
 
-	if config.DEV || hostname == "Davids-MacBook.local" {
+	if config.DEV || strings.ToLower(hostname) == "davids-macbook.home" {
 		dir, err := patsy.Dir(vos.Os(), "github.com/dave/jsgo/assets")
 		if err != nil {
 			return err

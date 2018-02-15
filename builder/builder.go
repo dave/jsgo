@@ -25,7 +25,7 @@ import (
 
 	"encoding/hex"
 
-	"github.com/dave/jsgo/common"
+	"github.com/dave/jsgo/config"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"gopkg.in/src-d/go-billy.v4"
@@ -859,7 +859,7 @@ func GetPackageCode(archive *compiler.Archive, minify, initializer bool) (conten
 	if _, err := sha.Write(buf.Bytes()); err != nil {
 		return nil, nil, err
 	}
-	if _, err := sha.Write([]byte{common.HASH_VERSION}); err != nil {
+	if _, err := sha.Write([]byte{config.HashVersion}); err != nil {
 		return nil, nil, err
 	}
 	return buf.Bytes(), sha.Sum(nil), nil

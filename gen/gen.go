@@ -24,7 +24,7 @@ import (
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
-	"github.com/dave/jsgo/common"
+	"github.com/dave/jsgo/config"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -137,7 +137,7 @@ func Prelude() error {
 	if _, err := s.Write(b); err != nil {
 		return err
 	}
-	if _, err := s.Write([]byte{common.HASH_VERSION}); err != nil {
+	if _, err := s.Write([]byte{config.HashVersion}); err != nil {
 		return err
 	}
 

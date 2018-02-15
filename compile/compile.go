@@ -27,7 +27,7 @@ import (
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
-	"github.com/dave/jsgo/common"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/logger"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -296,7 +296,7 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	if _, err := s.Write(buf.Bytes()); err != nil {
 		return nil, err
 	}
-	if _, err := s.Write([]byte{common.HASH_VERSION}); err != nil {
+	if _, err := s.Write([]byte{config.HashVersion}); err != nil {
 		return nil, err
 	}
 

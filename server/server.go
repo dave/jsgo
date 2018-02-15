@@ -26,6 +26,7 @@ import (
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/compile"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/logger"
 	"github.com/dave/jsgo/server/queue"
@@ -36,16 +37,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
-const MAX_COMPILES = 3
-const MAX_QUEUE = 100
-
-const PROJECT_ID = "jsgo-192815"
-
-const WriteTimeout = time.Second * 2
-
-//const CompileTimeout = time.Second * 300
-
-var queuer = queue.New(MAX_COMPILES, MAX_QUEUE)
+var queuer = queue.New(config.MaxConcurrentCompiles, config.MaxQueue)
 
 func SocketHandler(ws *websocket.Conn) {
 	//ctx := context.Background()
@@ -89,17 +81,6 @@ func SocketHandler(ws *websocket.Conn) {
 		})
 		return
 	}
-}
-
-type funcWriter struct {
-	f func(b []byte) error
-}
-
-func (f funcWriter) Write(b []byte) (n int, err error) {
-	if err := f.f(b); err != nil {
-		return 0, err
-	}
-	return len(b), nil
 }
 
 func doSocketCompile(ws *websocket.Conn, path string, log *logger.Logger) error {
@@ -650,7 +631,7 @@ type CompilePackage struct {
 }
 
 func Save(ctx context.Context, path string, data CompileData) error {
-	client, err := datastore.NewClient(ctx, PROJECT_ID)
+	client, err := datastore.NewClient(ctx, config.ProjectID)
 	if err != nil {
 		return err
 	}
@@ -666,7 +647,7 @@ func Save(ctx context.Context, path string, data CompileData) error {
 }
 
 func Lookup(ctx context.Context, path string) (bool, CompileData, error) {
-	client, err := datastore.NewClient(ctx, PROJECT_ID)
+	client, err := datastore.NewClient(ctx, config.ProjectID)
 	if err != nil {
 		return false, CompileData{}, err
 	}
@@ -750,7 +731,7 @@ func StreamWithTimeout(w io.Writer, r io.Reader) error {
 			return err
 		}
 		return nil
-	case <-time.After(WriteTimeout):
+	case <-time.After(config.WriteTimeout):
 		return errors.New("timeout")
 	}
 }
@@ -759,22 +740,13 @@ func WriteWithTimeout(w io.Writer, b []byte) error {
 	return StreamWithTimeout(w, bytes.NewBuffer(b))
 }
 
-type progressWriter struct {
-	w http.ResponseWriter
+type funcWriter struct {
+	f func(b []byte) error
 }
 
-func (p progressWriter) Write(b []byte) (n int, err error) {
-	i, err := p.w.Write(b)
-	if err != nil {
-		return i, err
+func (f funcWriter) Write(b []byte) (n int, err error) {
+	if err := f.f(b); err != nil {
+		return 0, err
 	}
-	if f, ok := p.w.(http.Flusher); ok {
-		f.Flush()
-	}
-	return i, nil
-}
-
-func hasQuery(req *http.Request, id string) bool {
-	_, value := req.URL.Query()[id]
-	return value
+	return len(b), nil
 }

@@ -14,7 +14,7 @@ import (
 
 func TestClone(t *testing.T) {
 	_, err := git.Clone(memory.NewStorage(), memfs.New(), &git.CloneOptions{
-		URL:               "https://gitlab.com/agamigo/material.git",
+		URL:               "https://gitlab.com/agamigo/material",
 		SingleBranch:      true,
 		Depth:             1,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
