@@ -15,10 +15,22 @@ const MaxQueue = 100
 const ProjectID = "jsgo-192815"
 
 // WriteTimeout is the timeout when serving static files
-// TODO: Why is this not used on the compile index page?
 const WriteTimeout = time.Second * 2
 
 // CompileTimeout is the timeout when compiling a package.
 const CompileTimeout = time.Second * 300
 
-const ServerShutdownTimeout = time.Second * 10
+// PageTimeout is the timeout when generating the compile page
+const PageTimeout = time.Second * 5
+
+// ServerShutdownTimeout is the timeout when doing a graceful server shutdown
+const ServerShutdownTimeout = time.Second * 5
+
+// WebsocketPingPeriod is the interval between pings
+const WebsocketPingPeriod = time.Second
+
+// WebsocketPongTimeout is the time to wait for a pong from the client before cancelling
+const WebsocketPongTimeout = time.Second * 2
+
+// WebsocketWriteTimeout is the write timeout for websockets
+const WebsocketWriteTimeout = time.Second * 5

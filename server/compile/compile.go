@@ -28,22 +28,22 @@ import (
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/logger"
+	"github.com/dave/jsgo/server/messages"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 type Compiler struct {
 	root, path, temp billy.Filesystem
-	log              *logger.Logger
+	send             chan messages.Message
 }
 
-func New(goroot, gopath billy.Filesystem, log *logger.Logger) *Compiler {
+func New(goroot, gopath billy.Filesystem, send chan messages.Message) *Compiler {
 	c := &Compiler{}
 	c.root = goroot
 	c.path = gopath
 	c.temp = memfs.New()
-	c.log = log
+	c.send = send
 	return c
 }
 
@@ -61,7 +61,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 	bucketCdn := client.Bucket("cdn.jsgo.io")
 	bucketIndex := client.Bucket("jsgo.io")
 
-	c.log.Log(logger.Compile, logger.CompilingPayload{Done: false})
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: false}}
 	options := func(min bool, verbose bool) *builder.Options {
 		return &builder.Options{
 			Root:        c.root,
@@ -69,7 +69,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 			Temporary:   c.temp,
 			Unvendor:    true,
 			Initializer: true,
-			Log:         c.log.CompileWriter(),
+			Log:         messages.CompileWriter(c.send),
 			Verbose:     verbose,
 			Minify:      min,
 			Standard:    std.Index,
@@ -88,7 +88,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.log.Log(logger.Compile, logger.CompilingPayload{Done: true})
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: true}}
 
 	if archiveMin.Name != "main" {
 		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
@@ -107,7 +107,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, errors.New("minified output has different number of packages to non-minified")
 	}
 
-	c.log.Log(logger.Store, logger.StoringPayload{Done: false})
+	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: false}}
 	for i := range outputMin.Packages {
 		poMin := outputMin.Packages[i]
 		poMax := outputMax.Packages[i]
@@ -117,9 +117,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		if poMin.Standard {
 			continue
 		}
-		c.log.Log(logger.Store, logger.StoringPayload{
-			Path: poMin.Path,
-		})
+		c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Path: poMin.Path}}
 		if err := sendToStorage(ctx, bucketCdn, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
 			return nil, nil, err
 		}
@@ -127,9 +125,9 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 			return nil, nil, err
 		}
 	}
-	c.log.Log(logger.Store, logger.StoringPayload{Done: true})
+	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: true}}
 
-	c.log.Log(logger.Index, logger.IndexPayload{Path: path})
+	c.send <- messages.Message{Type: messages.Index, Payload: messages.IndexPayload{Path: path}}
 	hashMin, err := genMain(ctx, bucketCdn, outputMin, true)
 	if err != nil {
 		return nil, nil, err
@@ -150,7 +148,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 	if err := genIndex(ctx, bucketIndex, tpl, path, hashMax, false); err != nil {
 		return nil, nil, err
 	}
-	c.log.Log(logger.Index, logger.IndexPayload{Done: true})
+	c.send <- messages.Message{Type: messages.Index, Payload: messages.IndexPayload{Done: true}}
 
 	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
 

@@ -21,11 +21,10 @@ func main() {
 	}
 
 	shutdown := make(chan struct{})
-
-	h := server.New(shutdown)
+	handler := server.New(shutdown)
 	s := &http.Server{
 		Addr:    ":" + port,
-		Handler: h,
+		Handler: handler,
 	}
 
 	go func() {
@@ -48,6 +47,9 @@ func main() {
 
 	ctx, cancel := context.WithTimeout(context.Background(), config.ServerShutdownTimeout)
 	defer cancel()
+
+	// Wait for all compile jobs to be cancelled
+	handler.Waitgroup.Wait()
 
 	if err := s.Shutdown(ctx); err != nil {
 		log.Printf("Error: %v\n", err)

@@ -8,6 +8,7 @@ import (
 	"mime"
 	"net/http"
 	"os"
+	"runtime"
 	"strings"
 	"time"
 
@@ -19,48 +20,52 @@ import (
 
 	"context"
 
+	"sync"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/compile"
-	"github.com/dave/jsgo/server/logger"
+	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/queue"
 	"github.com/dave/jsgo/server/store"
 	"github.com/dustin/go-humanize"
+	"github.com/gorilla/websocket"
 	"github.com/shurcooL/httpgzip"
-	"golang.org/x/net/websocket"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
-var queuer = queue.New(config.MaxConcurrentCompiles, config.MaxQueue)
-
 func New(shutdown chan struct{}) *Handler {
 	h := &Handler{
-		mux:      http.NewServeMux(),
-		shutdown: shutdown,
+		mux:       http.NewServeMux(),
+		shutdown:  shutdown,
+		Queue:     queue.New(config.MaxConcurrentCompiles, config.MaxQueue),
+		Waitgroup: &sync.WaitGroup{},
 	}
-	h.mux.Handle("/", http.HandlerFunc(h.PageHandler))
-	h.mux.Handle("/_ws/", websocket.Handler(h.SocketHandler))
-	h.mux.Handle("/favicon.ico", http.HandlerFunc(h.IconHandler))
-	h.mux.Handle("/compile.css", http.HandlerFunc(h.CssHandler))
-	h.mux.Handle("/_ah/health", http.HandlerFunc(h.HealthCheckHandler))
+	h.mux.HandleFunc("/", h.PageHandler)
+	h.mux.HandleFunc("/_ws/", h.SocketHandler)
+	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
+	h.mux.HandleFunc("/compile.css", h.CssHandler)
+	h.mux.HandleFunc("/_ah/health", h.HealthCheckHandler)
+	h.mux.HandleFunc("/_go", h.GoCheckHandler)
 	return h
 }
 
 type Handler struct {
-	mux      *http.ServeMux
-	shutdown chan struct{}
+	Waitgroup *sync.WaitGroup
+	Queue     *queue.Queue
+	mux       *http.ServeMux
+	shutdown  chan struct{}
 }
 
 func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
 
-	ctx := req.Context()
+	ctx, cancel := context.WithTimeout(req.Context(), config.PageTimeout)
+	defer cancel()
 
-	path := strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/")
-
-	path = normalizePath(path)
+	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/"), "/"))
 
 	if path == "" {
 		http.Redirect(w, req, "https://github.com/dave/jsgo", http.StatusFound)
@@ -264,35 +269,87 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func (h *Handler) SocketHandler(ws *websocket.Conn) {
+var upgrader = websocket.Upgrader{} // use default options
 
-	fmt.Println("socket opening.")
-	defer fmt.Println("socket closing.")
+func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
-	ctx := ws.Request().Context()
+	h.Waitgroup.Add(1)
+	defer h.Waitgroup.Done()
 
-	ctx, cancel := context.WithTimeout(ctx, config.CompileTimeout)
+	ctx, cancel := context.WithTimeout(req.Context(), config.CompileTimeout)
 	defer cancel()
 
-	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(ws.Request().URL.Path, "/_ws/"), "/"))
+	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/_ws/"), "/"))
 
-	log := logger.New(ws)
+	conn, err := upgrader.Upgrade(w, req, nil)
+	if err != nil {
+		storeError(ctx, path, fmt.Errorf("upgrading request to websocket: %v", err), req)
+		return
+	}
+	defer func() {
+		// wait for sends to finish before closing websocket
+		// TODO: Find better way of doing this
+		<-time.After(time.Millisecond * 200)
+		conn.Close()
+	}()
+
+	send := make(chan messages.Message, 256)
 
 	// Recover from any panic and log the error.
 	defer func() {
 		if r := recover(); r != nil {
-			logAndSendError(ctx, log, path, errors.New(fmt.Sprintf("Panic recovered: %s", r)), ws.Request())
+			sendAndStoreError(ctx, send, path, errors.New(fmt.Sprintf("panic recovered: %s", r)), req)
 		}
 	}()
 
-	// Cancel on client disconnect...
+	// Set up a ticker to ping the client regularly
 	go func() {
+		ticker := time.NewTicker(config.WebsocketPingPeriod)
+		defer func() {
+			ticker.Stop()
+			cancel()
+		}()
 		for {
-			var i interface{}
-			if err := websocket.Message.Receive(ws, &i); err == io.EOF {
-				// Client disconnected
-				cancel()
+			select {
+			case message, ok := <-send:
+				conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
+				if !ok {
+					// The send channel was closed.
+					conn.WriteMessage(websocket.CloseMessage, []byte{})
+					return
+				}
+				if err := conn.WriteJSON(message); err != nil {
+					// Error writing message, close and exit
+					conn.WriteMessage(websocket.CloseMessage, []byte{})
+					return
+				}
+			case <-ticker.C:
+				conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
+				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
+					return
+				}
+			case <-ctx.Done():
 				return
+			}
+		}
+	}()
+
+	// React to pongs from the client
+	go func() {
+		defer func() {
+			cancel()
+		}()
+		conn.SetReadDeadline(time.Now().Add(config.WebsocketPongTimeout))
+		conn.SetPongHandler(func(string) error {
+			conn.SetReadDeadline(time.Now().Add(config.WebsocketPongTimeout))
+			return nil
+		})
+		for {
+			if _, _, err := conn.ReadMessage(); err != nil {
+				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
+					storeError(ctx, path, err, req)
+				}
+				break
 			}
 		}
 	}()
@@ -301,16 +358,18 @@ func (h *Handler) SocketHandler(ws *websocket.Conn) {
 	go func() {
 		select {
 		case <-h.shutdown:
-			logAndSendError(ctx, log, path, errors.New("server shut down"), ws.Request())
+			sendAndStoreError(ctx, send, path, errors.New("server shut down"), req)
 			cancel()
 		case <-ctx.Done():
 		}
 	}()
 
 	// Request a slot in the queue...
-	start, end, err := queuer.Slot(func(position int) { log.Log(logger.Queue, logger.QueuePayload{Position: position}) })
+	start, end, err := h.Queue.Slot(func(position int) {
+		send <- messages.Message{Type: messages.Queue, Payload: messages.QueuePayload{Position: position}}
+	})
 	if err != nil {
-		logAndSendError(ctx, log, path, err, ws.Request())
+		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}
 
@@ -326,45 +385,45 @@ func (h *Handler) SocketHandler(ws *websocket.Conn) {
 	}
 
 	// Send a message to the client that queue step has finished.
-	log.Log(logger.Queue, logger.QueuePayload{Done: true})
+	send <- messages.Message{Type: messages.Queue, Payload: messages.QueuePayload{Done: true}}
 
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
 	// Send a message to the client that downloading step has started.
-	log.Log(logger.Download, logger.DownloadingPayload{Done: false})
+	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Done: false}}
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, log.DownloadWriter()).Get(ctx, path, false, false); err != nil {
-		logAndSendError(ctx, log, path, err, ws.Request())
+	if err := getter.New(fs, messages.DownloadWriter(send)).Get(ctx, path, false, false); err != nil {
+		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}
 
 	// Send a message to the client that downloading step has finished.
-	log.Log(logger.Download, logger.DownloadingPayload{Done: true})
+	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Done: true}}
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	min, max, err := compile.New(assets.Assets, fs, log).Compile(ctx, path)
+	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path)
 	if err != nil {
-		logAndSendError(ctx, log, path, err, ws.Request())
+		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}
 
 	// Logs the success in the datastore
-	logSuccess(ctx, log, path, ws.Request(), min, max)
+	storeSuccess(ctx, send, path, req, min, max)
 
 	// Send a message to the client that the process has successfully finished
-	log.Log(logger.Complete, logger.CompletePayload{
+	send <- messages.Message{Type: messages.Complete, Payload: messages.CompletePayload{
 		Path:    path,
 		Short:   strings.TrimPrefix(path, "github.com/"),
 		HashMin: fmt.Sprintf("%x", min.Hash),
 		HashMax: fmt.Sprintf("%x", max.Hash),
-	})
+	}}
 
 	return
 }
 
-func logSuccess(ctx context.Context, log *logger.Logger, path string, req *http.Request, min, max *compile.CompileOutput) {
+func storeSuccess(ctx context.Context, send chan messages.Message, path string, req *http.Request, min, max *compile.CompileOutput) {
 	getCompileContents := func(c *compile.CompileOutput) store.CompileContents {
 		val := store.CompileContents{}
 		val.Main = fmt.Sprintf("%x", c.Hash)
@@ -390,18 +449,30 @@ func logSuccess(ctx context.Context, log *logger.Logger, path string, req *http.
 
 	if err := store.Save(ctx, path, data); err != nil {
 		// don't save this one to the datastore because it's an error from the datastore.
-		logAndSendError(ctx, log, path, err, req)
+		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}
 
 }
 
-func logAndSendError(ctx context.Context, log *logger.Logger, path string, err error, req *http.Request) {
+func sendAndStoreError(ctx context.Context, send chan messages.Message, path string, err error, req *http.Request) {
+	storeError(ctx, path, err, req)
+	sendError(send, path, err)
+}
 
-	log.Log(logger.Error, logger.ErrorPayload{
+func sendError(send chan messages.Message, path string, err error) {
+	// panic during error log should be cancelled
+	defer func() { recover() }()
+
+	send <- messages.Message{Type: messages.Error, Payload: messages.ErrorPayload{
 		Path:    path,
 		Message: err.Error(),
-	})
+	}}
+}
+
+func storeError(ctx context.Context, path string, err error, req *http.Request) {
+	// panic during error storage should be cancelled
+	defer func() { recover() }()
 
 	if err == queue.TooManyItemsQueued {
 		// If the server is getting flooded by a DOS, this will prevent database flooding
@@ -433,6 +504,10 @@ func (h *Handler) CssHandler(w http.ResponseWriter, req *http.Request) {
 
 func (h *Handler) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, "ok")
+}
+
+func (h *Handler) GoCheckHandler(w http.ResponseWriter, r *http.Request) {
+	fmt.Fprint(w, runtime.NumGoroutine())
 }
 
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {

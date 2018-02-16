@@ -35,6 +35,7 @@ func Save(ctx context.Context, path string, data CompileData) error {
 	if err != nil {
 		return err
 	}
+	defer client.Close()
 	if _, err := client.Put(ctx, compileKey(), &data); err != nil {
 		return err
 	}
@@ -51,6 +52,7 @@ func Lookup(ctx context.Context, path string) (bool, CompileData, error) {
 	if err != nil {
 		return false, CompileData{}, err
 	}
+	defer client.Close()
 	var data CompileData
 
 	/*q := datastore.NewQuery("Compile").Filter("Success =", true).Filter("Path =", path).Order("-Time").Limit(1)
