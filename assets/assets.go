@@ -43,7 +43,7 @@ func loadAssets(fs billy.Filesystem) error {
 		if err != nil {
 			return err
 		}
-		b, err := ioutil.ReadFile(filepath.Join(dir, "assets.zip"))
+		b, err := ioutil.ReadFile(filepath.Join(dir, config.AssetsFilename))
 		if err != nil {
 			return err
 		}
@@ -55,7 +55,7 @@ func loadAssets(fs billy.Filesystem) error {
 			return err
 		}
 		defer client.Close()
-		gcsReader, err := client.Bucket("cdn.jsgo.io").Object("assets.zip").NewReader(ctx)
+		gcsReader, err := client.Bucket(config.CdnBucket).Object(config.AssetsFilename).NewReader(ctx)
 		if err != nil {
 			return err
 		}

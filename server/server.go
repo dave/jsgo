@@ -79,17 +79,25 @@ func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	type vars struct {
-		Found  bool
-		Path   string
-		Last   string
-		Host   string
-		Scheme string
+		Found     bool
+		Path      string
+		Last      string
+		Host      string
+		Scheme    string
+		CdnHost   string
+		IndexHost string
+		PkgDir    string
+		StdDir    string
 	}
 
 	v := vars{}
+	v.CdnHost = config.CdnHost
+	v.IndexHost = config.IndexHost
+	v.PkgDir = config.PkgDir
+	v.StdDir = config.StdDir
 	v.Host = req.Host
 	v.Path = path
-	if req.Host == "compile.jsgo.io" {
+	if req.Host == config.CompileHost {
 		v.Scheme = "wss"
 	} else {
 		v.Scheme = "ws"
@@ -198,9 +206,9 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var value = document.getElementById("minify-checkbox").checked;
 			var completeLink = document.getElementById("complete-link");
 			var completeScript = document.getElementById("complete-script");
-			completeLink.href = "https://jsgo.io/" + complete.short + (value ? "" : "$max");
-			completeLink.innerHTML = "jsgo.io/" + complete.short + (value ? "" : "$max");
-			completeScript.value = "https://cdn.jsgo.io/pkg/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
+			completeLink.href = "https://{{ .IndexHost }}/" + complete.short + (value ? "" : "$max");
+			completeLink.innerHTML = "{{ .IndexHost }}/" + complete.short + (value ? "" : "$max");
+			completeScript.value = "https://{{ .CdnHost }}/{{ .PkgDir }}/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
 		}
 		document.getElementById("btn").onclick = function(event) {
 			event.preventDefault();
@@ -254,9 +262,9 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
 					complete = message.payload;
-					completeLink.href = "https://jsgo.io/" + message.payload.short
-					completeLink.innerHTML = "jsgo.io/" + message.payload.short
-					completeScript.value = "https://cdn.jsgo.io/pkg/" + message.payload.path + "." + message.payload.hashmin + ".js"
+					completeLink.href = "https://{{ .IndexHost }}/" + message.payload.short
+					completeLink.innerHTML = "{{ .IndexHost }}/" + message.payload.short
+					completeScript.value = "https://{{ .CdnHost }}/{{ .PkgDir }}/" + message.payload.path + "." + message.payload.hashmin + ".js"
 					break;
 				case "error":
 					errorPanel.style.display = "";

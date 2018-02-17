@@ -110,7 +110,7 @@ func Src() error {
 	if err := w.Close(); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile("./assets/assets.zip", buf.Bytes(), 0777); err != nil {
+	if err := ioutil.WriteFile(filepath.Join("./assets/", config.AssetsFilename), buf.Bytes(), 0777); err != nil {
 		return err
 	}
 
@@ -121,8 +121,8 @@ func Src() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket("cdn.jsgo.io")
-	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), "assets.zip"); err != nil {
+	bucket := client.Bucket(config.CdnBucket)
+	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), config.AssetsFilename); err != nil {
 		return err
 	}
 	fmt.Println("Done.")
@@ -137,9 +137,6 @@ func Prelude() error {
 	if _, err := s.Write(b); err != nil {
 		return err
 	}
-	if _, err := s.Write([]byte{config.HashVersion}); err != nil {
-		return err
-	}
 
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -147,11 +144,11 @@ func Prelude() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket("cdn.jsgo.io")
+	bucket := client.Bucket(config.CdnBucket)
 
 	hash := fmt.Sprintf("%x", s.Sum(nil))
 
-	fname := fmt.Sprintf("std/prelude.%s.js", hash)
+	fname := fmt.Sprintf("%s/prelude.%s.js", config.StdDir, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
 		return nil
 	}
@@ -187,7 +184,7 @@ func Js() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket("cdn.jsgo.io")
+	bucket := client.Bucket(config.CdnBucket)
 
 	sessionMin := builder.NewSession(&builder.Options{
 		Root:        rootfs,
@@ -208,10 +205,10 @@ func Js() error {
 
 	for _, p := range packages {
 		fmt.Println("Compiling", p)
-		if _, _, err := sessionMin.BuildImportPath(p); err != nil {
+		if _, _, err := sessionMin.BuildImportPath(ctx, p); err != nil {
 			return err
 		}
-		if _, _, err := sessionMax.BuildImportPath(p); err != nil {
+		if _, _, err := sessionMax.BuildImportPath(ctx, p); err != nil {
 			return err
 		}
 	}
@@ -225,11 +222,11 @@ func Js() error {
 		}
 		path := archiveMin.ImportPath
 		fmt.Println("Storing", path)
-		contentsMin, hashMin, err := builder.GetPackageCode(archiveMin, true, true)
+		contentsMin, hashMin, err := builder.GetPackageCode(ctx, archiveMin, true, true)
 		if err != nil {
 			return err
 		}
-		contentsMax, hashMax, err := builder.GetPackageCode(archiveMax, false, true)
+		contentsMax, hashMax, err := builder.GetPackageCode(ctx, archiveMax, false, true)
 		if err != nil {
 			return err
 		}
@@ -272,7 +269,7 @@ func Js() error {
 }
 
 func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
-	fpath := fmt.Sprintf("std/%s.%x.js", path, hash)
+	fpath := fmt.Sprintf("%s/%s.%x.js", config.StdDir, path, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
 		return err
 	}
@@ -327,11 +324,12 @@ func getStandardLibraryPackages() ([]string, error) {
 	}
 	all := strings.Split(strings.TrimSpace(string(b)), "\n")
 	excluded := map[string]bool{
-		"builtin":        true,
-		"internal/cpu":   true,
-		"net/http/pprof": true,
-		"plugin":         true,
-		"runtime/cgo":    true,
+		"builtin":                true,
+		"internal/cpu":           true,
+		"net/http/pprof":         true,
+		"plugin":                 true,
+		"runtime/cgo":            true,
+		"os/signal/internal/pty": true,
 	}
 	var filtered []string
 	for _, p := range all {

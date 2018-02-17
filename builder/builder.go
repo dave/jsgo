@@ -27,7 +27,6 @@ import (
 
 	"context"
 
-	"github.com/dave/jsgo/config"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"gopkg.in/src-d/go-billy.v4"
@@ -909,9 +908,6 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 
 	sha := sha1.New()
 	if _, err := sha.Write(buf.Bytes()); err != nil {
-		return nil, nil, err
-	}
-	if _, err := sha.Write([]byte{config.HashVersion}); err != nil {
 		return nil, nil, err
 	}
 	return buf.Bytes(), sha.Sum(nil), nil

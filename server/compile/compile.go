@@ -58,8 +58,8 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 	defer client.Close()
-	bucketCdn := client.Bucket("cdn.jsgo.io")
-	bucketIndex := client.Bucket("jsgo.io")
+	bucketCdn := client.Bucket(config.CdnBucket)
+	bucketIndex := client.Bucket(config.IndexBucket)
 
 	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: false}}
 	options := func(min bool, verbose bool) *builder.Options {
@@ -202,7 +202,7 @@ func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.T
 	v := IndexVars{
 		Path:   path,
 		Hash:   fmt.Sprintf("%x", hash),
-		Script: fmt.Sprintf("https://cdn.jsgo.io/pkg/%s.%x.js", path, hash),
+		Script: fmt.Sprintf("https://%s/%s/%s.%x.js", config.CdnHost, config.PkgDir, path, hash),
 	}
 
 	buf := &bytes.Buffer{}
@@ -269,6 +269,9 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	}
 
 	m := MainVars{
+		CdnHost: config.CdnHost,
+		PkgDir:  config.PkgDir,
+		StdDir:  config.StdDir,
 		Prelude: std.PreludeHash,
 		Path:    output.Path,
 		Json:    string(pkgJson),
@@ -283,9 +286,6 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	if _, err := s.Write(buf.Bytes()); err != nil {
 		return nil, err
 	}
-	if _, err := s.Write([]byte{config.HashVersion}); err != nil {
-		return nil, err
-	}
 
 	hash := s.Sum(nil)
 
@@ -297,7 +297,7 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 }
 
 func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
-	fpath := fmt.Sprintf("pkg/%s.%x.js", path, hash)
+	fpath := fmt.Sprintf("%s/%s.%x.js", config.PkgDir, path, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
 		return err
 	}
@@ -319,6 +319,9 @@ type MainVars struct {
 	Prelude string
 	Path    string
 	Json    string
+	CdnHost string
+	PkgDir  string
+	StdDir  string
 }
 
 type PkgJson struct {
@@ -360,9 +363,9 @@ var $load = {};
 		tag.onreadystatechange = done;
 		document.head.appendChild(tag);
 	}
-	get("https://cdn.jsgo.io/std/prelude.{{ .Prelude }}.js");
+	get("https://{{ .CdnHost }}/{{ .StdDir }}/prelude.{{ .Prelude }}.js");
 	for (var i = 0; i < info.length; i++) {
-		get("https://cdn.jsgo.io/" + (info[i].std ? "std" : "pkg") + "/" + info[i].path + "." + info[i].hash + ".js");
+		get("https://{{ .CdnHost }}/" + (info[i].std ? "{{ .StdDir }}" : "{{ .PkgDir }}") + "/" + info[i].path + "." + info[i].hash + ".js");
 	}
 })();
 `))
