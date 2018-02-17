@@ -891,7 +891,6 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 			return nil, nil, err
 		}
 	}
-
 	if WithCancel(ctx, func() {
 		err = compiler.WritePkgCode(archive, dceSelection, minify, &compiler.SourceMapFilter{Writer: buf})
 	}) {
@@ -970,6 +969,7 @@ func findVendor(path string) (index int, ok bool) {
 // WithCancel executes the provided function, but returns early with true if the context cancellation
 // signal was recieved.
 func WithCancel(ctx context.Context, f func()) bool {
+
 	finished := make(chan struct{})
 	go func() {
 		f()

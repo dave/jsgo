@@ -8,20 +8,22 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"time"
 
+	"github.com/dave/jsgo/config"
 	"golang.org/x/net/context/ctxhttp"
 )
 
 // httpClient is the default HTTP client, but a variable so it can be
 // changed by tests, without modifying http.DefaultClient.
-var httpClient = http.DefaultClient
+var httpClient = &http.Client{
+	Timeout: config.HttpTimeout,
+}
 
 // impatientInsecureHTTPClient is used in -insecure mode,
 // when we're connecting to https servers that might not be there
 // or might be using self-signed certificates.
 var impatientInsecureHTTPClient = &http.Client{
-	Timeout: 5 * time.Second,
+	Timeout: config.HttpTimeout,
 	Transport: &http.Transport{
 		Proxy: http.ProxyFromEnvironment,
 		TLSClientConfig: &tls.Config{

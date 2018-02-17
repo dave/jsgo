@@ -3,6 +3,8 @@ package getter
 import (
 	"context"
 
+	configpkg "github.com/dave/jsgo/config"
+
 	"gopkg.in/src-d/go-billy.v4"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
@@ -38,6 +40,8 @@ func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.File
 	if err != nil {
 		return err
 	}
+	ctx, cancel := context.WithTimeout(ctx, configpkg.GitCloneTimeout)
+	defer cancel()
 	repo, err := git.CloneContext(ctx, g.store, dirfs, &git.CloneOptions{
 		URL:               url,
 		SingleBranch:      true,
@@ -80,6 +84,8 @@ func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.File
 func (g *gitProvider) download(ctx context.Context) error {
 	// git pull --ff-only
 	// git submodule update --init --recursive
+	ctx, cancel := context.WithTimeout(ctx, configpkg.GitPullTimeout)
+	defer cancel()
 	err := g.worktree.PullContext(ctx, &git.PullOptions{
 		SingleBranch:      true,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
@@ -130,6 +136,10 @@ func (g *gitProvider) ping(ctx context.Context, scheme, repo string) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithTimeout(ctx, configpkg.GitListTimeout)
+	defer cancel()
+
 	if WithCancel(ctx, func() {
 		_, err = remote.List(&git.ListOptions{})
 	}) {

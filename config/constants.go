@@ -46,4 +46,16 @@ const (
 
 	// WebsocketWriteTimeout is the write timeout for websockets
 	WebsocketWriteTimeout = time.Second * 5
+
+	// GitCloneTimeout is the time to wait for a git clone operation
+	GitCloneTimeout = time.Second * 60
+
+	// GitPullTimeout is the time to wait for a git pull operation
+	GitPullTimeout = time.Second * 60
+
+	// GitListTimeout is the time to wait for a git list operation
+	GitListTimeout = time.Second * 10
+
+	// HttpTimeout is the time to wait for HTTP operations (e.g. getting meta data - not git)
+	HttpTimeout = time.Second * 5
 )
