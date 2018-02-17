@@ -2,7 +2,7 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v27
+VER=v28
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
