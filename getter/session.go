@@ -1,19 +1,57 @@
 package getter
 
 import (
+	"context"
 	"go/build"
 	"io"
 	"os"
+	"sync"
+
 	"path"
 	"path/filepath"
 	"strings"
 
 	"github.com/dave/jsgo/assets"
-
+	"golang.org/x/sync/singleflight"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func NewBuildContext(fs billy.Filesystem) *build.Context {
+type Session struct {
+	fs                billy.Filesystem
+	log               io.Writer
+	packageCache      map[string]*Package
+	buildContext      *build.Context
+	foldPath          map[string]string
+	downloadCache     map[string]bool
+	downloadRootCache map[string]*repoRoot
+	repoPackages      map[string]*repoRoot
+	fetchGroup        singleflight.Group
+	fetchCacheMu      sync.Mutex
+	fetchCache        map[string]fetchResult // key is metaImportsForPrefix's importPrefix
+}
+
+func New(fs billy.Filesystem, log io.Writer) *Session {
+	s := &Session{}
+
+	s.fs = fs
+	s.log = log
+	s.packageCache = make(map[string]*Package)
+	s.foldPath = make(map[string]string)
+	s.downloadCache = make(map[string]bool)
+	s.downloadRootCache = make(map[string]*repoRoot) // key is the root dir of the repo
+	s.repoPackages = make(map[string]*repoRoot)      // key is the path of the package. NOTE: not all packages are included, but the ones we're interested in should be.
+	s.fetchCache = make(map[string]fetchResult)
+	s.buildContext = newBuildContext(fs)
+	return s
+
+}
+
+func (s *Session) Get(ctx context.Context, path string, update bool, insecure bool) error {
+	var stk ImportStack
+	return s.download(ctx, path, nil, &stk, update, insecure)
+}
+
+func newBuildContext(fs billy.Filesystem) *build.Context {
 	return &build.Context{
 		GOARCH:      build.Default.GOARCH, // target architecture
 		GOOS:        build.Default.GOOS,   // target operating system
@@ -100,5 +138,21 @@ func NewBuildContext(fs billy.Filesystem) *build.Context {
 			}
 			return fs.Open(path)
 		},
+	}
+}
+
+// WithCancel executes the provided function, but returns early with true if the context cancellation
+// signal was recieved.
+func WithCancel(ctx context.Context, f func()) bool {
+	finished := make(chan struct{})
+	go func() {
+		f()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return false
+	case <-ctx.Done():
+		return true
 	}
 }
