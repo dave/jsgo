@@ -2,6 +2,8 @@
 
 jsgo.io is a GopherJS compiler, serving framework and CDN.
 
+<img width="75%" src="https://user-images.githubusercontent.com/925351/36342450-1595a85a-13ff-11e8-9ebe-7019c3f4d1af.png">
+
 *Please don't use this in production just yet!* 
 
 ### Features
