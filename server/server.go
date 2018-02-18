@@ -272,6 +272,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					if (complete) {
 						break;
 					}
+					complete = true;
 					errorPanel.style.display = "";
 					errorMessage.innerHTML = message.payload.message;
 					break;
@@ -371,6 +372,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 					break
 				}
 				storeError(ctx, path, err, req)
+				break
 			}
 		}
 	}()

@@ -56,6 +56,10 @@ const (
 	// GitListTimeout is the time to wait for a git list operation
 	GitListTimeout = time.Second * 10
 
+	// GitMaxBytes is the maximum bytes allowed to be used by the git clone operation before returning
+	// an error.
+	GitMaxBytes = 50 * 1024 * 1024 // 100 MB
+
 	// HttpTimeout is the time to wait for HTTP operations (e.g. getting meta data - not git)
 	HttpTimeout = time.Second * 5
 )

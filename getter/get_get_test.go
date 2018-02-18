@@ -1,6 +1,7 @@
 package getter
 
 import (
+	"log"
 	"os"
 	"testing"
 
@@ -9,20 +10,37 @@ import (
 
 	"context"
 
+	"runtime"
+
+	"github.com/dave/jsgo/config"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/storage/memory"
+	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 )
 
 func TestClone(t *testing.T) {
-	_, err := git.Clone(memory.NewStorage(), memfs.New(), &git.CloneOptions{
-		URL:               "https://github.com/kubernetes/kubernetes",
-		SingleBranch:      true,
-		Depth:             1,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-	})
-	if err != nil {
-		t.Fatal(err)
+	for {
+
+		var mem runtime.MemStats
+		runtime.ReadMemStats(&mem)
+		log.Println("mem.Alloc", mem.Alloc)
+		log.Println("mem.TotalAlloc", mem.TotalAlloc)
+		log.Println("mem.HeapAlloc", mem.HeapAlloc)
+		log.Println("mem.HeapSys", mem.HeapSys)
+
+		store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), config.GitMaxBytes))
+		if err != nil {
+			t.Fatal(err)
+		}
+		_, err = git.Clone(store, memfs.New(), &git.CloneOptions{
+			URL:               "https://github.com/kubernetes/kubernetes",
+			SingleBranch:      true,
+			Depth:             1,
+			RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		})
+		if err != nil {
+			fmt.Println(err.Error())
+		}
 	}
 }
 

@@ -5,10 +5,13 @@ import (
 
 	configpkg "github.com/dave/jsgo/config"
 
+	"errors"
+
 	"gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
-	"gopkg.in/src-d/go-git.v4/storage"
+	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 	"gopkg.in/src-d/go-git.v4/storage/memory"
 )
 
@@ -22,7 +25,6 @@ type vcsProvider interface {
 }
 
 type gitProvider struct {
-	store      storage.Storer
 	repo       *git.Repository
 	worktree   *git.Worktree
 	hashString string
@@ -35,20 +37,26 @@ func (g *gitProvider) hash() string {
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
 	// git clone {repo} {dir}
 	// git -go-internal-cd {dir} submodule update --init --recursive
-	g.store = memory.NewStorage()
+	store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), configpkg.GitMaxBytes))
+	if err != nil {
+		return err
+	}
 	dirfs, err := fs.Chroot(dir)
 	if err != nil {
 		return err
 	}
 	ctx, cancel := context.WithTimeout(ctx, configpkg.GitCloneTimeout)
 	defer cancel()
-	repo, err := git.CloneContext(ctx, g.store, dirfs, &git.CloneOptions{
+	repo, err := git.CloneContext(ctx, store, dirfs, &git.CloneOptions{
 		URL:               url,
 		SingleBranch:      true,
 		Depth:             1,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
 	})
 	if err != nil {
+		if err == OutOfSpace {
+			return errors.New("out of space cloning repo")
+		}
 		return err
 	}
 	g.repo = repo
@@ -92,6 +100,9 @@ func (g *gitProvider) download(ctx context.Context) error {
 		Force:             true,
 	})
 	if err != nil {
+		if err == OutOfSpace {
+			return errors.New("out of space pulling repo")
+		}
 		return err
 	}
 
