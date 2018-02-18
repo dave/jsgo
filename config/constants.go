@@ -38,14 +38,14 @@ const (
 	// ServerShutdownTimeout is the timeout when doing a graceful server shutdown
 	ServerShutdownTimeout = time.Second * 5
 
-	// WebsocketPingPeriod is the interval between pings
-	WebsocketPingPeriod = time.Second
+	// WebsocketPingPeriod is the interval between pings. Must be less than WebsocketPongTimeout.
+	WebsocketPingPeriod = time.Second * 10
 
 	// WebsocketPongTimeout is the time to wait for a pong from the client before cancelling
-	WebsocketPongTimeout = time.Second * 2
+	WebsocketPongTimeout = time.Second * 20
 
 	// WebsocketWriteTimeout is the write timeout for websockets
-	WebsocketWriteTimeout = time.Second * 5
+	WebsocketWriteTimeout = time.Second * 20
 
 	// GitCloneTimeout is the time to wait for a git clone operation
 	GitCloneTimeout = time.Second * 60

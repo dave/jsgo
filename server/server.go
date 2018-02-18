@@ -225,6 +225,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var errorMessage = document.getElementById("error-message");
 			
 			var done = {};
+			var complete = false;
 
 			socket.onopen = function() {
 				buttonPanel.style.display = "none";
@@ -258,6 +259,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					}
 					break;
 				case "complete":
+					complete = true;
 					completePanel.style.display = "";
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
@@ -267,9 +269,19 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					completeScript.value = "https://{{ .CdnHost }}/{{ .PkgDir }}/" + message.payload.path + "." + message.payload.hashmin + ".js"
 					break;
 				case "error":
+					if (complete) {
+						break;
+					}
 					errorPanel.style.display = "";
 					errorMessage.innerHTML = message.payload.message;
 					break;
+				}
+				socket.onclose = function() {
+					if (complete) {
+						return;
+					}
+					errorPanel.style.display = "";
+					errorMessage.innerHTML = "server disconnected";
 				}
 			}
 		};
@@ -354,10 +366,11 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 		})
 		for {
 			if _, _, err := conn.ReadMessage(); err != nil {
-				if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseAbnormalClosure) {
-					storeError(ctx, path, err, req)
+				if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+					// Don't bother storing an error if the client disconnects gracefully
+					break
 				}
-				break
+				storeError(ctx, path, err, req)
 			}
 		}
 	}()
@@ -469,9 +482,6 @@ func sendAndStoreError(ctx context.Context, send chan messages.Message, path str
 }
 
 func sendError(send chan messages.Message, path string, err error) {
-	// panic during error log should be cancelled
-	defer func() { recover() }()
-
 	send <- messages.Message{Type: messages.Error, Payload: messages.ErrorPayload{
 		Path:    path,
 		Message: err.Error(),
@@ -479,8 +489,8 @@ func sendError(send chan messages.Message, path string, err error) {
 }
 
 func storeError(ctx context.Context, path string, err error, req *http.Request) {
-	// panic during error storage should be cancelled
-	defer func() { recover() }()
+
+	fmt.Println("error:", err.Error())
 
 	if err == queue.TooManyItemsQueued {
 		// If the server is getting flooded by a DOS, this will prevent database flooding
