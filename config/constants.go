@@ -60,6 +60,9 @@ const (
 	// an error.
 	GitMaxBytes = 50 * 1024 * 1024 // 100 MB
 
+	// GitMaxRefs is the maximum refs returned by git ls-remote before the repo is deemed too big
+	GitMaxRefs = 10000
+
 	// HttpTimeout is the time to wait for HTTP operations (e.g. getting meta data - not git)
 	HttpTimeout = time.Second * 5
 )

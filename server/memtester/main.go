@@ -8,39 +8,70 @@ import (
 
 	"sync/atomic"
 
+	"github.com/apex/log"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
-	git "gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4"
+	"gopkg.in/src-d/go-git.v4/config"
 	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 )
 
 func main() {
-	for {
-		clone()
-	}
+	//for {
+	clone()
+	//}
 }
 
 func clone() {
+	runtime.GC()
+
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
-	fmt.Println("mem.Alloc      ", mem.Alloc)
-	fmt.Println("mem.TotalAlloc ", mem.TotalAlloc)
-	fmt.Println("mem.HeapAlloc  ", mem.HeapAlloc)
-	fmt.Println("mem.HeapSys    ", mem.HeapSys)
+	fmt.Println("---")
+	fmt.Println("mem.Sys      ", mem.Sys)
 
+	//store, err := filesystem.NewStorage(memfs.New())
+	//if err != nil {
+	//	fmt.Println(err.Error())
+	//}
+	//_, err = git.Clone(store, memfs.New(), &git.CloneOptions{URL: "https://github.com/dave/jsgo"})
 	store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), 50*1024*1024))
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatal(err.Error())
 	}
-	_, err = git.Clone(store, memfs.New(), &git.CloneOptions{
-		URL:               "https://github.com/kubernetes/kubernetes",
-		SingleBranch:      true,
-		Depth:             1,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+
+	repo, err := git.Init(store, memfs.New())
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	r, err := repo.CreateRemote(&config.RemoteConfig{
+		Name:  "origin",
+		URLs:  []string{"https://github.com/kubernetes/kubernetes"},
+		Fetch: []config.RefSpec{config.RefSpec("refs/heads/*:refs/heads/*")},
 	})
 	if err != nil {
-		fmt.Println(err.Error())
+		log.Fatal(err.Error())
 	}
+
+	refs, err := r.List(&git.ListOptions{})
+	if err != nil {
+		log.Fatal(err.Error())
+	}
+
+	fmt.Println(len(refs))
+
+	/*
+		_, err = git.Clone(store, memfs.New(), &git.CloneOptions{
+			URL:               "https://github.com/kubernetes/kubernetes",
+			SingleBranch:      true,
+			Depth:             1,
+			RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+			Progress:          os.Stdout,
+		})
+		if err != nil {
+			fmt.Println(err.Error())
+		}*/
 }
 
 var OutOfSpace = errors.New("out of space")

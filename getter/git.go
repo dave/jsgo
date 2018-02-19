@@ -7,6 +7,8 @@ import (
 
 	"errors"
 
+	"fmt"
+
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
@@ -34,9 +36,46 @@ func (g *gitProvider) hash() string {
 	return g.hashString
 }
 
+func (g *gitProvider) checkSize(ctx context.Context, url string) error {
+
+	store, err := filesystem.NewStorage(memfs.New())
+	if err != nil {
+		return err
+	}
+
+	repo, err := git.Init(store, memfs.New())
+	if err != nil {
+		return err
+	}
+
+	r, err := repo.CreateRemote(&config.RemoteConfig{
+		Name:  "origin",
+		URLs:  []string{url},
+		Fetch: []config.RefSpec{config.RefSpec("refs/heads/*:refs/heads/*")},
+	})
+	if err != nil {
+		return err
+	}
+
+	refs, err := r.List(&git.ListOptions{})
+	if err != nil {
+		return err
+	}
+
+	if len(refs) > configpkg.GitMaxRefs {
+		return fmt.Errorf("repo is too big - ls-remote returned %d refs - max is %d", len(refs), configpkg.GitMaxRefs)
+	}
+	return nil
+}
+
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
 	// git clone {repo} {dir}
 	// git -go-internal-cd {dir} submodule update --init --recursive
+
+	if err := g.checkSize(ctx, url); err != nil {
+		return err
+	}
+
 	store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), configpkg.GitMaxBytes))
 	if err != nil {
 		return err
@@ -45,6 +84,7 @@ func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.File
 	if err != nil {
 		return err
 	}
+
 	ctx, cancel := context.WithTimeout(ctx, configpkg.GitCloneTimeout)
 	defer cancel()
 	repo, err := git.CloneContext(ctx, store, dirfs, &git.CloneOptions{
