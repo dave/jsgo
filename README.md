@@ -4,8 +4,6 @@ jsgo.io is a GopherJS compiler, serving framework and CDN.
 
 <img width="75%" src="https://user-images.githubusercontent.com/925351/36342450-1595a85a-13ff-11e8-9ebe-7019c3f4d1af.png">
 
-*Please don't use this in production just yet!* 
-
 ### Features
 
 * Compiles your Go to JS.  
@@ -29,8 +27,8 @@ If you look at the `Network` panel in your browser inspector as the page loads, 
 in the dependency tree downloading separately. The individual packages are aggressively cached, so if 
 you recently visited a page that uses the `fmt` package, it won't be downloaded again!  
 
-You'll also see the URL of a JS file, for use on your own site. This small bootstrap loader initiates 
-the individual package files to download, and runs the JS.
+You'll also see the URL of a JS file (hosted on the `pkg.jsgo.io` CDN), for use on your own site. This 
+small bootstrap loader initiates the individual package files to download, and runs the JS. 
 
 ### Demos
 
