@@ -197,14 +197,14 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 		</div>
 	</body>
 	<script>
-		var complete = {};
+		var completePayload = {};
 		document.getElementById("minify-checkbox").onchange = function() {
 			var value = document.getElementById("minify-checkbox").checked;
 			var completeLink = document.getElementById("complete-link");
 			var completeScript = document.getElementById("complete-script");
-			completeLink.href = "https://{{ .IndexHost }}/" + complete.short + (value ? "" : "$max");
-			completeLink.innerHTML = "{{ .IndexHost }}/" + complete.short + (value ? "" : "$max");
-			completeScript.value = "https://{{ .PkgHost }}/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
+			completeLink.href = "https://{{ .IndexHost }}/" + completePayload.short + (value ? "" : "$max");
+			completeLink.innerHTML = "{{ .IndexHost }}/" + completePayload.short + (value ? "" : "$max");
+			completeScript.value = "https://{{ .PkgHost }}/" + completePayload.path + "." + (value ? completePayload.hashmin : completePayload.hashmax) + ".js"
 		}
 		document.getElementById("btn").onclick = function(event) {
 			event.preventDefault();
@@ -259,7 +259,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					completePanel.style.display = "";
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
-					complete = message.payload;
+					completePayload = message.payload;
 					completeLink.href = "https://{{ .IndexHost }}/" + message.payload.short
 					completeLink.innerHTML = "{{ .IndexHost }}/" + message.payload.short
 					completeScript.value = "https://{{ .PkgHost }}/" + message.payload.path + "." + message.payload.hashmin + ".js"
