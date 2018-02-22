@@ -194,7 +194,11 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 		<span id="log"></span>
 		<script>
 			window.jsgoProgress = function(count, total) {
-				document.getElementById("log").innerHTML = count + "/" + total;
+				if (count === total) {
+					document.getElementById("log").style.display = "none";
+				} else {
+					document.getElementById("log").innerHTML = count + "/" + total;
+				}
 			}
 		</script>
 		<script src="{{ .Script }}"></script>
