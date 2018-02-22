@@ -55,7 +55,7 @@ func loadAssets(fs billy.Filesystem) error {
 			return err
 		}
 		defer client.Close()
-		gcsReader, err := client.Bucket(config.CdnBucket).Object(config.AssetsFilename).NewReader(ctx)
+		gcsReader, err := client.Bucket(config.PkgBucket).Object(config.AssetsFilename).NewReader(ctx)
 		if err != nil {
 			return err
 		}

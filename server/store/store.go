@@ -20,14 +20,13 @@ type CompileData struct {
 
 type CompileContents struct {
 	Main     string
-	Prelude  string
 	Packages []CompilePackage
 }
 
 type CompilePackage struct {
 	Path     string
-	Standard bool
 	Hash     string
+	Standard bool
 }
 
 func Save(ctx context.Context, path string, data CompileData) error {

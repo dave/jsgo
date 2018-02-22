@@ -2,11 +2,12 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v49
+VER=v50
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
 DEPLOYMENT=back-deployment
+BUCKET=pkg.jsgo.io
 
 # Run this to do a full deploy (remember to increment VER first)
 all:
@@ -16,8 +17,8 @@ all:
 	make roll
 	
 scale:
-	kubectl delete hpa back-deployment --ignore-not-found=true
-	kubectl autoscale deployment ${DEPLOYMENT} --min=1 --max=1 --cpu-percent=75
+	kubectl delete hpa ${DEPLOYMENT} --ignore-not-found=true
+	kubectl autoscale deployment ${DEPLOYMENT} --min=3 --max=24 --cpu-percent=75
 
 # Set the default cluster for the kebectl command
 setup:
@@ -70,3 +71,8 @@ create-indexes:
 
 cleanup-indexes:
 	gcloud datastore cleanup-indexes index.yaml
+	
+bucket:
+	gsutil mb -p ${PROJECT} -c multi_regional -l us gs://${BUCKET}/
+	gsutil defacl set public-read gs://${BUCKET}
+	

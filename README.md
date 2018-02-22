@@ -57,8 +57,12 @@ as the script src. See [todomvc](https://github.com/dave/todomvc/blob/master/ind
 
 ### Progress
 
-If the page contains an element with `id="log"`, the bootstrap code will update it with loading progress. 
-To disable this, simply remove the log element from the page.
+If a function `window.jsgoProgress` exists, it will be called repeatedly as packages load. Two parameters 
+are supplied: `count` (the number of packages loaded so far) and `total` (the total number of packages).
+
+The default index page on `jsgo.io` is to display a simple `{{count}} / {{total}}` message in a span. 
+However, by supplying a custom `index.jsgo.html`, more complex effects may be created - see the [2048 
+example](https://jsgo.io/dave/ebiten/examples/2048) for a [bootstrap progress bar](https://github.com/dave/ebiten/blob/master/examples/2048/index.jsgo.html).
 
 ### Limitations
 

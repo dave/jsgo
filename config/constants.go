@@ -13,18 +13,15 @@ const (
 	// ProjectId is the ID of the GCS project
 	ProjectID = "jsgo-192815"
 
-	CdnBucket   = "cdn.jsgo.io"
+	PkgBucket   = "pkg.jsgo.io"
 	IndexBucket = "jsgo.io"
 
-	CdnHost   = "cdn.jsgo.io"
+	PkgHost   = "pkg.jsgo.io"
 	IndexHost = "jsgo.io"
 
 	CompileHost = "compile.jsgo.io"
 
-	PkgDir = "pkg10"
-	StdDir = "std10"
-
-	AssetsFilename = "assets10.zip"
+	AssetsFilename = "assets.zip"
 
 	// WriteTimeout is the timeout when serving static files
 	WriteTimeout = time.Second * 2

@@ -58,7 +58,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 	defer client.Close()
-	bucketCdn := client.Bucket(config.CdnBucket)
+	bucketPkg := client.Bucket(config.PkgBucket)
 	bucketIndex := client.Bucket(config.IndexBucket)
 
 	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: false}}
@@ -118,21 +118,21 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 			continue
 		}
 		c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Path: poMin.Path}}
-		if err := sendToStorage(ctx, bucketCdn, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
+		if err := sendToStorage(ctx, bucketPkg, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
 			return nil, nil, err
 		}
-		if err := sendToStorage(ctx, bucketCdn, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
+		if err := sendToStorage(ctx, bucketPkg, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
 			return nil, nil, err
 		}
 	}
 	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: true}}
 
 	c.send <- messages.Message{Type: messages.Index, Payload: messages.IndexPayload{Path: path}}
-	hashMin, err := genMain(ctx, bucketCdn, outputMin, true)
+	hashMin, err := genMain(ctx, bucketPkg, outputMin, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	hashMax, err := genMain(ctx, bucketCdn, outputMax, false)
+	hashMax, err := genMain(ctx, bucketPkg, outputMax, false)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -192,6 +192,11 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 	</head>
 	<body id="wrapper">
 		<span id="log"></span>
+		<script>
+			window.jsgoProgress = function(count, total) {
+				document.getElementById("log").innerHTML = count + "/" + total;
+			}
+		</script>
 		<script src="{{ .Script }}"></script>
 	</body>
 </html>
@@ -202,7 +207,7 @@ func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.T
 	v := IndexVars{
 		Path:   path,
 		Hash:   fmt.Sprintf("%x", hash),
-		Script: fmt.Sprintf("https://%s/%s/%s.%x.js", config.CdnHost, config.PkgDir, path, hash),
+		Script: fmt.Sprintf("https://%s/%s.%x.js", config.PkgHost, path, hash),
 	}
 
 	buf := &bytes.Buffer{}
@@ -254,12 +259,17 @@ func storeHtml(ctx context.Context, bucket *storage.BucketHandle, reader io.Read
 
 func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.CommandOutput, min bool) ([]byte, error) {
 
-	var pkgs []PkgJson
+	pkgs := []PkgJson{
+		{
+			// Always include the prelude dummy package first
+			Path: "prelude",
+			Hash: std.PreludeHash,
+		},
+	}
 	for _, po := range output.Packages {
 		pkgs = append(pkgs, PkgJson{
-			Path:     po.Path,
-			Hash:     fmt.Sprintf("%x", po.Hash),
-			Standard: po.Standard,
+			Path: po.Path,
+			Hash: fmt.Sprintf("%x", po.Hash),
 		})
 	}
 
@@ -269,10 +279,7 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 	}
 
 	m := MainVars{
-		CdnHost: config.CdnHost,
-		PkgDir:  config.PkgDir,
-		StdDir:  config.StdDir,
-		Prelude: std.PreludeHash,
+		PkgHost: config.PkgHost,
 		Path:    output.Path,
 		Json:    string(pkgJson),
 	}
@@ -297,7 +304,7 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 }
 
 func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
-	fpath := fmt.Sprintf("%s/%s.%x.js", config.PkgDir, path, hash)
+	fpath := fmt.Sprintf("%s.%x.js", path, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
 		return err
 	}
@@ -316,18 +323,14 @@ func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader
 }
 
 type MainVars struct {
-	Prelude string
 	Path    string
 	Json    string
-	CdnHost string
-	PkgDir  string
-	StdDir  string
+	PkgHost string
 }
 
 type PkgJson struct {
-	Path     string `json:"path"`
-	Hash     string `json:"hash,omitempty"`
-	Standard bool   `json:"std,omitempty"`
+	Path string `json:"path"`
+	Hash string `json:"hash"`
 }
 
 var mainTemplate = template.Must(template.New("main").Parse(`
@@ -352,7 +355,7 @@ var $load = {};
 	}
 	var done = function() {
 		count++;
-		if (log) { log.innerHTML = count + " / " + total; }
+		if (window.jsgoProgress) { window.jsgoProgress(count, total); }
 		if (count == total) { finished(); }
 	}
 	var get = function(url) {
@@ -363,9 +366,8 @@ var $load = {};
 		tag.onreadystatechange = done;
 		document.head.appendChild(tag);
 	}
-	get("https://{{ .CdnHost }}/{{ .StdDir }}/prelude.{{ .Prelude }}.js");
 	for (var i = 0; i < info.length; i++) {
-		get("https://{{ .CdnHost }}/" + (info[i].std ? "{{ .StdDir }}" : "{{ .PkgDir }}") + "/" + info[i].path + "." + info[i].hash + ".js");
+		get("https://{{ .PkgHost }}/" + info[i].path + "." + info[i].hash + ".js");
 	}
 })();
 `))

@@ -1,3 +1,3 @@
 package std
 
-const PreludeHash = "009390bde13a14d3dfb6a88357151d4c4dd6f578"
+const PreludeHash = "f31d388f0db5e3dfb23d54e3f8b79245a026963c"

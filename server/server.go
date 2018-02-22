@@ -84,17 +84,13 @@ func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
 		Last      string
 		Host      string
 		Scheme    string
-		CdnHost   string
+		PkgHost   string
 		IndexHost string
-		PkgDir    string
-		StdDir    string
 	}
 
 	v := vars{}
-	v.CdnHost = config.CdnHost
+	v.PkgHost = config.PkgHost
 	v.IndexHost = config.IndexHost
-	v.PkgDir = config.PkgDir
-	v.StdDir = config.StdDir
 	v.Host = req.Host
 	v.Path = path
 	if req.Host == config.CompileHost {
@@ -208,7 +204,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var completeScript = document.getElementById("complete-script");
 			completeLink.href = "https://{{ .IndexHost }}/" + complete.short + (value ? "" : "$max");
 			completeLink.innerHTML = "{{ .IndexHost }}/" + complete.short + (value ? "" : "$max");
-			completeScript.value = "https://{{ .CdnHost }}/{{ .PkgDir }}/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
+			completeScript.value = "https://{{ .PkgHost }}/" + complete.path + "." + (value ? complete.hashmin : complete.hashmax) + ".js"
 		}
 		document.getElementById("btn").onclick = function(event) {
 			event.preventDefault();
@@ -266,7 +262,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					complete = message.payload;
 					completeLink.href = "https://{{ .IndexHost }}/" + message.payload.short
 					completeLink.innerHTML = "{{ .IndexHost }}/" + message.payload.short
-					completeScript.value = "https://{{ .CdnHost }}/{{ .PkgDir }}/" + message.payload.path + "." + message.payload.hashmin + ".js"
+					completeScript.value = "https://{{ .PkgHost }}/" + message.payload.path + "." + message.payload.hashmin + ".js"
 					break;
 				case "error":
 					if (complete) {
@@ -450,12 +446,18 @@ func storeSuccess(ctx context.Context, send chan messages.Message, path string, 
 	getCompileContents := func(c *compile.CompileOutput) store.CompileContents {
 		val := store.CompileContents{}
 		val.Main = fmt.Sprintf("%x", c.Hash)
-		val.Prelude = std.PreludeHash
+		val.Packages = []store.CompilePackage{
+			{
+				Path:     "prelude",
+				Hash:     std.PreludeHash,
+				Standard: true,
+			},
+		}
 		for _, p := range c.Packages {
 			val.Packages = append(val.Packages, store.CompilePackage{
 				Path:     p.Path,
-				Standard: p.Standard,
 				Hash:     fmt.Sprintf("%x", p.Hash),
+				Standard: p.Standard,
 			})
 		}
 		return val

@@ -845,7 +845,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"image/draw": {
 		HashMax: "e81b7b737cbada078c2f20497f26ef6cb3f3ccab",
-		HashMin: "723b0aa9aac6c5def8e3f8348d557e57c8658720",
+		HashMin: "635148a99295e408cb812b599ae853133bb2d05f",
 	},
 	"image/gif": {
 		HashMax: "55d81bfb231413340b706304e4348a7c5c19a428",

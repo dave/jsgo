@@ -121,7 +121,7 @@ func Src() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket(config.CdnBucket)
+	bucket := client.Bucket(config.PkgBucket)
 	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), config.AssetsFilename); err != nil {
 		return err
 	}
@@ -130,9 +130,14 @@ func Src() error {
 	return nil
 }
 
+// Add dummy package prelude to the loader so prelude can be loaded like a package
+const jsGoPrelude = `
+$load["prelude"] = function(){};
+`
+
 func Prelude() error {
 	fmt.Println("Storing prelude...")
-	b := []byte(prelude.Prelude)
+	b := []byte(prelude.Prelude + jsGoPrelude)
 	s := sha1.New()
 	if _, err := s.Write(b); err != nil {
 		return err
@@ -144,11 +149,11 @@ func Prelude() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket(config.CdnBucket)
+	bucket := client.Bucket(config.PkgBucket)
 
 	hash := fmt.Sprintf("%x", s.Sum(nil))
 
-	fname := fmt.Sprintf("%s/prelude.%s.js", config.StdDir, hash)
+	fname := fmt.Sprintf("prelude.%s.js", hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
 		return nil
 	}
@@ -184,7 +189,7 @@ func Js() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket(config.CdnBucket)
+	bucket := client.Bucket(config.PkgBucket)
 
 	sessionMin := builder.NewSession(&builder.Options{
 		Root:        rootfs,
@@ -269,7 +274,7 @@ func Js() error {
 }
 
 func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
-	fpath := fmt.Sprintf("%s/%s.%x.js", config.StdDir, path, hash)
+	fpath := fmt.Sprintf("%s.%x.js", path, hash)
 	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
 		return err
 	}
