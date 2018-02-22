@@ -9,6 +9,16 @@ import (
 
 	"fmt"
 
+	"io"
+
+	"bufio"
+
+	"regexp"
+
+	"strconv"
+
+	"strings"
+
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
@@ -68,13 +78,60 @@ func (g *gitProvider) checkSize(ctx context.Context, url string) error {
 	return nil
 }
 
+var progressRegex = regexp.MustCompile(`Counting objects: (\d+), done\.?\n$`)
+
+func newProgressWatcher() (*progressWatcher, chan error) {
+	r, w := io.Pipe()
+	p := &progressWatcher{
+		w: w,
+	}
+	errchan := make(chan error)
+	go func() {
+		defer close(errchan)
+		buf := bufio.NewReader(r)
+		s, err := buf.ReadString('\n')
+		p.done = true
+		if err != nil {
+			errchan <- err
+			return
+		}
+		matches := progressRegex.FindStringSubmatch(s)
+		if len(matches) != 2 {
+			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
+			return
+		}
+		objects, err := strconv.Atoi(matches[1])
+		if err != nil {
+			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
+			return
+		}
+		if objects > configpkg.GitMaxObjects {
+			errchan <- fmt.Errorf("too many git objects (max %d): %d", configpkg.GitMaxObjects, objects)
+			return
+		}
+	}()
+	return p, errchan
+}
+
+type progressWatcher struct {
+	w    io.Writer
+	done bool
+}
+
+func (p *progressWatcher) Write(b []byte) (n int, err error) {
+	if p.done {
+		return
+	}
+	return p.w.Write(b)
+}
+
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
 	// git clone {repo} {dir}
 	// git -go-internal-cd {dir} submodule update --init --recursive
 
-	if err := g.checkSize(ctx, url); err != nil {
-		return err
-	}
+	//if err := g.checkSize(ctx, url); err != nil {
+	//	return err
+	//}
 
 	store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), configpkg.GitMaxBytes))
 	if err != nil {
@@ -87,13 +144,27 @@ func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.File
 
 	ctx, cancel := context.WithTimeout(ctx, configpkg.GitCloneTimeout)
 	defer cancel()
+
+	pw, errchan := newProgressWatcher()
+	var errFromWatcher error
+	go func() {
+		if err := <-errchan; err != nil {
+			errFromWatcher = err
+			cancel()
+		}
+	}()
+
 	repo, err := git.CloneContext(ctx, store, dirfs, &git.CloneOptions{
 		URL:               url,
 		SingleBranch:      true,
 		Depth:             1,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		Progress:          pw,
 	})
 	if err != nil {
+		if errFromWatcher != nil {
+			return errFromWatcher
+		}
 		if err == OutOfSpace {
 			return errors.New("out of space cloning repo")
 		}

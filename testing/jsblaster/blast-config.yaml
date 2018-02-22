@@ -1,20 +1,20 @@
-rate: 0.5
-workers: 100
+rate: 1
+workers: 1
 worker-type: "jsgo"
 timeout: 300000
-worker-template:
+payload-template:
   path: "{{ .path }}"
-worker-variants:
+payload-variants:
   - path: "/kubernetes/kubernetes"
-  #- path: "/hajimehoshi/go-inovation"
-  #- path: "/dave/ebiten/examples/2048"
-  #- path: "/shurcooL/tictactoe/cmd/tictactoe"
-  #- path: "/dave/todomvc"
-  #- path: "/gopherjs/vecty/example/markdown"
-  #- path: "/dave/ebiten/examples/airship"
-  #- path: "/dave/ebiten/examples/alphablending"
-  #- path: "/dave/ebiten/examples/audio"
-  #- path: "/dave/ebiten/examples/infinitescroll"
-  #- path: "/dave/ebiten/examples/rotate"
-  #- path: "/dave/ebiten/examples/sprites"
+  - path: "/hajimehoshi/go-inovation"
+  - path: "/dave/ebiten/examples/2048"
+  - path: "/shurcooL/tictactoe/cmd/tictactoe"
+  - path: "/dave/todomvc"
+  - path: "/gopherjs/vecty/example/markdown"
+  - path: "/dave/ebiten/examples/airship"
+  - path: "/dave/ebiten/examples/alphablending"
+  - path: "/dave/ebiten/examples/audio"
+  - path: "/dave/ebiten/examples/infinitescroll"
+  - path: "/dave/ebiten/examples/rotate"
+  - path: "/dave/ebiten/examples/sprites"
     

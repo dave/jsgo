@@ -2,7 +2,7 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v41
+VER=v49
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
@@ -17,7 +17,7 @@ all:
 	
 scale:
 	kubectl delete hpa back-deployment --ignore-not-found=true
-	kubectl autoscale deployment ${DEPLOYMENT} --min=3 --max=24 --cpu-percent=75
+	kubectl autoscale deployment ${DEPLOYMENT} --min=1 --max=1 --cpu-percent=75
 
 # Set the default cluster for the kebectl command
 setup:
