@@ -191,13 +191,13 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 		<meta charset="utf-8">
 	</head>
 	<body id="wrapper">
-		<span id="log"></span>
+		<span id="jsgo-progress-span"></span>
 		<script>
 			window.jsgoProgress = function(count, total) {
 				if (count === total) {
-					document.getElementById("log").style.display = "none";
+					document.getElementById("jsgo-progress-span").style.display = "none";
 				} else {
-					document.getElementById("log").innerHTML = count + "/" + total;
+					document.getElementById("jsgo-progress-span").innerHTML = count + "/" + total;
 				}
 			}
 		</script>
