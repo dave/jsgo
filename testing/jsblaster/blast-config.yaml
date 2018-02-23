@@ -18,7 +18,7 @@ data: |
   /github.com/relnod/calcgo/cmd/calcgo
   /github.com/shurcooL/tictactoe/cmd/tictactoe
 rate: 1
-workers: 3
+workers: 9
 worker-type: "jsgo"
 timeout: 300000
 payload-template:
