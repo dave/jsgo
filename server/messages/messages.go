@@ -1,5 +1,7 @@
 package messages
 
+import "strings"
+
 func CompileWriter(send chan Message) compileWriter {
 	return compileWriter{send: send}
 }
@@ -17,12 +19,12 @@ type downloadWriter struct {
 }
 
 func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send <- Message{Type: Download, Payload: DownloadPayload{Path: string(b)}}
+	w.send <- Message{Type: Download, Payload: Payload{Message: strings.TrimSuffix(string(b), "\n")}}
 	return len(b), nil
 }
 
 func (w compileWriter) Write(b []byte) (n int, err error) {
-	w.send <- Message{Type: Compile, Payload: CompilePayload{Path: string(b)}}
+	w.send <- Message{Type: Compile, Payload: Payload{Message: strings.TrimSuffix(string(b), "\n")}}
 	return len(b), nil
 }
 
@@ -33,8 +35,6 @@ const Download Type = "download"
 const Compile Type = "compile"
 
 const Store Type = "store"
-
-const Index Type = "index"
 
 const Complete Type = "complete"
 
@@ -47,24 +47,16 @@ type Message struct {
 	Payload interface{} `json:"payload"`
 }
 
-type DownloadPayload struct {
-	Path string `json:"path,omitempty"`
-	Done bool   `json:"done"`
-}
-
-type CompilePayload struct {
-	Path string `json:"path,omitempty"`
-	Done bool   `json:"done"`
+type Payload struct {
+	Message string `json:"message,omitempty"`
+	Done    bool   `json:"done"`
 }
 
 type StorePayload struct {
-	Path string `json:"path,omitempty"`
-	Done bool   `json:"done"`
-}
-
-type IndexPayload struct {
-	Path string `json:"path,omitempty"`
-	Done bool   `json:"done"`
+	Finished  int  `json:"finished"`
+	Unchanged int  `json:"unchanged"`
+	Remain    int  `json:"remain"`
+	Done      bool `json:"done"`
 }
 
 type CompletePayload struct {

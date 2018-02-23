@@ -141,36 +141,6 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 						</p>
 					</div>
 
-					<div id="progress-panel" style="display: none;">
-						<table class="table table-dark">
-							<tbody>
-								<tr id="queue-item" style="display: none;">
-									<th scope="row" class="w-25">Queued:</th>
-									<td class="w-75"><span id="queue-span"></span></td>
-								</tr>
-								<tr id="download-item" style="display: none;">
-									<th scope="row" class="w-25">Downloading:</th>
-									<td class="w-75"><span id="download-span"></span></td>
-								</tr>
-								<tr id="compile-item" style="display: none;">
-									<th scope="row" class="w-25">Compiling:</th>
-									<td class="w-75"><span id="compile-span"></span></td>
-								</tr>
-								<tr id="store-item" style="display: none;">
-									<th scope="row" class="w-25">Storing:</th>
-									<td class="w-75"><span id="store-span"></span></td>
-								</tr>
-								<tr id="index-item" style="display: none;">
-									<th scope="row" class="w-25">Index:</th>
-									<td class="w-75"><span id="index-span"></span></td>
-								</tr>
-							</tbody>
-						</table>
-					</div>
-					<div id="error-panel" style="display: none;" class="alert alert-warning" role="alert">
-						<h4 class="alert-heading">Error</h4>
-						<pre id="error-message"></pre>
-					</div>
 					<div id="complete-panel" style="display: none;">
 						<div class="inner cover">
 							<h1 class="cover-heading">
@@ -198,12 +168,39 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 							
 						</div>
 					</div>
+
+					<div id="progress-panel" style="display: none;">
+						<table class="table table-dark">
+							<tbody>
+								<tr id="queue-item" style="display: none;">
+									<th scope="row" class="w-25">Queued:</th>
+									<td class="w-75"><span id="queue-span"></span></td>
+								</tr>
+								<tr id="download-item" style="display: none;">
+									<th scope="row" class="w-25">Downloading:</th>
+									<td class="w-75"><span id="download-span"></span></td>
+								</tr>
+								<tr id="compile-item" style="display: none;">
+									<th scope="row" class="w-25">Compiling:</th>
+									<td class="w-75"><span id="compile-span"></span></td>
+								</tr>
+								<tr id="store-item" style="display: none;">
+									<th scope="row" class="w-25">Storing:</th>
+									<td class="w-75"><span id="store-span"></span></td>
+								</tr>
+							</tbody>
+						</table>
+					</div>
+					<div id="error-panel" style="display: none;" class="alert alert-warning" role="alert">
+						<h4 class="alert-heading">Error</h4>
+						<pre id="error-message"></pre>
+					</div>
 				</div>
 			</div>
 		</div>
 	</body>
 	<script>
-		var completePayload = {};
+		var payload = {};
 		var refresh = function() {
 			var minify = document.getElementById("minify-checkbox").checked;
 			var short = document.getElementById("short-url-checkbox").checked;
@@ -211,10 +208,10 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var completeScript = document.getElementById("complete-script");
 			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
 			
-			shortUrlCheckboxHolder.style.display = (completePayload.short == completePayload.path) ? "none" : "";
-			completeLink.href = "https://{{ .IndexHost }}/" + (short ? completePayload.short : completePayload.path) + (minify ? "" : "$max");
-			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? completePayload.short : completePayload.path) + (minify ? "" : "$max");
-			completeScript.value = "https://{{ .PkgHost }}/" + completePayload.path + "." + (minify ? completePayload.hashmin : completePayload.hashmax) + ".js"
+			shortUrlCheckboxHolder.style.display = (payload.short == payload.path) ? "none" : "";
+			completeLink.href = "https://{{ .IndexHost }}/" + (short ? payload.short : payload.path) + (minify ? "" : "$max");
+			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? payload.short : payload.path) + (minify ? "" : "$max");
+			completeScript.value = "https://{{ .PkgHost }}/" + payload.path + "." + (minify ? payload.hashmin : payload.hashmax) + ".js"
 		}
 		document.getElementById("minify-checkbox").onchange = refresh;
 		document.getElementById("short-url-checkbox").onchange = refresh;
@@ -243,7 +240,6 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 				case "download":
 				case "compile":
 				case "store":
-				case "index":
 					if (done[message.type]) {
 						// Messages might arrive out of order... Once we get a "done", ignore 
 						// any more.
@@ -255,20 +251,22 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					if (message.payload.done) {
 						span.innerHTML = "Done";
 						done[message.type] = true;
-					} else if (message.payload.path) {
-						span.innerHTML = message.payload.path;
+					} else if (message.payload.message) {
+						span.innerHTML = message.payload.message;
 					} else if (message.payload.position) {
 						span.innerHTML = "Position " + message.payload.position;
+					} else if (message.payload.finished !== undefined) {
+						span.innerHTML = message.payload.finished + " finished, " + message.payload.unchanged + " unchanged, " + message.payload.remain + " remain.";
 					} else {
 						span.innerHTML = "Starting";
 					}
 					break;
 				case "complete":
 					complete = true;
+					payload = message.payload;
 					completePanel.style.display = "";
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
-					completePayload = message.payload;
 					refresh();
 					break;
 				case "error":
@@ -417,7 +415,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	fs := memfs.New()
 
 	// Send a message to the client that downloading step has started.
-	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Done: false}}
+	send <- messages.Message{Type: messages.Download, Payload: messages.Payload{Done: false}}
 
 	// Start the download process - just like the "go get" command.
 	if err := getter.New(fs, messages.DownloadWriter(send)).Get(ctx, path, false, false); err != nil {
@@ -426,7 +424,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Done: true}}
+	send <- messages.Message{Type: messages.Download, Payload: messages.Payload{Done: true}}
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
 	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path)

@@ -15,8 +15,6 @@ import (
 
 	"crypto/sha1"
 
-	"errors"
-
 	"path/filepath"
 
 	"os"
@@ -24,6 +22,10 @@ import (
 	"io/ioutil"
 
 	"strings"
+
+	"sync"
+
+	"sync/atomic"
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
@@ -52,106 +54,217 @@ type CompileOutput struct {
 	Hash []byte
 }
 
+type Storer struct {
+	client    *storage.Client
+	queue     chan StorageItem
+	buckets   map[string]*storage.BucketHandle
+	wait      sync.WaitGroup
+	send      chan messages.Message
+	unchanged int32
+	done      int32
+	total     int32
+	Err       error
+}
+
+func NewStorer(ctx context.Context, client *storage.Client, send chan messages.Message, workers int) *Storer {
+	s := &Storer{
+		client: client,
+		buckets: map[string]*storage.BucketHandle{
+			config.PkgBucket:   client.Bucket(config.PkgBucket),
+			config.IndexBucket: client.Bucket(config.IndexBucket),
+		},
+		queue: make(chan StorageItem, 1000),
+		wait:  sync.WaitGroup{},
+		send:  send,
+	}
+	for i := 0; i < workers; i++ {
+		go s.Worker(ctx)
+	}
+	return s
+}
+
+func (s *Storer) Close() {
+	close(s.queue)
+}
+
+func (s *Storer) Wait() {
+	s.wait.Wait()
+}
+
+func (s *Storer) Worker(ctx context.Context) {
+	for item := range s.queue {
+		func() {
+			defer s.wait.Done()
+			ob := item.Bucket.Object(item.Name)
+			if item.OnlyIfNotExist {
+				_, err := ob.Attrs(ctx)
+				if err == nil || err != storage.ErrObjectNotExist {
+					if item.Count {
+						unchanged := atomic.AddInt32(&s.unchanged, 1)
+						done := atomic.LoadInt32(&s.done)
+						remain := atomic.LoadInt32(&s.total) - unchanged - done
+						s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+					}
+					return
+				}
+			}
+			wc := ob.NewWriter(ctx)
+			defer wc.Close()
+			wc.ContentType = item.ContentType
+			wc.CacheControl = item.CacheControl
+			if _, err := io.Copy(wc, bytes.NewBuffer(item.Contents)); err != nil {
+				s.Err = err
+				return
+			}
+			if item.Count {
+				unchanged := atomic.LoadInt32(&s.unchanged)
+				done := atomic.AddInt32(&s.done, 1)
+				remain := atomic.LoadInt32(&s.total) - unchanged - done
+				s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+			}
+		}()
+	}
+}
+
+func (s *Storer) AddJs(message, name string, contents []byte) {
+	s.wait.Add(1)
+
+	unchanged := atomic.LoadInt32(&s.unchanged)
+	done := atomic.LoadInt32(&s.done)
+	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
+	s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+
+	s.queue <- StorageItem{
+		Message:        message,
+		Bucket:         s.buckets[config.PkgBucket],
+		Name:           name,
+		Contents:       contents,
+		ContentType:    "application/javascript",
+		CacheControl:   "public, max-age=31536000",
+		OnlyIfNotExist: true,
+		Count:          true,
+	}
+}
+
+func (s *Storer) AddHtml(message, name string, contents []byte) {
+	s.wait.Add(1)
+	s.queue <- StorageItem{
+		Message:      message,
+		Bucket:       s.buckets[config.IndexBucket],
+		Name:         name,
+		Contents:     contents,
+		ContentType:  "text/html",
+		CacheControl: "no-cache",
+	}
+}
+
+type StorageItem struct {
+	Message        string
+	Bucket         *storage.BucketHandle
+	Name           string
+	Contents       []byte
+	ContentType    string
+	CacheControl   string
+	OnlyIfNotExist bool
+	Count          bool
+}
+
 func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileOutput, err error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, nil, err
 	}
 	defer client.Close()
-	bucketPkg := client.Bucket(config.PkgBucket)
-	bucketIndex := client.Bucket(config.IndexBucket)
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: false}}
-	options := func(min bool, verbose bool) *builder.Options {
-		return &builder.Options{
-			Root:        c.root,
-			Path:        c.path,
-			Temporary:   c.temp,
-			Unvendor:    true,
-			Initializer: true,
-			Log:         messages.CompileWriter(c.send),
-			Verbose:     verbose,
-			Minify:      min,
-			Standard:    std.Index,
-		}
-	}
+	storer := NewStorer(ctx, client, c.send, config.ConcurrentStorageUploads)
+	defer storer.Close()
 
-	sessionMin := builder.NewSession(options(true, true))
-	sessionMax := builder.NewSession(options(false, false))
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Done: false}}
+	c.send <- messages.Message{Type: messages.Store, Payload: messages.Payload{Done: false}}
 
-	bp, archiveMin, err := sessionMin.BuildImportPath(ctx, path)
+	data, outputMin, err := c.compileAndStore(ctx, path, storer, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	_, archiveMax, err := sessionMax.BuildImportPath(ctx, path)
+	_, outputMax, err := c.compileAndStore(ctx, path, storer, false)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: true}}
-
-	if archiveMin.Name != "main" {
-		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
-	}
-
-	outputMin, err := sessionMin.WriteCommandPackage(ctx, archiveMin)
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Message: "Loader"}}
+	hashMin, err := genMain(ctx, storer, outputMin, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	outputMax, err := sessionMax.WriteCommandPackage(ctx, archiveMax)
+	hashMax, err := genMain(ctx, storer, outputMax, false)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	if len(outputMin.Packages) != len(outputMax.Packages) {
-		return nil, nil, errors.New("minified output has different number of packages to non-minified")
-	}
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Message: "Index"}}
 
-	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: false}}
-	for i := range outputMin.Packages {
-		poMin := outputMin.Packages[i]
-		poMax := outputMax.Packages[i]
-		if poMin.Path != poMax.Path {
-			return nil, nil, errors.New("minified output has different order of packages to non-minified")
-		}
-		if poMin.Standard {
-			continue
-		}
-		c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Path: poMin.Path}}
-		if err := sendToStorage(ctx, bucketPkg, poMin.Path, poMin.Contents, poMin.Hash); err != nil {
-			return nil, nil, err
-		}
-		if err := sendToStorage(ctx, bucketPkg, poMax.Path, poMax.Contents, poMax.Hash); err != nil {
-			return nil, nil, err
-		}
-	}
-	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: true}}
-
-	c.send <- messages.Message{Type: messages.Index, Payload: messages.IndexPayload{Path: path}}
-	hashMin, err := genMain(ctx, bucketPkg, outputMin, true)
-	if err != nil {
-		return nil, nil, err
-	}
-	hashMax, err := genMain(ctx, bucketPkg, outputMax, false)
+	tpl, err := c.getIndexTpl(data.Dir)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	tpl, err := c.getIndexTpl(bp.Dir)
-	if err != nil {
+	if err := genIndex(storer, tpl, path, hashMin, true); err != nil {
+		return nil, nil, err
+	}
+	if err := genIndex(storer, tpl, path, hashMax, false); err != nil {
 		return nil, nil, err
 	}
 
-	if err := genIndex(ctx, bucketIndex, tpl, path, hashMin, true); err != nil {
-		return nil, nil, err
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Done: true}}
+	storer.Wait()
+	if storer.Err != nil {
+		fmt.Println("detected fail")
+		return nil, nil, storer.Err
 	}
-	if err := genIndex(ctx, bucketIndex, tpl, path, hashMax, false); err != nil {
-		return nil, nil, err
-	}
-	c.send <- messages.Message{Type: messages.Index, Payload: messages.IndexPayload{Done: true}}
+	c.send <- messages.Message{Type: messages.Store, Payload: messages.Payload{Done: true}}
 
 	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
 
+}
+
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
+
+	options := &builder.Options{
+		Root:        c.root,
+		Path:        c.path,
+		Temporary:   c.temp,
+		Unvendor:    true,
+		Initializer: true,
+		Log:         messages.CompileWriter(c.send),
+		Verbose:     true,
+		Minify:      min,
+		Standard:    std.Index,
+	}
+
+	session := builder.NewSession(options)
+
+	data, archive, err := session.BuildImportPath(ctx, path)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if archive.Name != "main" {
+		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
+	}
+
+	output, err := session.WriteCommandPackage(ctx, archive)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	for _, po := range output.Packages {
+		if po.Standard {
+			continue
+		}
+		storer.AddJs(fmt.Sprintf("%s (minified)", po.Path), fmt.Sprintf("%s.%x.js", po.Path, po.Hash), po.Contents)
+	}
+
+	return data, output, nil
 }
 
 func (c *Compiler) getIndexTpl(dir string) (*template.Template, error) {
@@ -206,7 +319,7 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.Template, path string, hash []byte, min bool) error {
+func genIndex(storer *Storer, tpl *template.Template, path string, hash []byte, min bool) error {
 
 	v := IndexVars{
 		Path:   path,
@@ -226,48 +339,25 @@ func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.T
 
 	shortpath := strings.TrimPrefix(fullpath, "github.com/")
 
-	if err := sendIndex(ctx, bucket, shortpath, buf.Bytes()); err != nil {
-		return err
+	var message string
+	if min {
+		message = "Index (minified)"
+	} else {
+		message = "Index (un-minified)"
 	}
+	storer.AddHtml(message, shortpath, buf.Bytes())
+	storer.AddHtml("", fmt.Sprintf("%s/index.html", shortpath), buf.Bytes())
 
 	if shortpath != fullpath {
-		if err := sendIndex(ctx, bucket, fullpath, buf.Bytes()); err != nil {
-			return err
-		}
+		storer.AddHtml("", fullpath, buf.Bytes())
+		storer.AddHtml("", fmt.Sprintf("%s/index.html", fullpath), buf.Bytes())
 	}
 
 	return nil
 
 }
 
-func sendIndex(ctx context.Context, bucket *storage.BucketHandle, path string, contents []byte) error {
-
-	// For URLs of the form jsgo.io/path
-	if err := storeHtml(ctx, bucket, bytes.NewBuffer(contents), path); err != nil {
-		return err
-	}
-
-	// For URLs of the form jsgo.io/path/
-	fpath := fmt.Sprintf("%s/index.html", path)
-	if err := storeHtml(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-func storeHtml(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader, filename string) error {
-	wc := bucket.Object(filename).NewWriter(ctx)
-	defer wc.Close()
-	wc.ContentType = "text/html"
-	wc.CacheControl = "no-cache"
-	if _, err := io.Copy(wc, reader); err != nil {
-		return err
-	}
-	return nil
-}
-
-func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.CommandOutput, min bool) ([]byte, error) {
+func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
 
 	pkgs := []PkgJson{
 		{
@@ -306,30 +396,15 @@ func genMain(ctx context.Context, bucket *storage.BucketHandle, output *builder.
 
 	hash := s.Sum(nil)
 
-	if err := sendToStorage(ctx, bucket, output.Path, buf.Bytes(), hash); err != nil {
-		return nil, err
+	var message string
+	if min {
+		message = "Loader (minified)"
+	} else {
+		message = "Loader (un-minified)"
 	}
+	storer.AddJs(message, fmt.Sprintf("%s.%x.js", output.Path, hash), buf.Bytes())
 
 	return hash, nil
-}
-
-func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
-	fpath := fmt.Sprintf("%s.%x.js", path, hash)
-	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
-		return err
-	}
-	return nil
-}
-
-func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader, filename string) error {
-	wc := bucket.Object(filename).NewWriter(ctx)
-	defer wc.Close()
-	wc.ContentType = "application/javascript"
-	wc.CacheControl = "public, max-age=31536000"
-	if _, err := io.Copy(wc, reader); err != nil {
-		return err
-	}
-	return nil
 }
 
 type MainVars struct {

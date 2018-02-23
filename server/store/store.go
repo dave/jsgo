@@ -73,9 +73,9 @@ func Lookup(ctx context.Context, path string) (bool, CompileData, error) {
 }
 
 func compileKey() *datastore.Key {
-	return datastore.IncompleteKey("Compile", nil)
+	return datastore.IncompleteKey(config.CompileKind, nil)
 }
 
 func packageKey(path string) *datastore.Key {
-	return datastore.NameKey("Package", path, nil)
+	return datastore.NameKey(config.PackageKind, path, nil)
 }

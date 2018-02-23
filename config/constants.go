@@ -3,23 +3,17 @@ package config
 import "time"
 
 const (
+	// ProjectId is the ID of the GCS project
+	ProjectID = "jsgo-192815"
+
+	// CompileHost is the domain of the compile server
+	CompileHost = "compile.jsgo.io"
 
 	// MaxConcurrentCompiles is the maximum number of concurrent compile jobs per server
 	MaxConcurrentCompiles = 3
 
 	// MaxQueue is the maximum queue length waiting for compile. After this an error is returned.
 	MaxQueue = 100
-
-	// ProjectId is the ID of the GCS project
-	ProjectID = "jsgo-192815"
-
-	PkgBucket   = "pkg.jsgo.io"
-	IndexBucket = "jsgo.io"
-
-	PkgHost   = "pkg.jsgo.io"
-	IndexHost = "jsgo.io"
-
-	CompileHost = "compile.jsgo.io"
 
 	AssetsFilename = "assets.zip"
 
@@ -65,4 +59,6 @@ const (
 
 	// HttpTimeout is the time to wait for HTTP operations (e.g. getting meta data - not git)
 	HttpTimeout = time.Second * 5
+
+	ConcurrentStorageUploads = 10
 )
