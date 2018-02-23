@@ -209,6 +209,9 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var short = document.getElementById("short-url-checkbox").checked;
 			var completeLink = document.getElementById("complete-link");
 			var completeScript = document.getElementById("complete-script");
+			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
+			
+			shortUrlCheckboxHolder.style.display = (completePayload.short == completePayload.path) ? "none" : "";
 			completeLink.href = "https://{{ .IndexHost }}/" + (short ? completePayload.short : completePayload.path) + (minify ? "" : "$max");
 			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? completePayload.short : completePayload.path) + (minify ? "" : "$max");
 			completeScript.value = "https://{{ .PkgHost }}/" + completePayload.path + "." + (minify ? completePayload.hashmin : completePayload.hashmax) + ".js"
@@ -224,11 +227,6 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var progressPanel = document.getElementById("progress-panel");
 			var errorPanel = document.getElementById("error-panel");
 			var completePanel = document.getElementById("complete-panel");
-
-			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
-
-			var completeLink = document.getElementById("complete-link");
-			var completeScript = document.getElementById("complete-script");
 			var errorMessage = document.getElementById("error-message");
 			
 			var done = {};
@@ -271,12 +269,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
 					completePayload = message.payload;
-					completeLink.href = "https://{{ .IndexHost }}/" + message.payload.short;
-					completeLink.innerHTML = "{{ .IndexHost }}/" + message.payload.short;
-					completeScript.value = "https://{{ .PkgHost }}/" + message.payload.path + "." + message.payload.hashmin + ".js";
-					if (message.payload.short !== message.payload.path) {
-						shortUrlCheckboxHolder.style.display = "";
-					}
+					refresh();
 					break;
 				case "error":
 					if (complete) {
