@@ -188,8 +188,14 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 							</p>
 
 							<p>
-								<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">Minify</label>
+								<small>
+									<input type="checkbox" id="minify-checkbox" checked> <label for="minify-checkbox" class="text-muted">Minify</label>
+								</small>
+								<small id="short-url-checkbox-holder">
+									<input type="checkbox" id="short-url-checkbox" checked> <label for="short-url-checkbox" class="text-muted">Short URL</label>
+								</small>
 							</p>
+							
 						</div>
 					</div>
 				</div>
@@ -198,14 +204,17 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 	</body>
 	<script>
 		var completePayload = {};
-		document.getElementById("minify-checkbox").onchange = function() {
-			var value = document.getElementById("minify-checkbox").checked;
+		var refresh = function() {
+			var minify = document.getElementById("minify-checkbox").checked;
+			var short = document.getElementById("short-url-checkbox").checked;
 			var completeLink = document.getElementById("complete-link");
 			var completeScript = document.getElementById("complete-script");
-			completeLink.href = "https://{{ .IndexHost }}/" + completePayload.short + (value ? "" : "$max");
-			completeLink.innerHTML = "{{ .IndexHost }}/" + completePayload.short + (value ? "" : "$max");
-			completeScript.value = "https://{{ .PkgHost }}/" + completePayload.path + "." + (value ? completePayload.hashmin : completePayload.hashmax) + ".js"
+			completeLink.href = "https://{{ .IndexHost }}/" + (short ? completePayload.short : completePayload.path) + (minify ? "" : "$max");
+			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? completePayload.short : completePayload.path) + (minify ? "" : "$max");
+			completeScript.value = "https://{{ .PkgHost }}/" + completePayload.path + "." + (minify ? completePayload.hashmin : completePayload.hashmax) + ".js"
 		}
+		document.getElementById("minify-checkbox").onchange = refresh;
+		document.getElementById("short-url-checkbox").onchange = refresh;
 		document.getElementById("btn").onclick = function(event) {
 			event.preventDefault();
 			var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/{{ .Path }}");
@@ -215,6 +224,8 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var progressPanel = document.getElementById("progress-panel");
 			var errorPanel = document.getElementById("error-panel");
 			var completePanel = document.getElementById("complete-panel");
+
+			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
 
 			var completeLink = document.getElementById("complete-link");
 			var completeScript = document.getElementById("complete-script");
@@ -260,9 +271,12 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
 					completePayload = message.payload;
-					completeLink.href = "https://{{ .IndexHost }}/" + message.payload.short
-					completeLink.innerHTML = "{{ .IndexHost }}/" + message.payload.short
-					completeScript.value = "https://{{ .PkgHost }}/" + message.payload.path + "." + message.payload.hashmin + ".js"
+					completeLink.href = "https://{{ .IndexHost }}/" + message.payload.short;
+					completeLink.innerHTML = "{{ .IndexHost }}/" + message.payload.short;
+					completeScript.value = "https://{{ .PkgHost }}/" + message.payload.path + "." + message.payload.hashmin + ".js";
+					if (message.payload.short !== message.payload.path) {
+						shortUrlCheckboxHolder.style.display = "";
+					}
 					break;
 				case "error":
 					if (complete) {

@@ -1,20 +1,25 @@
+data: |
+  path
+  /agamigo.io/vecty-material/demo
+  /github.com/anxiousmodernman/co-chair/frontend
+  /github.com/dave/ebiten/examples/2048
+  /github.com/dave/ebiten/examples/airship
+  /github.com/dave/ebiten/examples/alphablending
+  /github.com/dave/ebiten/examples/audio
+  /github.com/dave/ebiten/examples/infinitescroll
+  /github.com/dave/ebiten/examples/rotate
+  /github.com/dave/ebiten/examples/sprites
+  /github.com/dave/jstest
+  /github.com/dave/todomvc
+  /github.com/gopherjs/vecty/example/markdown
+  /github.com/gopherjs/vecty/example/todomvc
+  /github.com/hajimehoshi/go-inovation
+  /github.com/johanbrandhorst/grpcweb-example/client
+  /github.com/relnod/calcgo/cmd/calcgo
+  /github.com/shurcooL/tictactoe/cmd/tictactoe
 rate: 1
-workers: 1
+workers: 3
 worker-type: "jsgo"
 timeout: 300000
 payload-template:
   path: "{{ .path }}"
-payload-variants:
-  - path: "/kubernetes/kubernetes"
-  - path: "/hajimehoshi/go-inovation"
-  - path: "/dave/ebiten/examples/2048"
-  - path: "/shurcooL/tictactoe/cmd/tictactoe"
-  - path: "/dave/todomvc"
-  - path: "/gopherjs/vecty/example/markdown"
-  - path: "/dave/ebiten/examples/airship"
-  - path: "/dave/ebiten/examples/alphablending"
-  - path: "/dave/ebiten/examples/audio"
-  - path: "/dave/ebiten/examples/infinitescroll"
-  - path: "/dave/ebiten/examples/rotate"
-  - path: "/dave/ebiten/examples/sprites"
-    

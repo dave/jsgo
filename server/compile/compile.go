@@ -230,6 +230,12 @@ func genIndex(ctx context.Context, bucket *storage.BucketHandle, tpl *template.T
 		return err
 	}
 
+	if shortpath != fullpath {
+		if err := sendIndex(ctx, bucket, fullpath, buf.Bytes()); err != nil {
+			return err
+		}
+	}
+
 	return nil
 
 }
