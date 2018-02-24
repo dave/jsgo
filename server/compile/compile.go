@@ -103,7 +103,11 @@ func (s *Storer) Worker(ctx context.Context) {
 						unchanged := atomic.AddInt32(&s.unchanged, 1)
 						done := atomic.LoadInt32(&s.done)
 						remain := atomic.LoadInt32(&s.total) - unchanged - done
-						s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+						if s.send != nil {
+							s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+						} else {
+							fmt.Printf("Unchanged: %s\n", item.Message)
+						}
 					}
 					return
 				}
@@ -120,7 +124,11 @@ func (s *Storer) Worker(ctx context.Context) {
 				unchanged := atomic.LoadInt32(&s.unchanged)
 				done := atomic.AddInt32(&s.done, 1)
 				remain := atomic.LoadInt32(&s.total) - unchanged - done
-				s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+				if s.send != nil {
+					s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+				} else {
+					fmt.Printf("Finished: %s\n", item.Message)
+				}
 			}
 		}()
 	}
@@ -132,7 +140,9 @@ func (s *Storer) AddJs(message, name string, contents []byte) {
 	unchanged := atomic.LoadInt32(&s.unchanged)
 	done := atomic.LoadInt32(&s.done)
 	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
-	s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+	if s.send != nil {
+		s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+	}
 
 	s.queue <- StorageItem{
 		Message:        message,

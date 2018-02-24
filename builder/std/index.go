@@ -5,7 +5,7 @@ import builder "github.com/dave/jsgo/builder"
 var Index = map[string]builder.PackageHash{
 	"archive/tar": {
 		HashMax: "2f363c52d17420f1fc1ead597d66569e2667990d",
-		HashMin: "f9a1a39dd11cb81ffe5c73d0536dbf1362c33bf8",
+		HashMin: "5043861eddbc06dc9e8d9027fab8cf500ae0a069",
 	},
 	"archive/zip": {
 		HashMax: "2aec1182f534196a78841c370db046a5a4e3ab9e",
@@ -37,7 +37,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/asm/internal/asm": {
 		HashMax: "1a1be05c3641438c40e8d52f981078f9e0fd7543",
-		HashMin: "095740d990bd234e0a6aeaa4d62df4f232167025",
+		HashMin: "e502714a432c63eb5e7b01d7eb62b58d90e9d771",
 	},
 	"cmd/asm/internal/flags": {
 		HashMax: "ae561941c9c5cccfed5086c8268cc6c456b54c39",
@@ -53,7 +53,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/cgo": {
 		HashMax: "b326b227c2c23538f7869f73ffb06344f95d8bd3",
-		HashMin: "a4bd35fbcc32bfe5db21af65404667ddc88f0b39",
+		HashMin: "be8f311178f8c1922643b11b657164e39f6ea0b8",
 	},
 	"cmd/compile": {
 		HashMax: "5d8558b4d66c39213d1edfb5a64871c8063674e8",
@@ -73,7 +73,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/compile/internal/gc": {
 		HashMax: "a0e450e55ff484708189708b4801950ffa3f9415",
-		HashMin: "f20358d303dc1a6d72a4f285a2f7ebd6eb11fc53",
+		HashMin: "4630353f900f5c6c4a2506e934eea0e46b2869e9",
 	},
 	"cmd/compile/internal/mips": {
 		HashMax: "b25b79dba18f052ef5627bf7bf25ab394fc90162",
@@ -93,11 +93,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/compile/internal/ssa": {
 		HashMax: "6a6278b23ba6b243f5bb402788bc6a5033275662",
-		HashMin: "5bc367fc2cb7e3153ed7e5328100b8619d8af3ae",
+		HashMin: "8b9407c8b6911d5bf2cbb00cf078377f02b7f771",
 	},
 	"cmd/compile/internal/syntax": {
 		HashMax: "b3924aeb13a77c1e5c695f7d89bdb6fd368c3f74",
-		HashMin: "82ce85acabfc4c4faaf44d91e31d2e209434341c",
+		HashMin: "287587607d2746b8ac0913f413f1d5b73cba8c50",
 	},
 	"cmd/compile/internal/test": {
 		HashMax: "be81a3174788f01ab6bc4372c35f36bbb4b59656",
@@ -105,7 +105,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/compile/internal/types": {
 		HashMax: "11e1d8634e94c5131e89e5ae0fbb691db9da4cc9",
-		HashMin: "2318a4ab001826abb95bb0111f0f62626989fc18",
+		HashMin: "590a22f13c80143a5317b17acfa22f99c67b4e29",
 	},
 	"cmd/compile/internal/x86": {
 		HashMax: "45847d43f4140739bf29247918809201891bc660",
@@ -113,11 +113,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/cover": {
 		HashMax: "a1352b52fd2710cba931144d15499ea13df88ae2",
-		HashMin: "a50bcd3afa2aca27f04f123e307509ca866aecd7",
+		HashMin: "fb2d027ffea396765f5e5aade3ef9f4549a7c257",
 	},
 	"cmd/dist": {
 		HashMax: "7470e54ab63be3599684b1278c68e0b635bc1259",
-		HashMin: "3910fd7fccc5b89a9768ac7dd0b446280645f67b",
+		HashMin: "d1ba849064e224fc82c312205c609cd6034f225b",
 	},
 	"cmd/doc": {
 		HashMax: "94ba15caf58a12f027da1b97e7b897c52a9a6e21",
@@ -125,7 +125,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/fix": {
 		HashMax: "9ede20543289beb5da3cdd4714f4d94a39fee6dd",
-		HashMin: "0fbffb935a9148ba9e0531bd990127a3908ca293",
+		HashMin: "f2462979fb929f3c31033f53d6716c863b260652",
 	},
 	"cmd/go": {
 		HashMax: "f5cbf99eaed2e8d5d423a48c56e817b1e55adba0",
@@ -169,7 +169,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/go/internal/fmtcmd": {
 		HashMax: "74ccf598a1b09a253515b1ed69e46f81b8e7d613",
-		HashMin: "116d763d7a3041e18656a576502cc10af31a92b4",
+		HashMin: "744133bfc5f4283f4a0ac0a6f3139e7b70ccd1ce",
 	},
 	"cmd/go/internal/generate": {
 		HashMax: "2399a5a38d9ece8a2c4ad8f07d84b515c1d4e387",
@@ -185,11 +185,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/go/internal/list": {
 		HashMax: "217c2badf30f41bdf359f9cdc1ab37559bc482d8",
-		HashMin: "f0f541656daf8508b67d942e4998ec6e4e075f5f",
+		HashMin: "25a8693f8c37ad56db8713a79d7f7b499b7acd44",
 	},
 	"cmd/go/internal/load": {
 		HashMax: "fbc1374d2538d0f8fd0d39678f2567743cfabe84",
-		HashMin: "451a47a02e12a0877d3aadbafe7eaa0dbb18dd18",
+		HashMin: "b31b85cdc0d65f835b6390acfc60f235de22ee06",
 	},
 	"cmd/go/internal/run": {
 		HashMax: "b2b136160fb7721a92857f8c54592cb461baaedb",
@@ -201,7 +201,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/go/internal/test": {
 		HashMax: "542741b78ad46a4ffe6db8d4f530735845799c74",
-		HashMin: "23845e8766c52f8a205fc210a0cabb76ac19b4b7",
+		HashMin: "24d4951c44b8eecc034c606dc5fd9981b6d5cbae",
 	},
 	"cmd/go/internal/tool": {
 		HashMax: "9ed4ba61e5ecac337feddc59500d328205538559",
@@ -221,11 +221,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/go/internal/work": {
 		HashMax: "7162ee5be6da43cf818c9fbec3ae1bcbd9abc18f",
-		HashMin: "b57be2ef67021287df280d4caddb14c561b2c12f",
+		HashMin: "f4fd30fb00ac5b861a7407031e171ee504ec8be9",
 	},
 	"cmd/gofmt": {
 		HashMax: "a3d5bec23c0bb2b2c5d1e36c3afaa93d1025ea9f",
-		HashMin: "4b44e65587451756d3269daff1188cb218e6d0eb",
+		HashMin: "fae412b6a06ae80e38e35c1d8c4b839a89afb16e",
 	},
 	"cmd/internal/bio": {
 		HashMax: "8034a758f1b0a7d831875ee00030174cc032d053",
@@ -237,7 +237,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/internal/buildid": {
 		HashMax: "c9cdd6ea0707d4ca178cc98b4b4204c46e8b0834",
-		HashMin: "f8ca23b6f8faeaa8139020da29edd90b73b664cc",
+		HashMin: "2c729e0a3ee35b1c04e6e2fa398b06bf39925409",
 	},
 	"cmd/internal/dwarf": {
 		HashMax: "802d790adc4d5a1faa697230bf4d3517c0696cec",
@@ -281,7 +281,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/internal/obj/x86": {
 		HashMax: "e00c5f2c0f48ee0e16c61cce057f8017051bb935",
-		HashMin: "5e29e45c811c86d8019214123d44d1a978cb043f",
+		HashMin: "cc5f14676564e92dd753c80d704f3458b9617895",
 	},
 	"cmd/internal/objabi": {
 		HashMax: "d1fd20c8573944769f071a703e662ed5f50498ab",
@@ -289,7 +289,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/internal/objfile": {
 		HashMax: "2eb201524649befac7489740b54a37fc4fabf827",
-		HashMin: "151db7225c4c16021553e9cb9a26c15447b60442",
+		HashMin: "6625fb5261f3bc653dfebbc9d6235cd9101e009f",
 	},
 	"cmd/internal/src": {
 		HashMax: "9ab0fc20197a79ed8709a276e1b5ee8ebfe0b65b",
@@ -321,7 +321,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/link/internal/ld": {
 		HashMax: "23db5b4ba28a0311a970d5f3a725a6e9165e94f8",
-		HashMin: "b6e1b053964d77c5323c852d8dcec8f9776c0349",
+		HashMin: "343a10d6a725108efe4734dc56575a0df1587a70",
 	},
 	"cmd/link/internal/loadelf": {
 		HashMax: "b5c8f358d9536eb901128f3dd4e5ecf85d1e07b3",
@@ -385,11 +385,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"cmd/trace": {
 		HashMax: "c86dc939a6cefd9f9aefa13350be34853e67375e",
-		HashMin: "7491415d14bb5d45deb3662d95e189bdcd9dad4a",
+		HashMin: "88bd767b1fb78dab0e3405228c7b6b370bb72ceb",
 	},
 	"cmd/vet": {
 		HashMax: "ee375d571268638df2ff0030291ecdd551b370a0",
-		HashMin: "bc0e1434e26548406b30446dbacea652d644f8dc",
+		HashMin: "bbfcd654c75cfd032242293d918e332727f14468",
 	},
 	"cmd/vet/internal/cfg": {
 		HashMax: "1a3c51505d807431562478b9d29cc3bbde4f6b9e",
@@ -461,7 +461,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"crypto/elliptic": {
 		HashMax: "7603b1d6026934535fb88444f0884a5d82c9b715",
-		HashMin: "63ae4ba8897fbd8efcb67ea70409570e817b88e7",
+		HashMin: "dd3d23f29cdb1f80a679052d42d6ae881361826b",
 	},
 	"crypto/hmac": {
 		HashMax: "592d87c87760ad74007ccca68b6bc7adfde5d3ed",
@@ -505,11 +505,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"crypto/tls": {
 		HashMax: "ee617cfa6dc1d7536c19914dc94103b041d87b4a",
-		HashMin: "8290c5dfe790c5d8cf35305274bd5706c5f73ee0",
+		HashMin: "a81d0ce38710c0c4650483e9afcadfc72057fa18",
 	},
 	"crypto/x509": {
 		HashMax: "083c735b9c672775a4bb27979d09010e0370059a",
-		HashMin: "6eb87ce8a5168dd9140aea7d4211a5779808682c",
+		HashMin: "b7d15032993fd3f9a7bdd728220ed1d5874c547f",
 	},
 	"crypto/x509/pkix": {
 		HashMax: "4db9110f44db3d45aa8e460fff111b9ba1737e08",
@@ -517,7 +517,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"database/sql": {
 		HashMax: "071791fe7580263219ab1d168c751edd1ba7377a",
-		HashMin: "eb63552e217981a1b918ac5ed06d4b2eefa852ce",
+		HashMin: "573c84c7ec35f7a76f9a12f035dc2b0363f77086",
 	},
 	"database/sql/driver": {
 		HashMax: "ef40ae3ffb4199303abce4514e6aaa8456755536",
@@ -525,7 +525,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"debug/dwarf": {
 		HashMax: "f992f25e01e05d6ba1a612ee7a20a7d4c1d1d1d0",
-		HashMin: "95a51e1993bf29a844818a2f485cb8ab6f9af32b",
+		HashMin: "2d9ef9eb4614e2e661620aee0cd9e2feeaed3b4e",
 	},
 	"debug/elf": {
 		HashMax: "3017f27eb2248ace3f4919e46b71458596d24e6d",
@@ -533,11 +533,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"debug/gosym": {
 		HashMax: "b12a5ebbec1c8803978460685fbececa175f1b2a",
-		HashMin: "a52c0f6ab730d3c4f281f11d469cb862d7ade39a",
+		HashMin: "6bdb172ce73ff10de01f59bea673c6f84941b2fd",
 	},
 	"debug/macho": {
 		HashMax: "70f1d12082282cd9d5485b971d30fa99fc47c62a",
-		HashMin: "c18754e5979f100c0e2b7fd803127d640ba6dae7",
+		HashMin: "8bd391394514a2f299781ab46fc0df6a4ff84614",
 	},
 	"debug/pe": {
 		HashMax: "8ecfc0013b597bcd7c4deae06d463689614846da",
@@ -545,7 +545,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"debug/plan9obj": {
 		HashMax: "0fc092094925b2549795dba0162a969b997b646a",
-		HashMin: "e569f8369df5263e92915ca3e86a4b4920a6c3d3",
+		HashMin: "dd7f054eac52b5bff37c9206265244e279260290",
 	},
 	"encoding": {
 		HashMax: "143404db3ab9eca915cab1bb864051c875ad4e89",
@@ -577,7 +577,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"encoding/gob": {
 		HashMax: "c4e0ece70d4d2a59b2db66186b548c245e5bbd5a",
-		HashMin: "46e571af9e68ede6dbdd710165a6c72e174edc19",
+		HashMin: "5ca1fbef186c6794a8d8ebe089058880e1b2b87f",
 	},
 	"encoding/hex": {
 		HashMax: "ae909d155b71406a229810a24bad40f879127107",
@@ -585,7 +585,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"encoding/json": {
 		HashMax: "9937419d5f0c44c1f9a72d8dabc3a718415744a3",
-		HashMin: "89baf04ebf3a9c65104f46cf93d10efd051c2cd2",
+		HashMin: "090d7869a2786625cf562d25b78623e6eb5050b4",
 	},
 	"encoding/pem": {
 		HashMax: "ed8ff201aeb4cb84dd04b7b5250f01e017718ba8",
@@ -593,7 +593,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"encoding/xml": {
 		HashMax: "5e9557d5d32817e56a42c0ec8801ef2990190259",
-		HashMin: "df973b9e184177ebf4cb8e0756f1097e6b7eab5e",
+		HashMin: "1a122dc0c699a5b460b10124e5295ac9a921227d",
 	},
 	"errors": {
 		HashMax: "886e1794220ce12c736a2353097f1ef03d402fc5",
@@ -621,7 +621,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"github.com/google/pprof/internal/driver": {
 		HashMax: "ea0cfa0bb160e1a2f1c5eb4edb3a112785aaa120",
-		HashMin: "60d80ffadd5b9e48028b7b1105c47b05cf1a9408",
+		HashMin: "e864e39e2f47ba7ae9f6bc130809367cf18cdef4",
 	},
 	"github.com/google/pprof/internal/elfexec": {
 		HashMax: "a67a33a42a74ada5418f037c4d3abee8905841b7",
@@ -641,7 +641,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"github.com/google/pprof/internal/report": {
 		HashMax: "a29d3f757efc6ecc641b97903ba33777461c8984",
-		HashMin: "cffd8426eea4ce6d94e64a7e3b931468dec8d9b7",
+		HashMin: "53e750bf80b5e7af9ad5ed688c07c8911803e0e4",
 	},
 	"github.com/google/pprof/internal/symbolizer": {
 		HashMax: "4d393927114a90ff2adfd5c90ca0309461fe3c57",
@@ -653,7 +653,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"github.com/google/pprof/profile": {
 		HashMax: "2b0afda721f2d1485a7c7470c6eea25abb0940b7",
-		HashMin: "03c4e2a8312b9a141b2336d2215a84a2c00cdc97",
+		HashMin: "566d348b8cf1a3464ae8ef3d2a8935ad9e3ef0b0",
 	},
 	"github.com/google/pprof/third_party/svg": {
 		HashMax: "a521a0f391eeb4d2ebfe108ba64f39e4243d598c",
@@ -669,7 +669,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"github.com/ianlancetaylor/demangle": {
 		HashMax: "fedf977884692a029eef057a88f1e2a02d9da1d7",
-		HashMin: "5c8006f5618f8079f4b69155988797d0b7f9289a",
+		HashMin: "1476301864314ba3b2b019015590bbda39f35d43",
 	},
 	"go/ast": {
 		HashMax: "f827cc00fcc80df84b02fb4d437439d80d901a3a",
@@ -677,7 +677,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"go/build": {
 		HashMax: "7a9c9e8d2df8fbc1a7a8833ddfae9f3c7c374e5c",
-		HashMin: "0846372a2d40ec54f1748fbec90626ab3988e67b",
+		HashMin: "d5314e04f121e96cd52a2cfda1eabf5cab1dfde7",
 	},
 	"go/constant": {
 		HashMax: "3be5ecbe956f06691d0de1aaae9620e2ca789f80",
@@ -685,7 +685,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"go/doc": {
 		HashMax: "1334baf26b6cdb6d87bcc41bed7e5819b8acae12",
-		HashMin: "6b71b71ca9d0458245e8b9f2d346bdbb7ee55bcf",
+		HashMin: "c903d65d2fb3a1566bce43e60a01c8eca5b33fa1",
 	},
 	"go/format": {
 		HashMax: "c0519e86e1ab6251a0a4ace0587bc0c70366ad90",
@@ -697,7 +697,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"go/internal/gccgoimporter": {
 		HashMax: "d46b86ed6b19b01c00b692126eb38dd0342459c0",
-		HashMin: "fcc224e3bc358b7ebb63fb04fc121140a3b6f1c3",
+		HashMin: "92ea22d835d413c2b4d9665605d2eb81d6998bfe",
 	},
 	"go/internal/gcimporter": {
 		HashMax: "646fe9f6346384d1b6d294f8ec07c2b1268f4c65",
@@ -705,15 +705,15 @@ var Index = map[string]builder.PackageHash{
 	},
 	"go/internal/srcimporter": {
 		HashMax: "3a2df023037d9e776a169a44af12efe98adce57d",
-		HashMin: "d624e699f434b2246a195ffce10fe726f3a0c4bc",
+		HashMin: "f9377ed81dc75f253408e2eb3f5bf6c858642e3f",
 	},
 	"go/parser": {
 		HashMax: "6c6aa858add211bfae2d22c3aa6d236422448b08",
-		HashMin: "fbc87058e87299ce59e629d273b33e730e2e0a2a",
+		HashMin: "4424212a8114e6df4079e2e9bc3dbbc2a12818d8",
 	},
 	"go/printer": {
 		HashMax: "2c3bffafb881d48abbe91b0f6170034ce84ec3d1",
-		HashMin: "4e181d066bad3016e202b49fe24a572e77581e69",
+		HashMin: "5afa0ad690165aeda89777291d1ab727e00b0115",
 	},
 	"go/scanner": {
 		HashMax: "8047084ca78344d33ec51df84f147b748fb29e7a",
@@ -725,11 +725,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"go/types": {
 		HashMax: "a83e70eb0aa6fe54c82dd4974a52263ee615a0e0",
-		HashMin: "d971b80c40c5c9be7981905c15736b1cf56c8f29",
+		HashMin: "116ca5237d6774ddb4f8c478f016e53b353645d0",
 	},
 	"golang.org/x/arch/arm/armasm": {
 		HashMax: "28ec95612fa23b58154574c062d1ab0cfb9fab33",
-		HashMin: "be9bea996f3f304581db0702bdff62fab7b44654",
+		HashMin: "ebf5bec454c0a509eb635ba3530a28b6fe00af8b",
 	},
 	"golang.org/x/arch/arm64/arm64asm": {
 		HashMax: "f9ac74b833f15658cc666d07c64ffa9a12d33350",
@@ -741,7 +741,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"golang.org/x/arch/x86/x86asm": {
 		HashMax: "e250d587d52dfe1072ddf1db5e5e99cbda3510e2",
-		HashMin: "ab503fecb6d8d12f47b3f1f8dad1d763d164ed47",
+		HashMin: "e8cb573d5082db5994f23fd23b2a9670c3f67e9a",
 	},
 	"golang_org/x/crypto/chacha20poly1305": {
 		HashMax: "158a3be7ad003b3fbac39f8991ddbac41d526255",
@@ -769,7 +769,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"golang_org/x/net/http2/hpack": {
 		HashMax: "352efdfd1eeaad453334de673a279ca51ba4a0df",
-		HashMin: "8c1da21d1cb9c1cdd73af663900a4ace197d21a0",
+		HashMin: "11c6351c6e9006fac2296dde8ebf38307c278f05",
 	},
 	"golang_org/x/net/idna": {
 		HashMax: "ccc5826b6a6b7625cb8afb72c8a56be13b448b56",
@@ -845,7 +845,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"image/draw": {
 		HashMax: "e81b7b737cbada078c2f20497f26ef6cb3f3ccab",
-		HashMin: "635148a99295e408cb812b599ae853133bb2d05f",
+		HashMin: "6e10d4bf2e4835010d53cb7e1f9f405026c74d84",
 	},
 	"image/gif": {
 		HashMax: "55d81bfb231413340b706304e4348a7c5c19a428",
@@ -865,7 +865,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"index/suffixarray": {
 		HashMax: "890ed1296740e98a0e2303c543676fa3ce90f926",
-		HashMin: "7ed99d428c4d5feb70344af4ed03180f624fff89",
+		HashMin: "b0d9b0df9fdd8547c0e42a5e89ca0ca290e078fb",
 	},
 	"internal/nettrace": {
 		HashMax: "2fd8d800a101b64c845d0e151128823ac50ce685",
@@ -929,7 +929,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"math/big": {
 		HashMax: "0941cd3d717cbc6216f752b8cb1e2a6a8aad3190",
-		HashMin: "edbaa36153ed4f50262acea24a4114b5b0d76685",
+		HashMin: "d8cb19a6d8bc97fedeef77f1686a440eca667097",
 	},
 	"math/bits": {
 		HashMax: "bc287d1385da9be1725cb05c9431887d23639461",
@@ -957,11 +957,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"net": {
 		HashMax: "82b2bb1f377c1ea2bb377c0c7b9ca8ecc4f01fa5",
-		HashMin: "6b9461032e5de4fc48278b245302dee3d825357a",
+		HashMin: "406c7e8b1f4e43a69f865b2a3fed8dca0e47504d",
 	},
 	"net/http": {
 		HashMax: "a952952d2127536b22325b7ac442d5f393a07b4f",
-		HashMin: "acd7620d21850021f7fbd5817b573aefb22fcc35",
+		HashMin: "289dfa4d8fc563caccff6c1c1536f9afcde4a8a3",
 	},
 	"net/http/cgi": {
 		HashMax: "0c57295bc3c285dd973ac1a9d553af8eb946f571",
@@ -981,11 +981,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"net/http/httptrace": {
 		HashMax: "3c74477bb9f9e923cd39153cd01f64d082e1365d",
-		HashMin: "5e458eb3826c5998dea0c98720caa0cf38a54b5c",
+		HashMin: "6f17e91314abe7a88c557fcd3f945e43a3206506",
 	},
 	"net/http/httputil": {
 		HashMax: "0a8a3dd312447ece75a9cdb42f3f7e6e95399157",
-		HashMin: "dd0e0b56b6314f7a1cff1397316c20363ff93ca5",
+		HashMin: "b3c15a3ff480697983e892b924eab40addcf0c25",
 	},
 	"net/http/internal": {
 		HashMax: "0ec6017bf1d5eacbfb3ba87ad4b1cf2a8c65e1ef",
@@ -997,7 +997,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"net/mail": {
 		HashMax: "1b06cbe6fba33b09506b03dde4c64f4a88a87de3",
-		HashMin: "ac3d652f30ac461c2668f782add50ab554d17d1c",
+		HashMin: "e733540f6e4b216c6cbe3ba71310535607ec7d53",
 	},
 	"net/rpc": {
 		HashMax: "1e29fbd0a1ad3837a2ed8ba2278543afa543c8dd",
@@ -1021,11 +1021,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"os": {
 		HashMax: "e5ab041d1f34409da2f12e0ffc4b5d18c25fc5ef",
-		HashMin: "2125b4697d4a9168d072ac951ab98179abc4f20a",
+		HashMin: "eda355186b7a1f9b1c6536b3f92ac418cb58f1ad",
 	},
 	"os/exec": {
 		HashMax: "ebb0ad152d903e8477d8c681f0f7a5b905f148fa",
-		HashMin: "92b6c308799008daa2ad3be0d371223a6ec361bd",
+		HashMin: "3c159113d8c6d701fdd6de1ff926800198c6e045",
 	},
 	"os/signal": {
 		HashMax: "bb3c78be12271c70fe1c873857b8aac5d85b3d07",
@@ -1045,11 +1045,11 @@ var Index = map[string]builder.PackageHash{
 	},
 	"reflect": {
 		HashMax: "eb15785d92a6881948cab8fe00d7ad902d9927c9",
-		HashMin: "c4f4f377b82cf3e1c39a54ccf0b05e4cd44607fb",
+		HashMin: "6363e9011e1af1ef492e5afcd4131677dab5ebbd",
 	},
 	"regexp": {
 		HashMax: "022814cec6c7a4807c15ab56e02604c9e25e128b",
-		HashMin: "cade6c21ca089eb7da61ccfd7fbb288bd6fca095",
+		HashMin: "5f55153ea7b0bac5dceb304d401914b7e971ac67",
 	},
 	"regexp/syntax": {
 		HashMax: "fcb4ae624cc0dbb0aafd66aa380ea07d193ccab1",
@@ -1113,7 +1113,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"testing": {
 		HashMax: "a3524c1d91b5beee8f0c88c693e750c76bbeb1c4",
-		HashMin: "adb50a1870d5a9d96aa6ef5065b7945c2d005d3f",
+		HashMin: "8f9510b39cd7467db3d5b47cc926cbea6d271b2a",
 	},
 	"testing/internal/testdeps": {
 		HashMax: "bda5d793e5228b517d4f379cc7000c121346130b",
@@ -1137,7 +1137,7 @@ var Index = map[string]builder.PackageHash{
 	},
 	"text/template": {
 		HashMax: "37e27ef86e53fa83a4709ab01a06286c186b0f59",
-		HashMin: "b7807c0af3640f830ecb343e8b88043d52cd208c",
+		HashMin: "4c6046020a60eb90a16a6a0774bd586aba3373b5",
 	},
 	"text/template/parse": {
 		HashMax: "805894702fe0c8fee935a88d29bb9d37bc911b5d",

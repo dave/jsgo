@@ -25,6 +25,7 @@ import (
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/server/compile"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -189,64 +190,73 @@ func Js() error {
 		return err
 	}
 	defer client.Close()
-	bucket := client.Bucket(config.PkgBucket)
+	storer := compile.NewStorer(ctx, client, nil, 20)
 
-	sessionMin := builder.NewSession(&builder.Options{
-		Root:        rootfs,
-		Path:        pathfs,
-		Temporary:   archivefs,
-		Unvendor:    true,
-		Initializer: true,
-		Minify:      true,
-	})
-	sessionMax := builder.NewSession(&builder.Options{
-		Root:        rootfs,
-		Path:        pathfs,
-		Temporary:   archivefs,
-		Unvendor:    true,
-		Initializer: true,
-		Minify:      false,
-	})
+	output := map[string]*builder.PackageHash{}
 
-	for _, p := range packages {
-		fmt.Println("Compiling", p)
-		if _, _, err := sessionMin.BuildImportPath(ctx, p); err != nil {
-			return err
+	buildAndSend := func(min bool) error {
+		session := builder.NewSession(&builder.Options{
+			Root:        rootfs,
+			Path:        pathfs,
+			Temporary:   archivefs,
+			Unvendor:    true,
+			Initializer: true,
+			Minify:      min,
+		})
+
+		var minified = " (un-minified)"
+		if min {
+			minified = " (minified)"
 		}
-		if _, _, err := sessionMax.BuildImportPath(ctx, p); err != nil {
-			return err
+
+		sent := map[string]bool{}
+		for _, p := range packages {
+			fmt.Println("Compiling:", p+minified)
+			if _, _, err := session.BuildImportPath(ctx, p); err != nil {
+				return err
+			}
+
+			for _, archive := range session.Archives {
+				path := archive.ImportPath
+				if sent[path] {
+					continue
+				}
+				fmt.Println("Storing:", path+minified)
+				contents, hash, err := builder.GetPackageCode(ctx, archive, min, true)
+				if err != nil {
+					return err
+				}
+				storer.AddJs(path+minified, fmt.Sprintf("%s.%x.js", path, hash), contents)
+				if output[path] == nil {
+					output[path] = &builder.PackageHash{}
+				}
+				if min {
+					output[path].HashMin = fmt.Sprintf("%x", hash)
+				} else {
+					output[path].HashMax = fmt.Sprintf("%x", hash)
+				}
+				sent[path] = true
+			}
 		}
+
+		return nil
 	}
 
-	output := map[string]builder.PackageHash{}
-	for key := range sessionMin.Archives {
-		archiveMin := sessionMin.Archives[key]
-		archiveMax := sessionMax.Archives[key]
-		if archiveMin == nil || archiveMax == nil || archiveMin.ImportPath != archiveMax.ImportPath {
-			return fmt.Errorf("archives %s don't match!", key)
-		}
-		path := archiveMin.ImportPath
-		fmt.Println("Storing", path)
-		contentsMin, hashMin, err := builder.GetPackageCode(ctx, archiveMin, true, true)
-		if err != nil {
-			return err
-		}
-		contentsMax, hashMax, err := builder.GetPackageCode(ctx, archiveMax, false, true)
-		if err != nil {
-			return err
-		}
-		if err := sendToStorage(ctx, bucket, path, contentsMin, hashMin); err != nil {
-			return err
-		}
-		if err := sendToStorage(ctx, bucket, path, contentsMax, hashMax); err != nil {
-			return err
-		}
-		output[path] = builder.PackageHash{
-			HashMin: fmt.Sprintf("%x", hashMin),
-			HashMax: fmt.Sprintf("%x", hashMax),
-		}
+	if err := buildAndSend(true); err != nil {
+		return err
+	}
+	if err := buildAndSend(false); err != nil {
+		return err
 	}
 
+	fmt.Println("Compile finished. Waiting for storage operations...")
+	storer.Wait()
+	fmt.Println("Storage operations finished.")
+	if storer.Err != nil {
+		return err
+	}
+
+	fmt.Println("Saving index...")
 	/*
 		var Index = map[string]builder.PackageHash{
 			{
