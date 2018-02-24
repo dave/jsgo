@@ -16,11 +16,11 @@ so your visitors won't have to download the entire dependency tree again.
 
 ### Features
 
-* Compiles your Go to JS.  
+* Compiles Go to JS using [GopherJS](https://github.com/gopherjs/gopherjs).  
 * Splits the JS up by Go package.  
 * Stores the JS in a CDN for you (GCP / Cloudflare).  
 * Aggressively caches the JS.  
-* Creates a page on `jsgo.io` that runs your JS.  
+* Creates a page on `jsgo.io` that runs the JS.  
 * Creates a single `loader JS` file you can use on your site.
 
 ### How it works
