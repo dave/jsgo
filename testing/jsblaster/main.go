@@ -63,8 +63,8 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 		return map[string]interface{}{"status": "error decoding payload: " + err.Error()}, err
 	}
 
-	ws, err := websocket.Dial(fmt.Sprintf("wss://compile.jsgo.io/_ws%s", p.Path), "", "https://compile.jsgo.io")
-	//ws, err := websocket.Dial(fmt.Sprintf("ws://localhost:8080/_ws%s", p.Path), "", "http://localhost:8080")
+	ws, err := websocket.Dial(fmt.Sprintf("wss://compile.jsgo.io/_ws/%s", p.Path), "", "https://compile.jsgo.io")
+	//ws, err := websocket.Dial(fmt.Sprintf("ws://localhost:8080/_ws/%s", p.Path), "", "http://localhost:8080")
 	if err != nil {
 		return map[string]interface{}{"status": "error dialing: " + err.Error()}, err
 	}
