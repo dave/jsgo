@@ -5,5 +5,5 @@ coverage.out
 .coverage/
 /assets/assets.zip
 /assets/assets10.zip
-out/server-bin
+/server/main/out/server-bin
 /testing/jsblaster/packages.csv
