@@ -1,3 +1,6 @@
 package std
 
-const PreludeHash = "f31d388f0db5e3dfb23d54e3f8b79245a026963c"
+const (
+	PreludeMin = "d7be2bb7257fad35c0261c76fc03aed1a338ee9e"
+	PreludeMax = "678c5fc19d2ba4ed55282041bc9713609997d3f0"
+)

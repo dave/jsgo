@@ -448,13 +448,19 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func storeSuccess(ctx context.Context, send chan messages.Message, path string, req *http.Request, min, max *compile.CompileOutput) {
-	getCompileContents := func(c *compile.CompileOutput) store.CompileContents {
+	getCompileContents := func(c *compile.CompileOutput, min bool) store.CompileContents {
 		val := store.CompileContents{}
 		val.Main = fmt.Sprintf("%x", c.Hash)
+		var preludeHash string
+		if min {
+			preludeHash = std.PreludeMin
+		} else {
+			preludeHash = std.PreludeMax
+		}
 		val.Packages = []store.CompilePackage{
 			{
 				Path:     "prelude",
-				Hash:     std.PreludeHash,
+				Hash:     preludeHash,
 				Standard: true,
 			},
 		}
@@ -472,8 +478,8 @@ func storeSuccess(ctx context.Context, send chan messages.Message, path string, 
 		Path:    path,
 		Time:    time.Now(),
 		Success: true,
-		Min:     getCompileContents(min),
-		Max:     getCompileContents(max),
+		Min:     getCompileContents(min, true),
+		Max:     getCompileContents(max, false),
 		Ip:      req.Header.Get("X-Forwarded-For"),
 	}
 

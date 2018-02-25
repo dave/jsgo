@@ -132,17 +132,10 @@ func Src() error {
 }
 
 // Add dummy package prelude to the loader so prelude can be loaded like a package
-const jsGoPrelude = `
-$load["prelude"] = function(){};
-`
+const jsGoPrelude = `$load.prelude=function(){};`
 
 func Prelude() error {
 	fmt.Println("Storing prelude...")
-	b := []byte(prelude.Prelude + jsGoPrelude)
-	s := sha1.New()
-	if _, err := s.Write(b); err != nil {
-		return err
-	}
 
 	ctx := context.Background()
 	client, err := storage.NewClient(ctx)
@@ -152,18 +145,39 @@ func Prelude() error {
 	defer client.Close()
 	bucket := client.Bucket(config.PkgBucket)
 
-	hash := fmt.Sprintf("%x", s.Sum(nil))
-
-	fname := fmt.Sprintf("prelude.%s.js", hash)
-	if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
-		return nil
+	store := func(contents string) ([]byte, error) {
+		b := []byte(contents)
+		s := sha1.New()
+		if _, err := s.Write(b); err != nil {
+			return nil, err
+		}
+		hash := s.Sum(nil)
+		fname := fmt.Sprintf("prelude.%x.js", hash)
+		if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
+			return nil, nil
+		}
+		return hash, nil
+	}
+	hashMin, err := store(prelude.PreludeMinified + jsGoPrelude)
+	if err != nil {
+		return err
+	}
+	hashMax, err := store(prelude.Prelude + jsGoPrelude)
+	if err != nil {
+		return err
 	}
 
 	/*
-		const PreludeHash = "..."
+		const (
+			PreludeMin = "..."
+			PreludeMax = "..."
+		)
 	*/
 	f := jen.NewFile("std")
-	f.Const().Id("PreludeHash").Op("=").Lit(hash)
+	f.Const().Defs(
+		jen.Id("PreludeMin").Op("=").Lit(fmt.Sprintf("%x", hashMin)),
+		jen.Id("PreludeMax").Op("=").Lit(fmt.Sprintf("%x", hashMax)),
+	)
 	if err := f.Save("./builder/std/prelude.go"); err != nil {
 		return err
 	}

@@ -369,11 +369,17 @@ func genIndex(storer *Storer, tpl *template.Template, path string, hash []byte, 
 
 func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
 
+	var preludeHash string
+	if min {
+		preludeHash = std.PreludeMin
+	} else {
+		preludeHash = std.PreludeMax
+	}
 	pkgs := []PkgJson{
 		{
 			// Always include the prelude dummy package first
 			Path: "prelude",
-			Hash: std.PreludeHash,
+			Hash: preludeHash,
 		},
 	}
 	for _, po := range output.Packages {
@@ -395,7 +401,13 @@ func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput,
 	}
 
 	buf := &bytes.Buffer{}
-	if err := mainTemplate.Execute(buf, m); err != nil {
+	var tmpl *template.Template
+	if min {
+		tmpl = mainTemplateMinified
+	} else {
+		tmpl = mainTemplate
+	}
+	if err := tmpl.Execute(buf, m); err != nil {
 		return nil, err
 	}
 
@@ -428,6 +440,11 @@ type PkgJson struct {
 	Hash string `json:"hash"`
 }
 
+// minify with https://skalman.github.io/UglifyJS-online/
+
+var mainTemplateMinified = template.Must(template.New("main").Parse(
+	`"use strict";var $mainPkg,$load={};!function(){for(var n=0,t=0,e={{ .Json }},o=(document.getElementById("log"),function(){n++,window.jsgoProgress&&window.jsgoProgress(n,t),n==t&&function(){for(var n=0;n<e.length;n++)$load[e[n].path]();$mainPkg=$packages["{{ .Path }}"],$synthesizeMethods(),$packages.runtime.$init(),$go($mainPkg.$init,[]),$flushConsole()}()}),a=function(n){t++;var e=document.createElement("script");e.src=n,e.onload=o,e.onreadystatechange=o,document.head.appendChild(e)},s=0;s<e.length;s++)a("https://{{ .PkgHost }}/"+e[s].path+"."+e[s].hash+".js")}();`,
+))
 var mainTemplate = template.Must(template.New("main").Parse(`
 "use strict";
 var $mainPkg;
