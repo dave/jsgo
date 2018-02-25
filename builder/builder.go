@@ -887,7 +887,13 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 	buf := new(bytes.Buffer)
 
 	if initializer {
-		if _, err := fmt.Fprintf(buf, `$load["%s"] = function () {`, archive.ImportPath); err != nil {
+		var s string
+		if minify {
+			s = `$load["%s"]=function(){`
+		} else {
+			s = `$load["%s"] = function () {` + "\n"
+		}
+		if _, err := fmt.Fprintf(buf, s, archive.ImportPath); err != nil {
 			return nil, nil, err
 		}
 	}
@@ -898,6 +904,11 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 	}
 	if err != nil {
 		return nil, nil, err
+	}
+
+	if minify {
+		// compiler.WritePkgCode always finishes with a "\n". In minified mode we should remove this.
+		buf.Truncate(buf.Len() - 1)
 	}
 
 	if initializer {

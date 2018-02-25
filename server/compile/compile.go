@@ -445,8 +445,7 @@ type PkgJson struct {
 var mainTemplateMinified = template.Must(template.New("main").Parse(
 	`"use strict";var $mainPkg,$load={};!function(){for(var n=0,t=0,e={{ .Json }},o=(document.getElementById("log"),function(){n++,window.jsgoProgress&&window.jsgoProgress(n,t),n==t&&function(){for(var n=0;n<e.length;n++)$load[e[n].path]();$mainPkg=$packages["{{ .Path }}"],$synthesizeMethods(),$packages.runtime.$init(),$go($mainPkg.$init,[]),$flushConsole()}()}),a=function(n){t++;var e=document.createElement("script");e.src=n,e.onload=o,e.onreadystatechange=o,document.head.appendChild(e)},s=0;s<e.length;s++)a("https://{{ .PkgHost }}/"+e[s].path+"."+e[s].hash+".js")}();`,
 ))
-var mainTemplate = template.Must(template.New("main").Parse(`
-"use strict";
+var mainTemplate = template.Must(template.New("main").Parse(`"use strict";
 var $mainPkg;
 var $load = {};
 (function(){
@@ -481,5 +480,4 @@ var $load = {};
 	for (var i = 0; i < info.length; i++) {
 		get("https://{{ .PkgHost }}/" + info[i].path + "." + info[i].hash + ".js");
 	}
-})();
-`))
+})();`))
