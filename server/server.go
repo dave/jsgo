@@ -152,7 +152,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 								<a id="complete-link" href=""></a>
 							</p>
 
-							<h3><small class="text-muted">Script</small></h3>
+							<h3><small class="text-muted">Loader JS</small></h3>
 							<p>
 								<input id="complete-script" type="text" onclick="this.select()" class="form-control" />
 							</p>
