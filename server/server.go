@@ -418,7 +418,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	send <- messages.Message{Type: messages.Download, Payload: messages.Payload{Done: false}}
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, messages.DownloadWriter(send)).Get(ctx, path, false, false); err != nil {
+	if err := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}

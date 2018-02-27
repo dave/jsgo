@@ -249,6 +249,7 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 		Verbose:     true,
 		Minify:      min,
 		Standard:    std.Index,
+		BuildTags:   []string{"jsgo"},
 	}
 
 	session := builder.NewSession(options)

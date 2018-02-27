@@ -30,7 +30,7 @@ type Session struct {
 	fetchCache        map[string]fetchResult // key is metaImportsForPrefix's importPrefix
 }
 
-func New(fs billy.Filesystem, log io.Writer) *Session {
+func New(fs billy.Filesystem, log io.Writer, buildTags []string) *Session {
 	s := &Session{}
 
 	s.fs = fs
@@ -41,7 +41,7 @@ func New(fs billy.Filesystem, log io.Writer) *Session {
 	s.downloadRootCache = make(map[string]*repoRoot) // key is the root dir of the repo
 	s.repoPackages = make(map[string]*repoRoot)      // key is the path of the package. NOTE: not all packages are included, but the ones we're interested in should be.
 	s.fetchCache = make(map[string]fetchResult)
-	s.buildContext = newBuildContext(fs)
+	s.buildContext = newBuildContext(fs, buildTags)
 	return s
 
 }
@@ -51,14 +51,14 @@ func (s *Session) Get(ctx context.Context, path string, update bool, insecure bo
 	return s.download(ctx, path, nil, &stk, update, insecure)
 }
 
-func newBuildContext(fs billy.Filesystem) *build.Context {
+func newBuildContext(fs billy.Filesystem, buildTags []string) *build.Context {
 	return &build.Context{
 		GOARCH:      build.Default.GOARCH, // target architecture
 		GOOS:        build.Default.GOOS,   // target operating system
 		GOROOT:      "/goroot",            // Go root
 		GOPATH:      "/gopath",            // Go path
 		Compiler:    "gc",                 // compiler to assume when computing target paths
-		BuildTags:   []string{"js"},
+		BuildTags:   append(buildTags, "js"),
 		ReleaseTags: build.Default.ReleaseTags,
 
 		// JoinPath joins the sequence of path fragments into a single path.

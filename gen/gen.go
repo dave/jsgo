@@ -158,7 +158,7 @@ func Prelude() error {
 		}
 		return hash, nil
 	}
-	hashMin, err := store(prelude.PreludeMinified + jsGoPrelude)
+	hashMin, err := store(prelude.Minified + jsGoPrelude)
 	if err != nil {
 		return err
 	}
