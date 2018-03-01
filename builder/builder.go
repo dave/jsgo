@@ -45,7 +45,7 @@ func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *bui
 	return &build.Context{
 		GOROOT:        "goroot",
 		GOPATH:        "gopath",
-		GOOS:          build.Default.GOOS,
+		GOOS:          "darwin",
 		GOARCH:        "js",
 		InstallSuffix: installSuffix,
 		Compiler:      "gc",
@@ -273,7 +273,7 @@ func (s *Session) parseAndAugment(pkg *build.Package, isTest bool, fileSet *toke
 
 	nativesContext := &build.Context{
 		GOROOT:   "/",
-		GOOS:     build.Default.GOOS,
+		GOOS:     "darwin",
 		GOARCH:   "js",
 		Compiler: "gc",
 		JoinPath: path.Join,

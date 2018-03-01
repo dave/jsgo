@@ -53,11 +53,11 @@ func (s *Session) Get(ctx context.Context, path string, update bool, insecure bo
 
 func newBuildContext(fs billy.Filesystem, buildTags []string) *build.Context {
 	return &build.Context{
-		GOARCH:      build.Default.GOARCH, // target architecture
-		GOOS:        build.Default.GOOS,   // target operating system
-		GOROOT:      "/goroot",            // Go root
-		GOPATH:      "/gopath",            // Go path
-		Compiler:    "gc",                 // compiler to assume when computing target paths
+		GOARCH:      "amd64",   // target architecture
+		GOOS:        "darwin",  // target operating system
+		GOROOT:      "/goroot", // Go root
+		GOPATH:      "/gopath", // Go path
+		Compiler:    "gc",      // compiler to assume when computing target paths
 		BuildTags:   append(buildTags, "js"),
 		ReleaseTags: build.Default.ReleaseTags,
 
