@@ -1,0 +1,19 @@
+<html>
+<head>
+    <meta charset="utf-8">
+</head>
+<body>
+<span id="jsgo-progress-span"></span>
+<script>
+    window.jsgoProgress = function(count, total) {
+        if (count === total) {
+            document.getElementById("jsgo-progress-span").style.display = "none";
+        } else {
+            document.getElementById("jsgo-progress-span").innerHTML = count + "/" + total;
+        }
+    }
+</script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.1/ace.js"></script>
+<script src="{{ .Script }}"></script>
+</body>
+</html>
