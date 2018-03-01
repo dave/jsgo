@@ -1,6 +1,10 @@
 package messages
 
-import "strings"
+import (
+	"encoding/json"
+	"fmt"
+	"strings"
+)
 
 func CompileWriter(send chan Message) compileWriter {
 	return compileWriter{send: send}
@@ -19,12 +23,12 @@ type downloadWriter struct {
 }
 
 func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send <- Message{Type: Download, Payload: Payload{Message: strings.TrimSuffix(string(b), "\n")}}
+	w.send <- Message{Type: Download, Payload: DownloadPayload{Message: strings.TrimSuffix(string(b), "\n")}}
 	return len(b), nil
 }
 
 func (w compileWriter) Write(b []byte) (n int, err error) {
-	w.send <- Message{Type: Compile, Payload: Payload{Message: strings.TrimSuffix(string(b), "\n")}}
+	w.send <- Message{Type: Compile, Payload: CompilePayload{Message: strings.TrimSuffix(string(b), "\n")}}
 	return len(b), nil
 }
 
@@ -47,12 +51,20 @@ type Message struct {
 	Payload interface{} `json:"payload"`
 }
 
-type Payload struct {
-	Message string `json:"message,omitempty"`
-	Done    bool   `json:"done"`
+type DownloadPayload struct {
+	Starting bool   `json:"starting"`
+	Message  string `json:"message,omitempty"`
+	Done     bool   `json:"done"`
+}
+
+type CompilePayload struct {
+	Starting bool   `json:"starting"`
+	Message  string `json:"message,omitempty"`
+	Done     bool   `json:"done"`
 }
 
 type StorePayload struct {
+	Starting  bool `json:"starting"`
 	Finished  int  `json:"finished"`
 	Unchanged int  `json:"unchanged"`
 	Remain    int  `json:"remain"`
@@ -74,4 +86,53 @@ type ErrorPayload struct {
 type QueuePayload struct {
 	Position int  `json:"position"`
 	Done     bool `json:"done"`
+}
+
+func Parse(in []byte) (string, interface{}, error) {
+	var m struct {
+		Type    string          `json:"type"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal(in, &m); err != nil {
+		return "", nil, err
+	}
+	switch Type(m.Type) {
+	case Compile:
+		var payload CompilePayload
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			return "", nil, err
+		}
+		return m.Type, payload, nil
+	case Download:
+		var payload DownloadPayload
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			return "", nil, err
+		}
+		return m.Type, payload, nil
+	case Store:
+		var payload StorePayload
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			return "", nil, err
+		}
+		return m.Type, payload, nil
+	case Complete:
+		var payload CompletePayload
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			return "", nil, err
+		}
+		return m.Type, payload, nil
+	case Error:
+		var payload ErrorPayload
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			return "", nil, err
+		}
+		return m.Type, payload, nil
+	case Queue:
+		var payload QueuePayload
+		if err := json.Unmarshal(m.Payload, &payload); err != nil {
+			return "", nil, err
+		}
+		return m.Type, payload, nil
+	}
+	return "", nil, fmt.Errorf("invalid type %s", m.Type)
 }

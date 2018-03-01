@@ -251,6 +251,8 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					if (message.payload.done) {
 						span.innerHTML = "Done";
 						done[message.type] = true;
+					} else if (message.payload.starting) {
+						span.innerHTML = "Starting";
 					} else if (message.payload.message) {
 						span.innerHTML = message.payload.message;
 					} else if (message.payload.position) {
@@ -291,7 +293,9 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-var upgrader = websocket.Upgrader{} // use default options
+var upgrader = websocket.Upgrader{
+	CheckOrigin: func(r *http.Request) bool { return true },
+}
 
 func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
@@ -415,7 +419,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	fs := memfs.New()
 
 	// Send a message to the client that downloading step has started.
-	send <- messages.Message{Type: messages.Download, Payload: messages.Payload{Done: false}}
+	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Starting: true}}
 
 	// Start the download process - just like the "go get" command.
 	if err := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
@@ -424,7 +428,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send <- messages.Message{Type: messages.Download, Payload: messages.Payload{Done: true}}
+	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Done: true}}
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
 	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path)

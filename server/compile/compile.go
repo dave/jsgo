@@ -189,8 +189,8 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 	storer := NewStorer(ctx, client, c.send, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Done: false}}
-	c.send <- messages.Message{Type: messages.Store, Payload: messages.Payload{Done: false}}
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Starting: true}}
+	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Starting: true}}
 
 	data, outputMin, err := c.compileAndStore(ctx, path, storer, true)
 	if err != nil {
@@ -201,7 +201,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Message: "Loader"}}
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Message: "Loader"}}
 	hashMin, err := genMain(ctx, storer, outputMin, true)
 	if err != nil {
 		return nil, nil, err
@@ -211,7 +211,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Message: "Index"}}
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Message: "Index"}}
 
 	tpl, err := c.getIndexTpl(data.Dir)
 	if err != nil {
@@ -225,13 +225,13 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.Payload{Done: true}}
+	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: true}}
 	storer.Wait()
 	if storer.Err != nil {
 		fmt.Println("detected fail")
 		return nil, nil, storer.Err
 	}
-	c.send <- messages.Message{Type: messages.Store, Payload: messages.Payload{Done: true}}
+	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: true}}
 
 	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
 
