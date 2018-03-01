@@ -27,15 +27,9 @@ func applyStyles() {
 		.split, .gutter.gutter-horizontal {
 			float: left;
 		}
-		.split {
-			overflow-y: auto;
-			overflow-x: hidden;
-		}
 		.header {
-			height: 20px;
-			padding-left: 45px; /* margin: 41px, padding: 4px */
-			padding-top: 4px;
-			padding-bottom: 4px;
+			text-align: right;
+			padding: 4px;
 			background-color: #eee;
 		}
 		.preview {

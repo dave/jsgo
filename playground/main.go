@@ -5,6 +5,8 @@ import (
 
 	"fmt"
 
+	"strings"
+
 	"github.com/dave/jsgo/playground/splitter"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/go-humble/locstor"
@@ -65,6 +67,9 @@ func run() {
 
 	button := document.CreateElement("button").(*dom.HTMLButtonElement)
 	button.SetInnerHTML("Compile")
+	button.Class().Add("btn")
+	button.Class().Add("btn-sm")
+	button.Class().Add("btn-primary")
 	header.AppendChild(button)
 	button.AddEventListener("click", false, func(event dom.Event) {
 		event.PreventDefault()
@@ -72,8 +77,50 @@ func run() {
 	})
 
 	value, err := locstor.GetItem("code")
-	if _, isNotFound := err.(locstor.ItemNotFoundError); err != nil && !isNotFound {
-		panic(err)
+	if _, isNotFound := err.(locstor.ItemNotFoundError); err != nil {
+
+		if !isNotFound {
+			panic(err)
+		}
+
+		defaultCode := `package main
+
+import (
+	"log"
+
+	"github.com/dave/ebiten"
+	"github.com/dave/ebiten/examples/2048/2048"
+)
+
+var (
+	game *twenty48.Game
+)
+
+func update(screen *ebiten.Image) error {
+	if err := game.Update(); err != nil {
+		return err
+	}
+	if ebiten.IsRunningSlowly() {
+		return nil
+	}
+	game.Draw(screen)
+	return nil
+}
+
+func main() {
+	var err error
+	game, err = twenty48.NewGame()
+	if err != nil {
+		log.Fatal(err)
+	}
+	if err := ebiten.Run(update, twenty48.ScreenWidth, twenty48.ScreenHeight, 1, "2048 (Ebiten Demo)"); err != nil {
+		log.Fatal(err)
+	}
+}`
+
+		editor.SetValue(defaultCode)
+		editor.ClearSelection()
+		editor.MoveCursorTo(0, 0)
 	}
 	if value != "" {
 		editor.SetValue(value)
@@ -102,10 +149,12 @@ func compile(pane *dom.HTMLDivElement, code string) {
 	pane.AppendChild(pre)
 
 	msg := func(m string) {
-		pre.SetInnerHTML(m + pane.InnerHTML())
+		m = strings.TrimSuffix(m, "\n")
+		pre.SetInnerHTML(m + "\n" + pre.InnerHTML())
 	}
 	msgf := func(m string, args ...interface{}) {
-		pre.SetInnerHTML(fmt.Sprintf(m, args...) + pane.InnerHTML())
+		m = strings.TrimSuffix(m, "\n")
+		pre.SetInnerHTML(fmt.Sprintf(m, args...) + "\n" + pre.InnerHTML())
 	}
 
 	go func() {
@@ -114,7 +163,7 @@ func compile(pane *dom.HTMLDivElement, code string) {
 		if err != nil {
 			panic(err)
 		}
-		//id := "df3bd3fce808e5d59797ee2e9a9236f9"
+		//id := "d60c1d31cbc3347f0c8485f954bc2f93"
 		msg("Gist created: gist.github.com/" + id)
 
 		ws, err := websocketjs.New("wss://compile.jsgo.io/_ws/gist.github.com/" + id)
@@ -130,7 +179,6 @@ func compile(pane *dom.HTMLDivElement, code string) {
 			if err != nil {
 				panic(err)
 			}
-			msg(ev.Get("data").String())
 			switch p := p.(type) {
 			case messages.DownloadPayload:
 				if !p.Done && !p.Starting {
@@ -148,7 +196,7 @@ func compile(pane *dom.HTMLDivElement, code string) {
 				panic(fmt.Sprintf("error: %s %s", p.Message, p.Path))
 			case messages.StorePayload:
 				if !p.Starting && !p.Done {
-					msgf("storing: %d finished, %d unchanged, %d remain", p.Finished, p.Unchanged, p.Done)
+					msgf("storing: %d finished, %d unchanged, %d remain", p.Finished, p.Unchanged, p.Remain)
 				}
 			case messages.CompletePayload:
 				msg("complete!")
