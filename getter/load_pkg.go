@@ -3,12 +3,15 @@ package getter
 import (
 	"fmt"
 	"go/build"
+	"os"
 	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
+
+	"github.com/dave/jsgo/assets"
 
 	"context"
 )
@@ -323,6 +326,15 @@ func cleanImport(path string) string {
 }
 
 func (s *Session) isDir(fpath string) bool {
+
+	if strings.HasPrefix(fpath, "/goroot/") {
+		fi, err := assets.Assets.Stat(fpath)
+		if err != nil {
+			return false
+		}
+		return fi.IsDir()
+	}
+
 	fi, err := s.fs.Stat(fpath)
 	result := err == nil && fi.IsDir()
 	return result
@@ -403,7 +415,14 @@ func (s *Session) VendoredImportPath(parent *Package, path string) (found string
 // Otherwise it is not possible to vendor just a/b/c and still import the
 // non-vendored a/b. See golang.org/issue/13832.
 func (s *Session) hasGoFiles(dir string) bool {
-	fis, _ := s.fs.ReadDir(dir)
+
+	var fis []os.FileInfo
+	if strings.HasPrefix(dir, "/goroot/") {
+		fis, _ = assets.Assets.ReadDir(dir)
+	} else {
+		fis, _ = s.fs.ReadDir(dir)
+	}
+
 	for _, fi := range fis {
 		if !fi.IsDir() && strings.HasSuffix(fi.Name(), ".go") {
 			return true
