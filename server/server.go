@@ -46,6 +46,7 @@ func New(shutdown chan struct{}) *Handler {
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
 	h.mux.HandleFunc("/_ws/", h.SocketHandler)
+	h.mux.HandleFunc("/_pg/", h.SocketHandler)
 	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
 	h.mux.HandleFunc("/compile.css", h.CssHandler)
 	h.mux.HandleFunc("/_ah/health", h.HealthCheckHandler)
@@ -297,6 +298,12 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
+const (
+	TypeCompile = iota
+	TypePlaygroundCompile
+	TypePlaygroundDeploy
+)
+
 func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	h.Waitgroup.Add(1)
@@ -304,6 +311,11 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	ctx, cancel := context.WithTimeout(req.Context(), config.CompileTimeout)
 	defer cancel()
+
+	compileType := TypeCompile
+	if strings.HasPrefix(req.URL.Path, "/_pg/") {
+		compileType = TypePlaygroundCompile
+	}
 
 	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/_ws/"), "/"))
 
@@ -320,6 +332,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}()
 
 	send := make(chan messages.Message, 256)
+	receive := make(chan messages.Message, 256)
 
 	// Recover from any panic and log the error.
 	defer func() {
@@ -371,13 +384,23 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 			return nil
 		})
 		for {
-			if _, _, err := conn.ReadMessage(); err != nil {
+			_, messageBytes, err := conn.ReadMessage()
+			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 					// Don't bother storing an error if the client disconnects gracefully
 					break
 				}
 				storeError(ctx, path, err, req)
 				break
+			}
+			message, err := messages.Parse(messageBytes)
+			if err != nil {
+				storeError(ctx, path, err, req)
+				break
+			}
+			select {
+			case receive <- message:
+			default:
 			}
 		}
 	}()
@@ -415,6 +438,32 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	// Send a message to the client that queue step has finished.
 	send <- messages.Message{Type: messages.Queue, Payload: messages.QueuePayload{Done: true}}
 
+	switch compileType {
+	case TypeCompile:
+		doCompile(ctx, path, req, send)
+	case TypePlaygroundCompile:
+		doPlaygroundCompile(ctx, path, req, send, receive)
+	}
+
+	return
+}
+
+func doPlaygroundCompile(ctx context.Context, path string, req *http.Request, send, receive chan messages.Message) {
+
+	var init messages.Message
+	select {
+	case init = <-receive:
+		// got initial message
+	case <-time.After(config.WebsocketInstructionTimeout):
+		sendAndStoreError(ctx, send, path, errors.New("timed out waiting for instruction from client"), req)
+	}
+
+	if init.Type != messages.PlaygroundCompile {
+		// TODO
+	}
+}
+
+func doCompile(ctx context.Context, path string, req *http.Request, send chan messages.Message) {
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
@@ -447,8 +496,6 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 		HashMin: fmt.Sprintf("%x", min.Hash),
 		HashMax: fmt.Sprintf("%x", max.Hash),
 	}}
-
-	return
 }
 
 func storeSuccess(ctx context.Context, send chan messages.Message, path string, req *http.Request, min, max *compile.CompileOutput) {

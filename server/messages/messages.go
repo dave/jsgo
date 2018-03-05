@@ -46,6 +46,8 @@ const Error Type = "error"
 
 const Queue Type = "queue"
 
+const PlaygroundCompile Type = "playground-compile"
+
 type Message struct {
 	Type    Type        `json:"type"`
 	Payload interface{} `json:"payload"`
@@ -88,51 +90,62 @@ type QueuePayload struct {
 	Done     bool `json:"done"`
 }
 
-func Parse(in []byte) (string, interface{}, error) {
+type PlaygroundCompilePayload struct {
+	// Source packages for this build: map[<package>]map[<filename>]<contents>
+	Source map[string]map[string]string `json:"source"`
+
+	// Build tags
+	Tags []string `json:"tags"`
+
+	// Hashes of previously compiled dependencies to use if still in the cache
+	Dependencies map[string]string `json:"dependencies"`
+}
+
+func Parse(in []byte) (Message, error) {
 	var m struct {
-		Type    string          `json:"type"`
+		Type    Type            `json:"type"`
 		Payload json.RawMessage `json:"payload"`
 	}
 	if err := json.Unmarshal(in, &m); err != nil {
-		return "", nil, err
+		return Message{}, err
 	}
-	switch Type(m.Type) {
+	switch m.Type {
 	case Compile:
 		var payload CompilePayload
 		if err := json.Unmarshal(m.Payload, &payload); err != nil {
-			return "", nil, err
+			return Message{}, err
 		}
-		return m.Type, payload, nil
+		return Message{Type: m.Type, Payload: payload}, nil
 	case Download:
 		var payload DownloadPayload
 		if err := json.Unmarshal(m.Payload, &payload); err != nil {
-			return "", nil, err
+			return Message{}, err
 		}
-		return m.Type, payload, nil
+		return Message{Type: m.Type, Payload: payload}, nil
 	case Store:
 		var payload StorePayload
 		if err := json.Unmarshal(m.Payload, &payload); err != nil {
-			return "", nil, err
+			return Message{}, err
 		}
-		return m.Type, payload, nil
+		return Message{Type: m.Type, Payload: payload}, nil
 	case Complete:
 		var payload CompletePayload
 		if err := json.Unmarshal(m.Payload, &payload); err != nil {
-			return "", nil, err
+			return Message{}, err
 		}
-		return m.Type, payload, nil
+		return Message{Type: m.Type, Payload: payload}, nil
 	case Error:
 		var payload ErrorPayload
 		if err := json.Unmarshal(m.Payload, &payload); err != nil {
-			return "", nil, err
+			return Message{}, err
 		}
-		return m.Type, payload, nil
+		return Message{Type: m.Type, Payload: payload}, nil
 	case Queue:
 		var payload QueuePayload
 		if err := json.Unmarshal(m.Payload, &payload); err != nil {
-			return "", nil, err
+			return Message{}, err
 		}
-		return m.Type, payload, nil
+		return Message{Type: m.Type, Payload: payload}, nil
 	}
-	return "", nil, fmt.Errorf("invalid type %s", m.Type)
+	return Message{}, fmt.Errorf("invalid type %s", m.Type)
 }

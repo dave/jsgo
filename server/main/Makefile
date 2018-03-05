@@ -18,7 +18,7 @@ all:
 	
 scale:
 	kubectl delete hpa ${DEPLOYMENT} --ignore-not-found=true
-	kubectl autoscale deployment ${DEPLOYMENT} --min=3 --max=24 --cpu-percent=75
+	kubectl autoscale deployment ${DEPLOYMENT} --min=1 --max=24 --cpu-percent=75
 
 # Set the default cluster for the kebectl command
 setup:

@@ -38,6 +38,10 @@ const (
 	// WebsocketWriteTimeout is the write timeout for websockets
 	WebsocketWriteTimeout = time.Second * 20
 
+	// WebsocketInstructionTimeout is the time to wait for instructions from the client (e.g. during
+	// playground compile)
+	WebsocketInstructionTimeout = time.Second * 5
+
 	// GitCloneTimeout is the time to wait for a git clone operation
 	GitCloneTimeout = time.Second * 60
 

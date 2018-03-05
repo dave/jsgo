@@ -1,11 +1,15 @@
-package main
+package old
 
 func applyStyles() {
 	css := `
 		html, body {
 			height: 100%;
 		}
-		.split, .editor {
+		.editor {
+			height: calc(100% - 65px);
+			width: 100%;
+		}
+		.split {
 			height: 100%;
 			width: 100%;
 		}
@@ -26,11 +30,6 @@ func applyStyles() {
 		}
 		.split, .gutter.gutter-horizontal {
 			float: left;
-		}
-		.header {
-			text-align: right;
-			padding: 4px;
-			background-color: #eee;
 		}
 		.preview {
 			border: 0;
