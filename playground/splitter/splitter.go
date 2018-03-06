@@ -12,6 +12,10 @@ func (s *Split) Init(args ...interface{}) {
 	s.Object = js.Global.Call("Split", args...)
 }
 
+func (s *Split) SetSizes(arg interface{}) {
+	s.Object.Call("setSizes", arg)
+}
+
 func (s *Split) GetSizes() []float64 {
 	raw := s.Call("getSizes").Interface().([]interface{})
 	out := make([]float64, len(raw))
