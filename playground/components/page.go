@@ -28,7 +28,7 @@ func NewPage() *Page {
 	store.Listeners.Add(p, func() {
 		p.Sizes = store.SplitSizes
 		vecty.Rerender(p)
-		p.split.SetSizes(p.Sizes)
+		p.split.SetSizesIfChanged(p.Sizes)
 	})
 	return p
 }

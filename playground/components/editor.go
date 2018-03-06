@@ -25,6 +25,14 @@ func NewEditor() *Editor {
 	store.Listeners.Add(e, func() {
 		e.Text = store.EditorText
 		vecty.Rerender(e)
+
+		if e.Text != e.editor.GetValue() {
+			// only update the editor if the text is changed
+			e.editor.SetValue(e.Text)
+			e.editor.ClearSelection()
+			e.editor.MoveCursorTo(0, 0)
+		}
+
 	})
 	return e
 }
