@@ -237,25 +237,25 @@ func compile(pane *dom.HTMLDivElement, code string) {
 				panic(err)
 			}
 			switch p := m.Payload.(type) {
-			case messages.DownloadPayload:
+			case messages.Download:
 				if !p.Done && !p.Starting {
 					msgf("downloading %s", p.Message)
 				}
-			case messages.CompilePayload:
+			case messages.Compile:
 				if !p.Done && !p.Starting {
 					msgf("compiling %s", p.Message)
 				}
-			case messages.QueuePayload:
+			case messages.Queue:
 				if !p.Done {
 					msgf("queued at position %d", p.Position)
 				}
-			case messages.ErrorPayload:
+			case messages.Error:
 				panic(fmt.Sprintf("error: %s %s", p.Message, p.Path))
-			case messages.StorePayload:
+			case messages.Store:
 				if !p.Starting && !p.Done {
 					msgf("storing: %d finished, %d unchanged, %d remain", p.Finished, p.Unchanged, p.Remain)
 				}
-			case messages.CompletePayload:
+			case messages.Complete:
 				msg("complete!")
 				iframe := document.CreateElement("iframe").(*dom.HTMLIFrameElement)
 				iframe.Src = "https://jsgo.io/gist.github.com/" + id

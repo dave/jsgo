@@ -12,6 +12,10 @@ import (
 	"strings"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+
 	pathpkg "path"
 
 	"errors"
@@ -45,6 +49,7 @@ func New(shutdown chan struct{}) *Handler {
 		Waitgroup: &sync.WaitGroup{},
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
+	//h.mux.HandleFunc("/_foo/", h.Foo)
 	h.mux.HandleFunc("/_ws/", h.SocketHandler)
 	h.mux.HandleFunc("/_pg/", h.SocketHandler)
 	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
@@ -52,6 +57,55 @@ func New(shutdown chan struct{}) *Handler {
 	h.mux.HandleFunc("/_ah/health", h.HealthCheckHandler)
 	h.mux.HandleFunc("/_go", h.GoCheckHandler)
 	return h
+}
+
+func (h *Handler) Foo(w http.ResponseWriter, req *http.Request) {
+
+	// creates the in-cluster config
+	cfg, err := rest.InClusterConfig()
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+
+	// creates the clientset
+	clientset, err := kubernetes.NewForConfig(cfg)
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+
+	pods, err := clientset.CoreV1().Pods("").List(metav1.ListOptions{})
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+	}
+	fmt.Fprintf(w, "There are %d pods in the cluster:\n\n", len(pods.Items))
+
+	for k, v := range pods.Items {
+		fmt.Fprintf(w, "Pod %d:\n", k)
+		fmt.Fprintf(w, "TypeMeta: %#v\n", v.TypeMeta)
+		fmt.Fprintf(w, "ObjectMeta: %#v\n", v.ObjectMeta)
+		fmt.Fprintf(w, "Spec: %#v\n", v.Spec)
+		fmt.Fprintf(w, "Status: %#v\n", v.Status)
+		fmt.Fprintln(w)
+	}
+
+	// Examples for error handling:
+	// - Use helper functions like e.g. errors.IsNotFound()
+	// - And/or cast to StatusError and use its properties like e.g. ErrStatus.Message
+	/*
+		_, err = clientset.CoreV1().Pods("default").Get("example-xxxxx", metav1.GetOptions{})
+		if kerrors.IsNotFound(err) {
+			fmt.Printf("Pod not found\n")
+		} else if statusError, isStatus := err.(*kerrors.StatusError); isStatus {
+			fmt.Printf("Error getting pod %v\n", statusError.ErrStatus.Message)
+		} else if err != nil {
+			panic(err.Error())
+		} else {
+			fmt.Printf("Found pod\n")
+		}
+
+		time.Sleep(10 * time.Second)
+	*/
+
 }
 
 type Handler struct {
@@ -201,7 +255,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 		</div>
 	</body>
 	<script>
-		var payload = {};
+		var final = {};
 		var refresh = function() {
 			var minify = document.getElementById("minify-checkbox").checked;
 			var short = document.getElementById("short-url-checkbox").checked;
@@ -209,10 +263,10 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var completeScript = document.getElementById("complete-script");
 			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
 			
-			shortUrlCheckboxHolder.style.display = (payload.short == payload.path) ? "none" : "";
-			completeLink.href = "https://{{ .IndexHost }}/" + (short ? payload.short : payload.path) + (minify ? "" : "$max");
-			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? payload.short : payload.path) + (minify ? "" : "$max");
-			completeScript.value = "https://{{ .PkgHost }}/" + payload.path + "." + (minify ? payload.hashmin : payload.hashmax) + ".js"
+			shortUrlCheckboxHolder.style.display = (final.short == final.path) ? "none" : "";
+			completeLink.href = "https://{{ .IndexHost }}/" + (short ? final.short : final.path) + (minify ? "" : "$max");
+			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? final.short : final.path) + (minify ? "" : "$max");
+			completeScript.value = "https://{{ .PkgHost }}/" + final.path + "." + (minify ? final.hashmin : final.hashmax) + ".js"
 		}
 		document.getElementById("minify-checkbox").onchange = refresh;
 		document.getElementById("short-url-checkbox").onchange = refresh;
@@ -235,50 +289,51 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 				progressPanel.style.display = "";
 			};
 			socket.onmessage = function (e) {
-				var message = JSON.parse(e.data)
-				switch (message.type) {
-				case "queue":
-				case "download":
-				case "compile":
-				case "store":
-					if (done[message.type]) {
+				var payload = JSON.parse(e.data)
+				console.log(e.data)
+				switch (payload.type) {
+				case "Queue":
+				case "Download":
+				case "Compile":
+				case "Store":
+					if (done[payload.type]) {
 						// Messages might arrive out of order... Once we get a "done", ignore 
 						// any more.
 						break;
 					}
-					var item = document.getElementById(message.type+"-item");
-					var span = document.getElementById(message.type+"-span");
+					var item = document.getElementById(payload.type.toLowerCase()+"-item");
+					var span = document.getElementById(payload.type.toLowerCase()+"-span");
 					item.style.display = "";
-					if (message.payload.done) {
+					if (payload.message.done) {
 						span.innerHTML = "Done";
-						done[message.type] = true;
-					} else if (message.payload.starting) {
+						done[payload.type] = true;
+					} else if (payload.message.starting) {
 						span.innerHTML = "Starting";
-					} else if (message.payload.message) {
-						span.innerHTML = message.payload.message;
-					} else if (message.payload.position) {
-						span.innerHTML = "Position " + message.payload.position;
-					} else if (message.payload.finished !== undefined) {
-						span.innerHTML = message.payload.finished + " finished, " + message.payload.unchanged + " unchanged, " + message.payload.remain + " remain.";
+					} else if (payload.message.message) {
+						span.innerHTML = payload.message.message;
+					} else if (payload.message.position) {
+						span.innerHTML = "Position " + payload.message.position;
+					} else if (payload.message.finished !== undefined) {
+						span.innerHTML = payload.message.finished + " finished, " + payload.message.unchanged + " unchanged, " + payload.message.remain + " remain.";
 					} else {
 						span.innerHTML = "Starting";
 					}
 					break;
-				case "complete":
+				case "Complete":
 					complete = true;
-					payload = message.payload;
+					final = payload.message;
 					completePanel.style.display = "";
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
 					refresh();
 					break;
-				case "error":
+				case "Error":
 					if (complete) {
 						break;
 					}
 					complete = true;
 					errorPanel.style.display = "";
-					errorMessage.innerHTML = message.payload.message;
+					errorMessage.innerHTML = payload.message.message;
 					break;
 				}
 				socket.onclose = function() {
@@ -357,7 +412,12 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 					conn.WriteMessage(websocket.CloseMessage, []byte{})
 					return
 				}
-				if err := conn.WriteJSON(message); err != nil {
+				b, err := messages.Marshal(message)
+				if err != nil {
+					conn.WriteMessage(websocket.CloseMessage, []byte{})
+					return
+				}
+				if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
 					// Error writing message, close and exit
 					conn.WriteMessage(websocket.CloseMessage, []byte{})
 					return
@@ -393,7 +453,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 				storeError(ctx, path, err, req)
 				break
 			}
-			message, err := messages.Parse(messageBytes)
+			message, err := messages.Unmarshal(messageBytes)
 			if err != nil {
 				storeError(ctx, path, err, req)
 				break
@@ -417,7 +477,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	// Request a slot in the queue...
 	start, end, err := h.Queue.Slot(func(position int) {
-		send <- messages.Message{Type: messages.Queue, Payload: messages.QueuePayload{Position: position}}
+		send <- messages.Queue{Position: position}
 	})
 	if err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
@@ -436,7 +496,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Send a message to the client that queue step has finished.
-	send <- messages.Message{Type: messages.Queue, Payload: messages.QueuePayload{Done: true}}
+	send <- messages.Queue{Done: true}
 
 	switch compileType {
 	case TypeCompile:
@@ -450,15 +510,19 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 func doPlaygroundCompile(ctx context.Context, path string, req *http.Request, send, receive chan messages.Message) {
 
-	var init messages.Message
+	var message messages.Message
 	select {
-	case init = <-receive:
+	case message = <-receive:
 		// got initial message
 	case <-time.After(config.WebsocketInstructionTimeout):
 		sendAndStoreError(ctx, send, path, errors.New("timed out waiting for instruction from client"), req)
 	}
 
-	if init.Type != messages.PlaygroundCompile {
+	switch message := message.(type) {
+	case messages.PlaygroundCompile:
+		// TODO
+		fmt.Println(message)
+	default:
 		// TODO
 	}
 }
@@ -468,7 +532,7 @@ func doCompile(ctx context.Context, path string, req *http.Request, send chan me
 	fs := memfs.New()
 
 	// Send a message to the client that downloading step has started.
-	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Starting: true}}
+	send <- messages.Download{Starting: true}
 
 	// Start the download process - just like the "go get" command.
 	if err := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
@@ -477,7 +541,7 @@ func doCompile(ctx context.Context, path string, req *http.Request, send chan me
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send <- messages.Message{Type: messages.Download, Payload: messages.DownloadPayload{Done: true}}
+	send <- messages.Download{Done: true}
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
 	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path)
@@ -490,12 +554,12 @@ func doCompile(ctx context.Context, path string, req *http.Request, send chan me
 	storeSuccess(ctx, send, path, req, min, max)
 
 	// Send a message to the client that the process has successfully finished
-	send <- messages.Message{Type: messages.Complete, Payload: messages.CompletePayload{
+	send <- messages.Complete{
 		Path:    path,
 		Short:   strings.TrimPrefix(path, "github.com/"),
 		HashMin: fmt.Sprintf("%x", min.Hash),
 		HashMax: fmt.Sprintf("%x", max.Hash),
-	}}
+	}
 }
 
 func storeSuccess(ctx context.Context, send chan messages.Message, path string, req *http.Request, min, max *compile.CompileOutput) {
@@ -548,10 +612,10 @@ func sendAndStoreError(ctx context.Context, send chan messages.Message, path str
 }
 
 func sendError(send chan messages.Message, path string, err error) {
-	send <- messages.Message{Type: messages.Error, Payload: messages.ErrorPayload{
+	send <- messages.Error{
 		Path:    path,
 		Message: err.Error(),
-	}}
+	}
 }
 
 func storeError(ctx context.Context, path string, err error, req *http.Request) {

@@ -104,7 +104,7 @@ func (s *Storer) Worker(ctx context.Context) {
 						done := atomic.LoadInt32(&s.done)
 						remain := atomic.LoadInt32(&s.total) - unchanged - done
 						if s.send != nil {
-							s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+							s.send <- messages.Store{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}
 						} else {
 							fmt.Printf("Unchanged: %s\n", item.Message)
 						}
@@ -125,7 +125,7 @@ func (s *Storer) Worker(ctx context.Context) {
 				done := atomic.AddInt32(&s.done, 1)
 				remain := atomic.LoadInt32(&s.total) - unchanged - done
 				if s.send != nil {
-					s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+					s.send <- messages.Store{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}
 				} else {
 					fmt.Printf("Finished: %s\n", item.Message)
 				}
@@ -141,7 +141,7 @@ func (s *Storer) AddJs(message, name string, contents []byte) {
 	done := atomic.LoadInt32(&s.done)
 	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
 	if s.send != nil {
-		s.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}}
+		s.send <- messages.Store{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)}
 	}
 
 	s.queue <- StorageItem{
@@ -189,8 +189,8 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 	storer := NewStorer(ctx, client, c.send, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Starting: true}}
-	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Starting: true}}
+	c.send <- messages.Compile{Starting: true}
+	c.send <- messages.Store{Starting: true}
 
 	data, outputMin, err := c.compileAndStore(ctx, path, storer, true)
 	if err != nil {
@@ -201,7 +201,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Message: "Loader"}}
+	c.send <- messages.Compile{Message: "Loader"}
 	hashMin, err := genMain(ctx, storer, outputMin, true)
 	if err != nil {
 		return nil, nil, err
@@ -211,7 +211,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Message: "Index"}}
+	c.send <- messages.Compile{Message: "Index"}
 
 	tpl, err := c.getIndexTpl(data.Dir)
 	if err != nil {
@@ -225,13 +225,13 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send <- messages.Message{Type: messages.Compile, Payload: messages.CompilePayload{Done: true}}
+	c.send <- messages.Compile{Done: true}
 	storer.Wait()
 	if storer.Err != nil {
 		fmt.Println("detected fail")
 		return nil, nil, storer.Err
 	}
-	c.send <- messages.Message{Type: messages.Store, Payload: messages.StorePayload{Done: true}}
+	c.send <- messages.Store{Done: true}
 
 	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
 
