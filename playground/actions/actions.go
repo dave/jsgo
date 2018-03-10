@@ -1,6 +1,9 @@
 package actions
 
 type Compile struct{}
+type CompileOpen struct{}
+type CompileMessage struct{ Message interface{} }
+type CompileClose struct{}
 
 type Load struct{}
 
@@ -10,4 +13,8 @@ type SplitChange struct {
 
 type EditorTextChangedDebounced struct {
 	Text string
+}
+
+type Error struct {
+	Err error
 }

@@ -4,8 +4,10 @@ import (
 	"fmt"
 
 	"github.com/dave/jsgo/playground/actions"
+	"github.com/dave/jsgo/playground/connection"
 	"github.com/dave/jsgo/playground/dispatcher"
 	"github.com/dave/jsgo/playground/store/storeutil"
+	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/locstor"
 )
 
@@ -17,17 +19,54 @@ var (
 	Listeners = storeutil.NewListenerRegistry()
 
 	stor = locstor.NewDataStore(locstor.JSONEncoding)
+	conn = connection.New()
 )
 
 func init() {
 	dispatcher.Register(onAction)
+	go func() {
+		for message := range conn.Receive {
+			dispatcher.Dispatch(message)
+		}
+	}()
 }
 
 func onAction(action interface{}) {
-	fmt.Printf("%T\n", action)
 	switch a := action.(type) {
 	case *actions.Compile:
-		fmt.Println("Compile", a)
+		fmt.Println("dialing compile websocket open")
+		err := conn.Dial(
+			"ws://localhost:8081/_pg/foo/",
+			func() interface{} { return &actions.CompileOpen{} },
+			func(m interface{}) interface{} { return &actions.CompileMessage{Message: m} },
+			func() interface{} { return &actions.CompileClose{} },
+			func(err error) interface{} { return &actions.Error{Err: err} },
+		)
+		if err != nil {
+			panic(err)
+		}
+	case *actions.CompileOpen:
+		fmt.Println("compile websocket open, sending compile init")
+		message := messages.PlaygroundCompile{
+			Source: map[string]map[string]string{
+				"main": {
+					"main.go": EditorText,
+				},
+			},
+			Dependencies: map[string]string{},
+		}
+		if err := conn.Send(message); err != nil {
+			panic(err)
+		}
+	case *actions.CompileMessage:
+		switch message := a.Message.(type) {
+		case messages.Complete:
+			fmt.Println("compile complete")
+		default:
+			fmt.Printf("%T\n", message)
+		}
+	case *actions.CompileClose:
+		fmt.Println("compile websocket closed")
 	case *actions.Load:
 
 		found, err := stor.Find("split-sizes", &SplitSizes)

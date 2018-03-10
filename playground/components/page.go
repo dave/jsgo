@@ -25,15 +25,15 @@ type Page struct {
 
 func NewPage() *Page {
 	p := &Page{}
+	return p
+}
+
+func (p *Page) Mount() {
 	store.Listeners.Add(p, func() {
 		p.Sizes = store.SplitSizes
 		vecty.Rerender(p)
 		p.split.SetSizesIfChanged(p.Sizes)
 	})
-	return p
-}
-
-func (p *Page) Mount() {
 	p.split = splitter.New("split")
 	p.split.Init(
 		js.S{"#left", "#right"},

@@ -116,11 +116,11 @@ func Unmarshal(in []byte) (Message, error) {
 	if !ok {
 		return nil, fmt.Errorf("type not found: %s", m.Type)
 	}
-	payload := reflect.New(typ).Elem().Interface()
-	if err := json.Unmarshal(m.Message, &payload); err != nil {
+	pointer := reflect.New(typ)
+	if err := json.Unmarshal(m.Message, pointer.Interface()); err != nil {
 		return nil, err
 	}
-	return payload, nil
+	return pointer.Elem().Interface(), nil
 }
 
 func init() {

@@ -22,22 +22,19 @@ type Editor struct {
 
 func NewEditor() *Editor {
 	e := &Editor{}
+	return e
+}
+
+func (e *Editor) Mount() {
 	store.Listeners.Add(e, func() {
 		e.Text = store.EditorText
-		vecty.Rerender(e)
-
 		if e.Text != e.editor.GetValue() {
 			// only update the editor if the text is changed
 			e.editor.SetValue(e.Text)
 			e.editor.ClearSelection()
 			e.editor.MoveCursorTo(0, 0)
 		}
-
 	})
-	return e
-}
-
-func (e *Editor) Mount() {
 	e.editor = ace.Edit("editor")
 	e.editor.SetOptions(map[string]interface{}{
 		"mode": "ace/mode/golang",

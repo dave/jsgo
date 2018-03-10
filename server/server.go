@@ -290,7 +290,6 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			};
 			socket.onmessage = function (e) {
 				var payload = JSON.parse(e.data)
-				console.log(e.data)
 				switch (payload.type) {
 				case "Queue":
 				case "Download":
@@ -367,12 +366,18 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), config.CompileTimeout)
 	defer cancel()
 
-	compileType := TypeCompile
+	var compileType int
+	var prefix string
+
 	if strings.HasPrefix(req.URL.Path, "/_pg/") {
 		compileType = TypePlaygroundCompile
+		prefix = "/_pg/"
+	} else {
+		compileType = TypeCompile
+		prefix = "/_ws/"
 	}
 
-	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, "/_ws/"), "/"))
+	path := normalizePath(strings.TrimSuffix(strings.TrimPrefix(req.URL.Path, prefix), "/"))
 
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
@@ -522,6 +527,7 @@ func doPlaygroundCompile(ctx context.Context, path string, req *http.Request, se
 	case messages.PlaygroundCompile:
 		// TODO
 		fmt.Println(message)
+		send <- messages.Complete{Path: path}
 	default:
 		// TODO
 	}
