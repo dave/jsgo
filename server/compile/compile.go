@@ -27,10 +27,13 @@ import (
 
 	"sync/atomic"
 
+	"archive/zip"
+
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/gopherjs/gopherjs/compiler"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -179,6 +182,51 @@ type StorageItem struct {
 	Count          bool
 }
 
+func (c *Compiler) Playground(ctx context.Context, path string) error {
+
+	c.send <- messages.Compile{Starting: true}
+
+	session, _, archive, err := c.compilePackage(ctx, "main", false)
+	if err != nil {
+		return err
+	}
+
+	deps, err := session.GetDependencies(ctx, archive)
+	if err != nil {
+		return err
+	}
+
+	for _, d := range deps {
+		buf := &bytes.Buffer{}
+		sha := sha1.New()
+		w := io.MultiWriter(buf, sha)
+
+		if err := compiler.WriteArchive(d, w); err != nil {
+			return err
+		}
+
+		zipped := &bytes.Buffer{}
+		zw := zip.NewWriter(zipped)
+		zfw, err := zw.Create("package.a")
+		if err != nil {
+			return err
+		}
+		if _, err := zfw.Write(buf.Bytes()); err != nil {
+			return err
+		}
+		zw.Close()
+
+		c.send <- messages.Archive{
+			Path:     d.ImportPath,
+			Hash:     fmt.Sprintf("%x", sha.Sum(nil)),
+			Contents: zipped.Bytes(),
+		}
+	}
+
+	c.send <- messages.Compile{Done: true}
+	return nil
+}
+
 func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileOutput, err error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -237,8 +285,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 
 }
 
-func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
-
+func (c *Compiler) compilePackage(ctx context.Context, path string, min bool) (*builder.Session, *builder.PackageData, *compiler.Archive, error) {
 	options := &builder.Options{
 		Root:        c.root,
 		Path:        c.path,
@@ -255,6 +302,16 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 	session := builder.NewSession(options)
 
 	data, archive, err := session.BuildImportPath(ctx, path)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+
+	return session, data, archive, nil
+}
+
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
+
+	session, data, archive, err := c.compilePackage(ctx, path, min)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -58,10 +58,10 @@ func (s *CompilerStore) Handle(payload *flux.Payload) bool {
 		})
 	case *actions.CompileMessage:
 		switch message := a.Message.(type) {
-		case messages.Complete:
-			fmt.Println("compile complete")
+		case messages.Archive:
+			fmt.Printf("%T: %s %s %d\n", message, message.Path, message.Hash, len(message.Contents))
 		default:
-			fmt.Printf("%T\n", message)
+			fmt.Printf("%T: %#v\n", message, message)
 		}
 	case *actions.CompileClose:
 		fmt.Println("compile websocket closed")

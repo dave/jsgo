@@ -7,38 +7,29 @@ import (
 	"strings"
 )
 
-func CompileWriter(send chan Message) compileWriter {
-	return compileWriter{send: send}
-}
-
-func DownloadWriter(send chan Message) downloadWriter {
-	return downloadWriter{send: send}
-}
-
-type compileWriter struct {
-	send chan Message
-}
-
-type downloadWriter struct {
-	send chan Message
-}
-
-func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send <- Download{Message: strings.TrimSuffix(string(b), "\n")}
-	return len(b), nil
-}
-
-func (w compileWriter) Write(b []byte) (n int, err error) {
-	w.send <- Compile{Message: strings.TrimSuffix(string(b), "\n")}
-	return len(b), nil
-}
-
 type Message interface{}
+
+var payloads = []interface{}{
+	Download{},
+	Compile{},
+	Store{},
+	Complete{},
+	Error{},
+	Queue{},
+	PlaygroundCompile{},
+	Archive{},
+}
 
 type Download struct {
 	Starting bool   `json:"starting"`
 	Message  string `json:"message,omitempty"`
 	Done     bool   `json:"done"`
+}
+
+type Archive struct {
+	Path     string `json:"path"`
+	Hash     string `json:"hash"`
+	Contents []byte `json:"contents"`
 }
 
 type Compile struct {
@@ -83,16 +74,6 @@ type PlaygroundCompile struct {
 	Dependencies map[string]string `json:"dependencies"`
 }
 
-var payloads = []interface{}{
-	Download{},
-	Compile{},
-	Store{},
-	Complete{},
-	Error{},
-	Queue{},
-	PlaygroundCompile{},
-}
-
 func Marshal(in Message) ([]byte, error) {
 	m := struct {
 		Type    string  `json:"type"`
@@ -131,3 +112,29 @@ func init() {
 }
 
 var payloadTypes = make(map[string]reflect.Type)
+
+func CompileWriter(send chan Message) compileWriter {
+	return compileWriter{send: send}
+}
+
+func DownloadWriter(send chan Message) downloadWriter {
+	return downloadWriter{send: send}
+}
+
+type compileWriter struct {
+	send chan Message
+}
+
+type downloadWriter struct {
+	send chan Message
+}
+
+func (w downloadWriter) Write(b []byte) (n int, err error) {
+	w.send <- Download{Message: strings.TrimSuffix(string(b), "\n")}
+	return len(b), nil
+}
+
+func (w compileWriter) Write(b []byte) (n int, err error) {
+	w.send <- Compile{Message: strings.TrimSuffix(string(b), "\n")}
+	return len(b), nil
+}

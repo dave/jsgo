@@ -815,7 +815,7 @@ type PackageOutput struct {
 	Standard bool
 }
 
-func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Archive) (*CommandOutput, error) {
+func (s *Session) GetDependencies(ctx context.Context, archive *compiler.Archive) ([]*compiler.Archive, error) {
 
 	importer := func(path string) (*compiler.Archive, error) {
 		if archive, ok := s.Archives[path]; ok {
@@ -832,6 +832,15 @@ func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Arc
 	}) {
 		return nil, ctx.Err()
 	}
+	if err != nil {
+		return nil, err
+	}
+	return deps, nil
+}
+
+func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Archive) (*CommandOutput, error) {
+
+	deps, err := s.GetDependencies(ctx, archive)
 	if err != nil {
 		return nil, err
 	}
