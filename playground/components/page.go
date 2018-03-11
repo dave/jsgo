@@ -3,8 +3,8 @@ package components
 import (
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/playground/dispatcher"
-	"github.com/dave/jsgo/playground/splitter"
 	"github.com/dave/jsgo/playground/store"
+	"github.com/dave/splitter"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/vecty"
 	"github.com/gopherjs/vecty/elem"
@@ -53,7 +53,7 @@ func (p *Page) Unmount() {
 }
 
 func (p *Page) onCompile(event *vecty.Event) {
-	dispatcher.Dispatch(&actions.Compile{})
+	dispatcher.Dispatch(&actions.CompileStart{})
 }
 
 func (p *Page) Render() vecty.ComponentOrHTML {

@@ -1,6 +1,6 @@
 package actions
 
-type Compile struct{}
+type CompileStart struct{}
 type CompileOpen struct{}
 type CompileMessage struct{ Message interface{} }
 type CompileClose struct{}

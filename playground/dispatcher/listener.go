@@ -1,5 +1,5 @@
 // Package storeutil contains a ListenerRegistry type.
-package storeutil
+package dispatcher
 
 // ListenerRegistry is a listener registry.
 // The zero value is unfit for use; use NewListenerRegistry to create an instance.
