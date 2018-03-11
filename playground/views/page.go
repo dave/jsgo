@@ -35,8 +35,10 @@ func (v *Page) Mount() {
 	v.app.Watch(v, func(done chan struct{}) {
 		defer close(done)
 		v.Sizes = v.app.Editor.Sizes()
-		vecty.Rerender(v)
 		v.split.SetSizesIfChanged(v.Sizes)
+
+		// Only top-level page should fire vecty.Rerender
+		vecty.Rerender(v)
 	})
 
 	v.split = splitter.New("split")
