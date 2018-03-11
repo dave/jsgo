@@ -14,13 +14,13 @@ import (
 type CompilerStore struct {
 	app *App
 
-	Dependencies map[string]string
+	dependencies map[string]string
 }
 
 func NewCompilerStore(app *App) *CompilerStore {
 	s := &CompilerStore{
 		app:          app,
-		Dependencies: map[string]string{},
+		dependencies: map[string]string{},
 	}
 	return s
 }
@@ -48,7 +48,7 @@ func (s *CompilerStore) Handle(payload *flux.Payload) bool {
 		message := messages.PlaygroundCompile{
 			Source: map[string]map[string]string{
 				"main": {
-					"main.go": s.app.Editor.EditorText,
+					"main.go": s.app.Editor.Text(),
 				},
 			},
 			Dependencies: map[string]string{},

@@ -34,7 +34,7 @@ func NewPage(app *stores.App) *Page {
 func (v *Page) Mount() {
 	v.app.Watch(v, func(done chan struct{}) {
 		defer close(done)
-		v.Sizes = v.app.Editor.SplitSizes
+		v.Sizes = v.app.Editor.Sizes()
 		vecty.Rerender(v)
 		v.split.SetSizesIfChanged(v.Sizes)
 	})

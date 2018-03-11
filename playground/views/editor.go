@@ -31,7 +31,7 @@ func NewEditor(app *stores.App) *Editor {
 func (v *Editor) Mount() {
 	v.app.Watch(v, func(done chan struct{}) {
 		defer close(done)
-		v.Text = v.app.Editor.EditorText
+		v.Text = v.app.Editor.Text()
 		if v.Text != v.editor.GetValue() {
 			// only update the editor if the text is changed
 			v.editor.SetValue(v.Text)

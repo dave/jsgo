@@ -5,13 +5,6 @@ import (
 	"github.com/dave/jsgo/playground/actions"
 )
 
-type EditorStore struct {
-	app *App
-
-	SplitSizes []float64
-	EditorText string
-}
-
 func NewEditorStore(app *App) *EditorStore {
 	s := &EditorStore{
 		app: app,
@@ -19,19 +12,34 @@ func NewEditorStore(app *App) *EditorStore {
 	return s
 }
 
+type EditorStore struct {
+	app *App
+
+	sizes []float64
+	text  string
+}
+
+func (s *EditorStore) Sizes() []float64 {
+	return s.sizes
+}
+
+func (s *EditorStore) Text() string {
+	return s.text
+}
+
 func (s *EditorStore) Handle(payload *flux.Payload) bool {
 	switch a := payload.Action.(type) {
 
 	case *actions.ChangeSplit:
-		s.SplitSizes = a.Sizes
+		s.sizes = a.Sizes
 		payload.Notify()
 	case *actions.ChangeText:
-		s.EditorText = a.Text
+		s.text = a.Text
 		payload.Notify()
 	case *actions.UserChangedSplit:
-		s.SplitSizes = a.Sizes
+		s.sizes = a.Sizes
 	case *actions.UserChangedText:
-		s.EditorText = a.Text
+		s.text = a.Text
 
 	}
 	return true
