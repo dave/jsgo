@@ -2,8 +2,8 @@ package main
 
 import (
 	"github.com/dave/jsgo/playground/actions"
-	"github.com/dave/jsgo/playground/components"
-	"github.com/dave/jsgo/playground/dispatcher"
+	"github.com/dave/jsgo/playground/stores"
+	"github.com/dave/jsgo/playground/views"
 	"github.com/gopherjs/vecty"
 	"github.com/vincent-petithory/dataurl"
 	"honnef.co/go/js/dom"
@@ -25,11 +25,13 @@ func run() {
 
 	vecty.AddStylesheet("https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css")
 	vecty.AddStylesheet(dataurl.New([]byte(Styles), "text/css").String())
-	p := components.NewPage()
 
+	app := &stores.App{}
+	app.Init()
+	p := views.NewPage(app)
 	vecty.RenderBody(p)
 
-	dispatcher.Dispatch(&actions.Load{})
+	app.Dispatch(&actions.Load{})
 }
 
 const Styles = `

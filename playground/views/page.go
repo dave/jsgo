@@ -1,9 +1,8 @@
-package components
+package views
 
 import (
 	"github.com/dave/jsgo/playground/actions"
-	"github.com/dave/jsgo/playground/dispatcher"
-	"github.com/dave/jsgo/playground/store"
+	"github.com/dave/jsgo/playground/stores"
 	"github.com/dave/splitter"
 	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/vecty"
@@ -14,8 +13,10 @@ import (
 
 type Page struct {
 	vecty.Core
+	app *stores.App
 
-	Sizes         []float64 `vecty:"prop"`
+	Sizes []float64 `vecty:"prop"`
+
 	newItemTitle  string
 	left, right   *vecty.HTML
 	split         *splitter.Split
@@ -23,67 +24,71 @@ type Page struct {
 	optionsButton *vecty.HTML
 }
 
-func NewPage() *Page {
-	p := &Page{}
-	return p
+func NewPage(app *stores.App) *Page {
+	v := &Page{
+		app: app,
+	}
+	return v
 }
 
-func (p *Page) Mount() {
-	store.Listeners.Add(p, func() {
-		p.Sizes = store.SplitSizes
-		vecty.Rerender(p)
-		p.split.SetSizesIfChanged(p.Sizes)
+func (v *Page) Mount() {
+	v.app.Watch(v, func(done chan struct{}) {
+		defer close(done)
+		v.Sizes = v.app.Editor.SplitSizes
+		vecty.Rerender(v)
+		v.split.SetSizesIfChanged(v.Sizes)
 	})
-	p.split = splitter.New("split")
-	p.split.Init(
+
+	v.split = splitter.New("split")
+	v.split.Init(
 		js.S{"#left", "#right"},
 		js.M{
-			"sizes": p.Sizes,
+			"sizes": v.Sizes,
 			"onDragEnd": func() {
-				dispatcher.Dispatch(&actions.SplitChange{
-					Sizes: p.split.GetSizes(),
+				v.app.Dispatch(&actions.UserChangedSplit{
+					Sizes: v.split.GetSizes(),
 				})
 			},
 		},
 	)
 }
 
-func (p *Page) Unmount() {
-	store.Listeners.Remove(p)
+func (v *Page) Unmount() {
+	v.app.Delete(v)
 }
 
-func (p *Page) onCompile(event *vecty.Event) {
-	dispatcher.Dispatch(&actions.CompileStart{})
+func (v *Page) onCompile(event *vecty.Event) {
+	v.app.Dispatch(&actions.CompileStart{})
 }
 
-func (p *Page) Render() vecty.ComponentOrHTML {
+func (v *Page) Render() vecty.ComponentOrHTML {
 
-	p.left = p.renderLeft()
-	p.right = p.renderRight()
+	v.left = v.renderLeft()
+	v.right = v.renderRight()
 
 	return elem.Body(
 		elem.Div(
 			vecty.Markup(
 				vecty.Class("container-fluid", "p-0", "split", "split-horizontal"),
 			),
-			p.left,
-			p.right,
+			v.left,
+			v.right,
 		),
 	)
 }
 
-func (p *Page) renderLeft() *vecty.HTML {
+func (v *Page) renderLeft() *vecty.HTML {
 	return elem.Div(
 		vecty.Markup(
 			prop.ID("left"),
 			vecty.Class("split"),
 		),
-		p.renderHeader(),
-		NewEditor(),
+		v.renderHeader(),
+		NewEditor(v.app),
 	)
 }
 
-func (p *Page) renderHeader() *vecty.HTML {
+func (v *Page) renderHeader() *vecty.HTML {
 
 	return elem.Navigation(
 		vecty.Markup(
@@ -107,7 +112,7 @@ func (p *Page) renderHeader() *vecty.HTML {
 					vecty.Markup(
 						vecty.Property("type", "button"),
 						vecty.Class("btn", "btn-primary"),
-						event.Click(p.onCompile).PreventDefault(),
+						event.Click(v.onCompile).PreventDefault(),
 					),
 					vecty.Text("Compile"),
 				),
@@ -204,7 +209,7 @@ func (p *Page) renderHeader() *vecty.HTML {
 	)
 }
 
-func (p *Page) renderRight() *vecty.HTML {
+func (v *Page) renderRight() *vecty.HTML {
 	return elem.Div(
 		vecty.Markup(
 			prop.ID("right"),

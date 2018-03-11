@@ -1,26 +1,32 @@
-package store
+package stores
 
 import (
 	"fmt"
 
 	"strings"
 
+	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
-	"github.com/dave/jsgo/playground/dispatcher"
 	"github.com/dave/jsgo/server/messages"
 	"honnef.co/go/js/dom"
 )
 
-var (
-	Dependencies = map[string]string{}
-)
+type CompilerStore struct {
+	app *App
 
-func init() {
-	dispatcher.Register(compilerActions)
+	Dependencies map[string]string
 }
 
-func compilerActions(action interface{}) {
-	switch a := action.(type) {
+func NewCompilerStore(app *App) *CompilerStore {
+	s := &CompilerStore{
+		app:          app,
+		Dependencies: map[string]string{},
+	}
+	return s
+}
+
+func (s *CompilerStore) Handle(payload *flux.Payload) bool {
+	switch a := payload.Action.(type) {
 	case *actions.CompileStart:
 		fmt.Println("dialing compile websocket open")
 
@@ -31,29 +37,25 @@ func compilerActions(action interface{}) {
 			url = "ws://localhost:8081/_pg/"
 		}
 
-		err := conn.Dial(
-			url,
-			func() interface{} { return &actions.CompileOpen{} },
-			func(m interface{}) interface{} { return &actions.CompileMessage{Message: m} },
-			func() interface{} { return &actions.CompileClose{} },
-			func(err error) interface{} { return &actions.Error{Err: err} },
-		)
-		if err != nil {
-			panic(err)
-		}
+		s.app.Dispatch(&actions.Dial{
+			Url:     url,
+			Open:    func() flux.ActionInterface { return &actions.CompileOpen{} },
+			Message: func(m interface{}) flux.ActionInterface { return &actions.CompileMessage{Message: m} },
+			Close:   func() flux.ActionInterface { return &actions.CompileClose{} },
+		})
 	case *actions.CompileOpen:
 		fmt.Println("compile websocket open, sending compile init")
 		message := messages.PlaygroundCompile{
 			Source: map[string]map[string]string{
 				"main": {
-					"main.go": EditorText,
+					"main.go": s.app.Editor.EditorText,
 				},
 			},
 			Dependencies: map[string]string{},
 		}
-		if err := conn.Send(message); err != nil {
-			panic(err)
-		}
+		s.app.Dispatch(&actions.Send{
+			Message: message,
+		})
 	case *actions.CompileMessage:
 		switch message := a.Message.(type) {
 		case messages.Complete:
@@ -65,5 +67,5 @@ func compilerActions(action interface{}) {
 		fmt.Println("compile websocket closed")
 	}
 
-	Listeners.Fire()
+	return true
 }
