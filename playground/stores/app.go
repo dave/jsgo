@@ -2,13 +2,13 @@ package stores
 
 import (
 	"github.com/dave/flux"
+	"github.com/gopherjs/gopherjs/js"
 )
 
 type App struct {
 	Dispatcher flux.DispatcherInterface
 	Watcher    flux.WatcherInterface
 	Notifier   flux.NotifierInterface
-	Fail       chan error
 
 	Compiler   *CompilerStore
 	Editor     *EditorStore
@@ -45,4 +45,9 @@ func (a *App) Watch(key interface{}, f func(done chan struct{})) {
 
 func (a *App) Delete(key interface{}) {
 	a.Watcher.Delete(key)
+}
+
+func (a *App) Fail(err error) {
+	// TODO: improve this
+	js.Global.Call("alert", err.Error())
 }

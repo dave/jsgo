@@ -26,7 +26,7 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		var sizes []float64
 		found, err := s.local.Find("split-sizes", &sizes)
 		if err != nil {
-			s.app.Fail <- err
+			s.app.Fail(err)
 			return true
 		}
 		if !found {
@@ -37,7 +37,7 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		var text string
 		found, err = s.local.Find("editor-text", &text)
 		if err != nil {
-			s.app.Fail <- err
+			s.app.Fail(err)
 			return true
 		}
 		if !found {
@@ -47,12 +47,12 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 
 	case *actions.UserChangedSplit:
 		if err := s.local.Save("split-sizes", action.Sizes); err != nil {
-			s.app.Fail <- err
+			s.app.Fail(err)
 			return true
 		}
 	case *actions.UserChangedText:
 		if err := s.local.Save("editor-text", action.Text); err != nil {
-			s.app.Fail <- err
+			s.app.Fail(err)
 			return true
 		}
 	}
