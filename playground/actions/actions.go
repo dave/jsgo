@@ -5,11 +5,6 @@ import (
 	"github.com/dave/jsgo/server/messages"
 )
 
-type SaveToLocalStorage struct {
-	Key   string
-	Value interface{}
-}
-
 type Send struct {
 	Message messages.Message
 }
@@ -42,8 +37,4 @@ type UserChangedSplit struct {
 
 type UserChangedText struct {
 	Text string
-}
-
-type Error struct {
-	Err error
 }
