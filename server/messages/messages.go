@@ -21,63 +21,63 @@ var payloads = []interface{}{
 }
 
 type Download struct {
-	Starting bool   `json:"starting"`
-	Message  string `json:"message,omitempty"`
-	Done     bool   `json:"done"`
+	Starting bool
+	Message  string
+	Done     bool
 }
 
 type Archive struct {
-	Path     string `json:"path"`
-	Hash     string `json:"hash"`
-	Contents []byte `json:"contents"`
+	Path     string
+	Hash     string
+	Contents []byte
 }
 
 type Compile struct {
-	Starting bool   `json:"starting"`
-	Message  string `json:"message,omitempty"`
-	Done     bool   `json:"done"`
+	Starting bool
+	Message  string
+	Done     bool
 }
 
 type Store struct {
-	Starting  bool `json:"starting"`
-	Finished  int  `json:"finished"`
-	Unchanged int  `json:"unchanged"`
-	Remain    int  `json:"remain"`
-	Done      bool `json:"done"`
+	Starting  bool
+	Finished  int
+	Unchanged int
+	Remain    int
+	Done      bool
 }
 
 type Complete struct {
-	Path    string `json:"path"`
-	Short   string `json:"short"`
-	HashMin string `json:"hashmin"`
-	HashMax string `json:"hashmax"`
+	Path    string
+	Short   string
+	HashMin string
+	HashMax string
 }
 
 type Error struct {
-	Path    string `json:"path"`
-	Message string `json:"message"`
+	Path    string
+	Message string
 }
 
 type Queue struct {
-	Position int  `json:"position"`
-	Done     bool `json:"done"`
+	Position int
+	Done     bool
 }
 
 type PlaygroundCompile struct {
 	// Source packages for this build: map[<package>]map[<filename>]<contents>
-	Source map[string]map[string]string `json:"source"`
+	Source map[string]map[string]string
 
 	// Build tags
-	Tags []string `json:"tags"`
+	Tags []string
 
 	// Hashes of previously compiled dependencies to use if still in the cache
-	Dependencies map[string]string `json:"dependencies"`
+	Dependencies map[string]string
 }
 
 func Marshal(in Message) ([]byte, error) {
 	m := struct {
-		Type    string  `json:"type"`
-		Message Message `json:"message"`
+		Type    string
+		Message Message
 	}{
 		Type:    reflect.TypeOf(in).Name(),
 		Message: in,
@@ -87,8 +87,8 @@ func Marshal(in Message) ([]byte, error) {
 
 func Unmarshal(in []byte) (Message, error) {
 	var m struct {
-		Type    string          `json:"type"`
-		Message json.RawMessage `json:"message"`
+		Type    string
+		Message json.RawMessage
 	}
 	if err := json.Unmarshal(in, &m); err != nil {
 		return nil, err

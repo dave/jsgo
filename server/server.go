@@ -259,10 +259,10 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			var completeScript = document.getElementById("complete-script");
 			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
 			
-			shortUrlCheckboxHolder.style.display = (final.short == final.path) ? "none" : "";
-			completeLink.href = "https://{{ .IndexHost }}/" + (short ? final.short : final.path) + (minify ? "" : "$max");
-			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? final.short : final.path) + (minify ? "" : "$max");
-			completeScript.value = "https://{{ .PkgHost }}/" + final.path + "." + (minify ? final.hashmin : final.hashmax) + ".js"
+			shortUrlCheckboxHolder.style.display = (final.Short == final.Path) ? "none" : "";
+			completeLink.href = "https://{{ .IndexHost }}/" + (short ? final.Short : final.Path) + (minify ? "" : "$max");
+			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? final.Short : final.Path) + (minify ? "" : "$max");
+			completeScript.value = "https://{{ .PkgHost }}/" + final.Path + "." + (minify ? final.HashMin : final.HashMax) + ".js"
 		}
 		document.getElementById("minify-checkbox").onchange = refresh;
 		document.getElementById("short-url-checkbox").onchange = refresh;
@@ -286,37 +286,37 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			};
 			socket.onmessage = function (e) {
 				var payload = JSON.parse(e.data)
-				switch (payload.type) {
+				switch (payload.Type) {
 				case "Queue":
 				case "Download":
 				case "Compile":
 				case "Store":
-					if (done[payload.type]) {
+					if (done[payload.Type]) {
 						// Messages might arrive out of order... Once we get a "done", ignore 
 						// any more.
 						break;
 					}
-					var item = document.getElementById(payload.type.toLowerCase()+"-item");
-					var span = document.getElementById(payload.type.toLowerCase()+"-span");
+					var item = document.getElementById(payload.Type.toLowerCase()+"-item");
+					var span = document.getElementById(payload.Type.toLowerCase()+"-span");
 					item.style.display = "";
-					if (payload.message.done) {
+					if (payload.Message.Done) {
 						span.innerHTML = "Done";
-						done[payload.type] = true;
-					} else if (payload.message.starting) {
+						done[payload.Type] = true;
+					} else if (payload.Message.Starting) {
 						span.innerHTML = "Starting";
-					} else if (payload.message.message) {
-						span.innerHTML = payload.message.message;
-					} else if (payload.message.position) {
-						span.innerHTML = "Position " + payload.message.position;
-					} else if (payload.message.finished !== undefined) {
-						span.innerHTML = payload.message.finished + " finished, " + payload.message.unchanged + " unchanged, " + payload.message.remain + " remain.";
+					} else if (payload.Message.Message) {
+						span.innerHTML = payload.Message.Message;
+					} else if (payload.Message.Position) {
+						span.innerHTML = "Position " + payload.Message.Position;
+					} else if (payload.Message.Finished !== undefined) {
+						span.innerHTML = payload.Message.Finished + " finished, " + payload.Message.Unchanged + " unchanged, " + payload.Message.Remain + " remain.";
 					} else {
 						span.innerHTML = "Starting";
 					}
 					break;
 				case "Complete":
 					complete = true;
-					final = payload.message;
+					final = payload.Message;
 					completePanel.style.display = "";
 					progressPanel.style.display = "none";
 					headerPanel.style.display = "none";
@@ -328,7 +328,7 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					}
 					complete = true;
 					errorPanel.style.display = "";
-					errorMessage.innerHTML = payload.message.message;
+					errorMessage.innerHTML = payload.Message.Message;
 					break;
 				}
 				socket.onclose = function() {
