@@ -15,6 +15,7 @@ type App struct {
 	Connection *ConnectionStore
 	Local      *LocalStore
 	Scanner    *ScannerStore
+	Compile    *CompileStore
 }
 
 func (a *App) Init() {
@@ -28,6 +29,7 @@ func (a *App) Init() {
 	a.Connection = NewConnectionStore(a)
 	a.Local = NewLocalStore(a)
 	a.Scanner = NewScannerStore(a)
+	a.Compile = NewCompileStore(a)
 
 	a.Dispatcher = flux.NewDispatcher(
 		// Notifier:
@@ -38,6 +40,7 @@ func (a *App) Init() {
 		a.Connection,
 		a.Local,
 		a.Scanner,
+		a.Compile,
 	)
 }
 
