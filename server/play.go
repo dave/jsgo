@@ -15,12 +15,17 @@ import (
 
 	"path/filepath"
 
+	"go/build"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
+	"gopkg.in/src-d/go-billy.v4/helper/chroot"
+	"gopkg.in/src-d/go-billy.v4/helper/mount"
 	"gopkg.in/src-d/go-billy.v4/memfs"
+	"gopkg.in/src-d/go-billy.v4/osfs"
 )
 
 func playgroundCompile(ctx context.Context, path string, req *http.Request, send, receive chan messages.Message) {
@@ -61,24 +66,32 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
+	if config.UseLocal {
+		local := osfs.New(filepath.Join(build.Default.GOPATH, "src"))
+		mounted := mount.New(fs, filepath.Join("gopath", "src"), local)
+		fs = chroot.New(mounted, "/")
+	}
+
 	// Send a message to the client that downloading step has started.
 	send <- messages.Download{Starting: true}
 
-	g := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"})
+	if !config.UseLocal {
+		g := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"})
 
-	var imports []string
-	for _, spec := range f.Imports {
-		p, err := strconv.Unquote(spec.Path.Value)
-		if err != nil {
-			return err
+		var imports []string
+		for _, spec := range f.Imports {
+			p, err := strconv.Unquote(spec.Path.Value)
+			if err != nil {
+				return err
+			}
+			imports = append(imports, p)
 		}
-		imports = append(imports, p)
-	}
 
-	for _, p := range imports {
-		// Start the download process - just like the "go get" command.
-		if err := g.Get(ctx, p, false, false); err != nil {
-			return err
+		for _, p := range imports {
+			// Start the download process - just like the "go get" command.
+			if err := g.Get(ctx, p, false, false); err != nil {
+				return err
+			}
 		}
 	}
 
@@ -102,7 +115,7 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 
 	c := compile.New(assets.Assets, fs, send)
 
-	if err := c.Playground(ctx, path); err != nil {
+	if err := c.Playground(ctx, info); err != nil {
 		return err
 	}
 

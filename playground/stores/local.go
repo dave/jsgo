@@ -6,6 +6,8 @@ import (
 
 	"io"
 
+	"fmt"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
@@ -63,7 +65,11 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		}
 	case *actions.CompileMessage:
 		switch message := action.Message.(type) {
-		case messages.Archive:
+		case messages.PlaygroundIndex:
+			for _, v := range message {
+				fmt.Println(v.Path, v.Hash, v.Unchanged)
+			}
+		case messages.PlaygroundArchive:
 			br := bytes.NewReader(message.Contents)
 			zr, err := zip.NewReader(br, int64(br.Len()))
 			if err != nil {

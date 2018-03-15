@@ -13,4 +13,6 @@ const (
 
 	CompileKind = "Compile"
 	PackageKind = "Package"
+
+	UseLocal = false
 )

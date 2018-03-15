@@ -182,7 +182,7 @@ type StorageItem struct {
 	Count          bool
 }
 
-func (c *Compiler) Playground(ctx context.Context, path string) error {
+func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompile) error {
 
 	c.send <- messages.Compile{Starting: true}
 
@@ -196,12 +196,34 @@ func (c *Compiler) Playground(ctx context.Context, path string) error {
 		return err
 	}
 
-	for _, d := range deps {
-		buf := &bytes.Buffer{}
-		sha := sha1.New()
-		w := io.MultiWriter(buf, sha)
+	var index messages.PlaygroundIndex
 
-		if err := compiler.WriteArchive(d, w); err != nil {
+	for _, archive := range deps {
+
+		// The archive files aren't binary identical across compiles, so we have to render them to JS
+		// in order to get the hash for the cache. Not ideal, but it should work.
+		_, hashBytes, err := builder.GetPackageCode(ctx, archive, false, true)
+		hash := fmt.Sprintf("%x", hashBytes)
+
+		var unchanged bool
+		if cached, exists := info.ArchiveCache[archive.ImportPath]; exists && cached == hash {
+			unchanged = true
+		}
+
+		index = append(index, messages.PlaygroundIndexItem{
+			Path:      archive.ImportPath,
+			Hash:      hash,
+			Unchanged: unchanged,
+		})
+
+		if unchanged {
+			// If the dependency is unchanged from the client cache, don't return it as a PlaygroundArchive
+			// message
+			continue
+		}
+
+		buf := &bytes.Buffer{}
+		if err := compiler.WriteArchive(archive, buf); err != nil {
 			return err
 		}
 
@@ -216,12 +238,14 @@ func (c *Compiler) Playground(ctx context.Context, path string) error {
 		}
 		zw.Close()
 
-		c.send <- messages.Archive{
-			Path:     d.ImportPath,
-			Hash:     fmt.Sprintf("%x", sha.Sum(nil)),
+		c.send <- messages.PlaygroundArchive{
+			Path:     archive.ImportPath,
+			Hash:     hash,
 			Contents: zipped.Bytes(),
 		}
 	}
+
+	c.send <- index
 
 	c.send <- messages.Compile{Done: true}
 	return nil

@@ -17,19 +17,14 @@ var payloads = []interface{}{
 	Error{},
 	Queue{},
 	PlaygroundCompile{},
-	Archive{},
+	PlaygroundArchive{},
+	PlaygroundIndex{},
 }
 
 type Download struct {
 	Starting bool
 	Message  string
 	Done     bool
-}
-
-type Archive struct {
-	Path     string
-	Hash     string
-	Contents []byte
 }
 
 type Compile struct {
@@ -63,15 +58,31 @@ type Queue struct {
 	Done     bool
 }
 
+// PlaygroundCompile is sent by the client to the server asking it to compile the source and return the
+// archive files for all dependencies that are not found in the client cache.
 type PlaygroundCompile struct {
-	// Source packages for this build: map[<package>]map[<filename>]<contents>
-	Source map[string]map[string]string
+	Source       map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
+	Tags         []string                     // Build tags
+	ArchiveCache map[string]string            // Map of path->hash of previously compiled dependencies to use if still in the cache
+}
 
-	// Build tags
-	Tags []string
+// PlaygroundIndex is an ordered list of dependencies.
+type PlaygroundIndex []PlaygroundIndexItem
 
-	// Hashes of previously compiled dependencies to use if still in the cache
-	Dependencies map[string]string
+// PlaygroundIndexItem is an item in PlaygroundIndex. Unchanged is true for any that the client already
+// has cached as specified by ArchiveCache in the PlaygroundCompile message. Unchanged dependencies are
+// not sent as PlaygroundArchive messages.
+type PlaygroundIndexItem struct {
+	Path      string
+	Hash      string // Hash of the raw file (unzipped)
+	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
+}
+
+// PlaygroundArchive contains the contents (zipped) of the GopherJS archive file.
+type PlaygroundArchive struct {
+	Path     string
+	Hash     string // Hash of the raw file (unzipped)
+	Contents []byte // Contents of the file (zipped)
 }
 
 func Marshal(in Message) ([]byte, error) {
