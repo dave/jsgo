@@ -8,10 +8,13 @@ import (
 
 	"fmt"
 
+	"encoding/gob"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/locstor"
+	"github.com/gopherjs/gopherjs/compiler"
 )
 
 type LocalStore struct {
@@ -26,6 +29,23 @@ func NewLocalStore(app *App) *LocalStore {
 		local: locstor.NewDataStore(locstor.JSONEncoding),
 	}
 	return s
+}
+
+func (s *LocalStore) GetArchive(path string) (*compiler.Archive, bool, error) {
+	var b []byte
+	found, err := s.local.Find(path, &b)
+	if err != nil {
+		return nil, false, fmt.Errorf("%s error %s", path, err)
+	}
+	if !found {
+		return nil, false, nil
+	}
+	var a compiler.Archive
+	buf := bytes.NewBuffer(b)
+	if err := gob.NewDecoder(buf).Decode(&a); err != nil {
+		return nil, false, fmt.Errorf("%s gob error %s", path, err)
+	}
+	return &a, true, nil
 }
 
 func (s *LocalStore) Handle(payload *flux.Payload) bool {

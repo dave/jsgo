@@ -9,6 +9,7 @@ import (
 	"github.com/gopherjs/vecty/elem"
 	"github.com/gopherjs/vecty/event"
 	"github.com/gopherjs/vecty/prop"
+	"honnef.co/go/js/dom"
 )
 
 type Page struct {
@@ -22,6 +23,7 @@ type Page struct {
 	split         *splitter.Split
 	compileButton *vecty.HTML
 	optionsButton *vecty.HTML
+	frame         *vecty.HTML
 }
 
 func NewPage(app *stores.App) *Page {
@@ -57,6 +59,14 @@ func (v *Page) Mount() {
 
 func (v *Page) Unmount() {
 	v.app.Delete(v)
+}
+
+func (v *Page) onInject(event *vecty.Event) {
+	doc := dom.GetWindow().Document()
+	v.frame.Node().Set("innerHTML", "")
+	script := doc.CreateElement("script")
+	script.SetInnerHTML("alert('foo');")
+	v.frame.Node().Call("appendChild", script)
 }
 
 func (v *Page) onUpdate(event *vecty.Event) {
@@ -120,6 +130,14 @@ func (v *Page) renderHeader() *vecty.HTML {
 			elem.ListItem(
 				vecty.Markup(
 					vecty.Class("nav-item", "btn-group"),
+				),
+				elem.Button(
+					vecty.Markup(
+						vecty.Property("type", "button"),
+						vecty.Class("btn", "btn-primary"),
+						event.Click(v.onInject).PreventDefault(),
+					),
+					vecty.Text("inject"),
 				),
 				elem.Button(
 					vecty.Markup(
@@ -224,10 +242,16 @@ func (v *Page) renderHeader() *vecty.HTML {
 }
 
 func (v *Page) renderRight() *vecty.HTML {
+	v.frame = elem.InlineFrame(
+		vecty.Markup(
+			prop.ID("iframe"),
+		),
+	)
 	return elem.Div(
 		vecty.Markup(
 			prop.ID("right"),
 			vecty.Class("split"),
 		),
+		v.frame,
 	)
 }

@@ -200,6 +200,10 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 
 	for _, archive := range deps {
 
+		if archive.ImportPath == "main" {
+			continue
+		}
+
 		// The archive files aren't binary identical across compiles, so we have to render them to JS
 		// in order to get the hash for the cache. Not ideal, but it should work.
 		_, hashBytes, err := builder.GetPackageCode(ctx, archive, false, true)

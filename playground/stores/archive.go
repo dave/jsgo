@@ -8,6 +8,7 @@ import (
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/gopherjs/gopherjs/compiler"
 	"honnef.co/go/js/dom"
 )
 
@@ -26,6 +27,8 @@ type ArchiveStore struct {
 	// index of the previously received update (path -> hash for all dependent packages)
 	index []messages.PlaygroundIndexItem
 
+	dependencies []*compiler.Archive
+
 	// is the cache up to date?
 	complete bool
 }
@@ -36,6 +39,22 @@ func NewArchiveStore(app *App) *ArchiveStore {
 		cache: map[string]string{},
 	}
 	return s
+}
+
+func (s *ArchiveStore) Dependencies() []*compiler.Archive {
+	var deps []*compiler.Archive
+	for _, d := range s.dependencies {
+		deps = append(deps, d)
+	}
+	return deps
+}
+
+func (s *ArchiveStore) Index() []messages.PlaygroundIndexItem {
+	var index []messages.PlaygroundIndexItem
+	for _, item := range s.index {
+		index = append(index, item)
+	}
+	return index
 }
 
 // Updating is true if the update is in progress
@@ -131,6 +150,20 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 				}
 				if fresh {
 					s.complete = true
+					var deps []*compiler.Archive
+					for _, v := range s.index {
+						a, found, err := s.app.Local.GetArchive(v.Path)
+						if err != nil {
+							s.app.Fail(err)
+							return true
+						}
+						if !found {
+							s.app.Fail(fmt.Errorf("%s not found", v.Path))
+							return true
+						}
+						deps = append(deps, a)
+					}
+					s.dependencies = deps
 					payload.Notify()
 				}
 			}
