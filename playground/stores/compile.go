@@ -38,12 +38,12 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 		deps = append(deps, archive)
 
 		doc := dom.GetWindow().Document()
-		frame := doc.GetElementByID("iframe").(*dom.HTMLIFrameElement)
-		frame.SetInnerHTML("")
+		frame := doc.GetElementByID("iframe").(*dom.HTMLIFrameElement).ContentDocument()
+		head := frame.GetElementsByTagName("head")[0]
 
 		script := doc.CreateElement("script")
 		script.SetInnerHTML(prelude.Prelude)
-		frame.AppendChild(script)
+		head.AppendChild(script)
 
 		for _, d := range deps {
 			code, _, err := builder.GetPackageCode(context.Background(), d, false, false)
@@ -54,7 +54,7 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 
 			script := doc.CreateElement("script")
 			script.SetInnerHTML(string(code))
-			frame.AppendChild(script)
+			head.AppendChild(script)
 		}
 
 		script1 := doc.CreateElement("script")
@@ -65,7 +65,7 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 			$go($mainPkg.$init, []);
 			$flushConsole();
 		`)
-		frame.AppendChild(script1)
+		head.AppendChild(script1)
 
 	}
 	return true
