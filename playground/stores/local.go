@@ -63,7 +63,7 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 			s.app.Fail(err)
 			return true
 		}
-	case *actions.CompileMessage:
+	case *actions.UpdateMessage:
 		switch message := action.Message.(type) {
 		case messages.PlaygroundIndex:
 			for _, v := range message {

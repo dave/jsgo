@@ -16,10 +16,10 @@ type Dial struct {
 	Close   func() flux.ActionInterface
 }
 
-type CompileStart struct{}
-type CompileOpen struct{}
-type CompileMessage struct{ Message interface{} }
-type CompileClose struct{}
+type UpdateStart struct{}
+type UpdateOpen struct{}
+type UpdateMessage struct{ Message interface{} }
+type UpdateClose struct{}
 
 type Load struct{}
 

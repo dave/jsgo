@@ -10,28 +10,34 @@ type App struct {
 	Watcher    flux.WatcherInterface
 	Notifier   flux.NotifierInterface
 
-	Compiler   *CompilerStore
+	Archive    *ArchiveStore
 	Editor     *EditorStore
 	Connection *ConnectionStore
 	Local      *LocalStore
+	Scanner    *ScannerStore
 }
 
 func (a *App) Init() {
+
 	n := flux.NewNotifier()
 	a.Notifier = n
 	a.Watcher = n
-	a.Compiler = NewCompilerStore(a)
+
+	a.Archive = NewArchiveStore(a)
 	a.Editor = NewEditorStore(a)
 	a.Connection = NewConnectionStore(a)
 	a.Local = NewLocalStore(a)
+	a.Scanner = NewScannerStore(a)
+
 	a.Dispatcher = flux.NewDispatcher(
 		// Notifier:
 		a.Notifier,
 		// Stores:
-		a.Compiler,
+		a.Archive,
 		a.Editor,
 		a.Connection,
 		a.Local,
+		a.Scanner,
 	)
 }
 
