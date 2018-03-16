@@ -27,7 +27,7 @@ import (
 
 	"sync/atomic"
 
-	"archive/zip"
+	"compress/gzip"
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
@@ -207,6 +207,9 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 		// The archive files aren't binary identical across compiles, so we have to render them to JS
 		// in order to get the hash for the cache. Not ideal, but it should work.
 		_, hashBytes, err := builder.GetPackageCode(ctx, archive, false, true)
+		if err != nil {
+			return err
+		}
 		hash := fmt.Sprintf("%x", hashBytes)
 
 		var unchanged bool
@@ -227,25 +230,19 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 		}
 
 		buf := &bytes.Buffer{}
-		if err := compiler.WriteArchive(archive, buf); err != nil {
+
+		zw := gzip.NewWriter(buf)
+
+		if err := compiler.WriteArchive(archive, zw); err != nil {
 			return err
 		}
 
-		zipped := &bytes.Buffer{}
-		zw := zip.NewWriter(zipped)
-		zfw, err := zw.Create("package.a")
-		if err != nil {
-			return err
-		}
-		if _, err := zfw.Write(buf.Bytes()); err != nil {
-			return err
-		}
 		zw.Close()
 
 		c.send <- messages.PlaygroundArchive{
 			Path:     archive.ImportPath,
 			Hash:     hash,
-			Contents: zipped.Bytes(),
+			Contents: buf.Bytes(),
 		}
 	}
 

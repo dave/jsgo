@@ -5,6 +5,12 @@ import (
 
 	"strings"
 
+	"bytes"
+
+	"encoding/gob"
+
+	"compress/gzip"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
@@ -19,7 +25,7 @@ type ArchiveStore struct {
 	updating bool
 
 	// cache (path -> hash) of all the archives cached in local storage
-	cache map[string]string
+	cache map[string]CacheItem
 
 	// state of the imports at the last compile
 	imports []string
@@ -33,10 +39,15 @@ type ArchiveStore struct {
 	complete bool
 }
 
+type CacheItem struct {
+	Hash    string
+	Archive *compiler.Archive
+}
+
 func NewArchiveStore(app *App) *ArchiveStore {
 	s := &ArchiveStore{
 		app:   app,
-		cache: map[string]string{},
+		cache: map[string]CacheItem{},
 	}
 	return s
 }
@@ -80,8 +91,8 @@ func (s *ArchiveStore) Fresh(imports []string) bool {
 }
 
 // Cache takes a snapshot of the cache (path -> hash)
-func (s *ArchiveStore) Cache() map[string]string {
-	cache := map[string]string{}
+func (s *ArchiveStore) Cache() map[string]CacheItem {
+	cache := map[string]CacheItem{}
 	for k, v := range s.cache {
 		cache[k] = v
 	}
@@ -114,13 +125,17 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 
 	case *actions.UpdateOpen:
 		fmt.Println("compile websocket open, sending compile init")
+		hashes := map[string]string{}
+		for path, item := range s.Cache() {
+			hashes[path] = item.Hash
+		}
 		message := messages.PlaygroundCompile{
 			Source: map[string]map[string]string{
 				"main": {
 					"main.go": s.app.Editor.Text(),
 				},
 			},
-			ArchiveCache: s.Cache(),
+			ArchiveCache: hashes,
 		}
 		s.app.Dispatch(&actions.Send{
 			Message: message,
@@ -130,8 +145,20 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		case messages.PlaygroundArchive, messages.PlaygroundIndex:
 			switch message := message.(type) {
 			case messages.PlaygroundArchive:
-				payload.Wait(s.app.Local)
-				s.cache[message.Path] = message.Hash
+				r, err := gzip.NewReader(bytes.NewBuffer(message.Contents))
+				if err != nil {
+					s.app.Fail(err)
+					return true
+				}
+				var a compiler.Archive
+				if err := gob.NewDecoder(r).Decode(&a); err != nil {
+					s.app.Fail(err)
+					return true
+				}
+				s.cache[message.Path] = CacheItem{
+					Hash:    message.Hash,
+					Archive: &a,
+				}
 			case messages.PlaygroundIndex:
 				s.index = message
 			}
@@ -143,7 +170,7 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 						fresh = false
 						break
 					}
-					if cached != item.Hash {
+					if cached.Hash != item.Hash {
 						fresh = false
 						break
 					}
@@ -152,16 +179,12 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 					s.complete = true
 					var deps []*compiler.Archive
 					for _, v := range s.index {
-						a, found, err := s.app.Local.GetArchive(v.Path)
-						if err != nil {
-							s.app.Fail(err)
-							return true
-						}
-						if !found {
+						a, ok := s.cache[v.Path]
+						if !ok {
 							s.app.Fail(fmt.Errorf("%s not found", v.Path))
 							return true
 						}
-						deps = append(deps, a)
+						deps = append(deps, a.Archive)
 					}
 					s.dependencies = deps
 					payload.Notify()

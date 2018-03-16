@@ -135,14 +135,6 @@ func (v *Page) renderHeader() *vecty.HTML {
 					vecty.Markup(
 						vecty.Property("type", "button"),
 						vecty.Class("btn", "btn-primary"),
-						event.Click(v.onInject).PreventDefault(),
-					),
-					vecty.Text("inject"),
-				),
-				elem.Button(
-					vecty.Markup(
-						vecty.Property("type", "button"),
-						vecty.Class("btn", "btn-primary"),
 						event.Click(buttonAction).PreventDefault(),
 						vecty.Property("disabled", v.app.Archive.Updating()),
 					),
@@ -245,6 +237,9 @@ func (v *Page) renderRight() *vecty.HTML {
 	v.frame = elem.InlineFrame(
 		vecty.Markup(
 			prop.ID("iframe"),
+			vecty.Style("width", "100%"),
+			vecty.Style("height", "100%"),
+			vecty.Style("border", "0"),
 		),
 	)
 	return elem.Div(
