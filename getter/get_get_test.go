@@ -52,10 +52,32 @@ func TestClone(t *testing.T) {
 	*/
 }
 
+func TestClone2(t *testing.T) {
+	fs := memfs.New()
+
+	ctx := context.Background()
+
+	store, err := filesystem.NewStorage(memfs.New())
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+
+	_, err = git.CloneContext(ctx, store, fs, &git.CloneOptions{
+		URL:               "https://gopkg.in/src-d/go-billy.v4",
+		SingleBranch:      true,
+		Depth:             1,
+		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+		Progress:          os.Stdout,
+	})
+	if err != nil {
+		t.Fatal(err.Error())
+	}
+}
+
 func TestNew(t *testing.T) {
 	fs := memfs.New()
-	c := New(fs, os.Stdout)
-	if err := c.Get(context.Background(), "github.com/moby/moby", false, false); err != nil {
+	c := New(fs, os.Stdout, []string{})
+	if err := c.Get(context.Background(), "gopkg.in/src-d/go-billy.v4", false, false); err != nil {
 		t.Fatal(err.Error())
 	}
 	var printDir func(string) error

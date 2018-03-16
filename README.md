@@ -54,7 +54,7 @@ if it's having trouble compiling your project.
 ### Demos
 
 * https://jsgo.io/hajimehoshi/go-inovation
-* https://jsgo.io/dave/ebiten/examples/2048
+* https://jsgo.io/hajimehoshi/ebiten/examples/2048
 * https://jsgo.io/shurcooL/tictactoe/cmd/tictactoe
 * https://jsgo.io/dave/todomvc
 * https://jsgo.io/gopherjs/vecty/example/markdown
@@ -64,12 +64,13 @@ if it's having trouble compiling your project.
 The power of aggressive caching is apparent when loading pages which share common packages... The examples
 in the [ebiten](https://github.com/hajimehoshi/ebiten) game library are a great demonstration of this:  
 
-* https://jsgo.io/dave/ebiten/examples/airship
-* https://jsgo.io/dave/ebiten/examples/alphablending
-* https://jsgo.io/dave/ebiten/examples/audio
-* https://jsgo.io/dave/ebiten/examples/infinitescroll
-* https://jsgo.io/dave/ebiten/examples/rotate
-* https://jsgo.io/dave/ebiten/examples/sprites
+* https://jsgo.io/hajimehoshi/ebiten/examples/blocks
+* https://jsgo.io/hajimehoshi/ebiten/examples/airship
+* https://jsgo.io/hajimehoshi/ebiten/examples/alphablending
+* https://jsgo.io/hajimehoshi/ebiten/examples/audio
+* https://jsgo.io/hajimehoshi/ebiten/examples/infinitescroll
+* https://jsgo.io/hajimehoshi/ebiten/examples/rotate
+* https://jsgo.io/hajimehoshi/ebiten/examples/sprites
 
 ### Index
 
@@ -84,7 +85,7 @@ are supplied: `count` (the number of packages loaded so far) and `total` (the to
 
 The default index page on `jsgo.io` is to display a simple `count / total` message in a span. However, 
 by supplying a custom `index.jsgo.html`, more complex effects may be created - see the [2048 
-example](https://jsgo.io/dave/ebiten/examples/2048) for a [bootstrap progress bar](https://github.com/dave/ebiten/blob/master/examples/2048/index.jsgo.html).
+example](https://jsgo.io/hajimehoshi/ebiten/examples/2048) for a [bootstrap progress bar](https://github.com/hajimehoshi/ebiten/blob/master/examples/2048/index.jsgo.html).
 
 ### Limitations
 
