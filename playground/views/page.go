@@ -158,25 +158,35 @@ func (v *Page) renderHeader() *vecty.HTML {
 						vecty.Markup(
 							vecty.Class("dropdown-item"),
 							prop.Href("#"),
-							event.Click(func(e *vecty.Event) {
-								js.Global.Call("alert", "TODO")
-							}).StopPropagation(),
+							event.Click(v.onUpdate).PreventDefault(),
 						),
-						elem.Input(
-							vecty.Markup(
-								prop.Type(prop.TypeCheckbox),
-								vecty.Class("form-check-input", "dropdown-item"),
-								prop.ID("dropdownCheckDeps"),
-							),
-						),
-						elem.Label(
-							vecty.Markup(
-								vecty.Class("form-check-label"),
-								prop.For("dropdownCheckDeps"),
-							),
-							vecty.Text("Update imports"),
-						),
+						vecty.Text("Update"),
 					),
+					/*
+						elem.Anchor(
+							vecty.Markup(
+								vecty.Class("dropdown-item"),
+								prop.Href("#"),
+								event.Click(func(e *vecty.Event) {
+									js.Global.Call("alert", "TODO")
+								}).StopPropagation(),
+							),
+							elem.Input(
+								vecty.Markup(
+									prop.Type(prop.TypeCheckbox),
+									vecty.Class("form-check-input", "dropdown-item"),
+									prop.ID("dropdownCheckDeps"),
+								),
+							),
+							elem.Label(
+								vecty.Markup(
+									vecty.Class("form-check-label"),
+									prop.For("dropdownCheckDeps"),
+								),
+								vecty.Text("Update imports"),
+							),
+						),
+					*/
 					elem.Div(
 						vecty.Markup(
 							vecty.Class("dropdown-divider"),

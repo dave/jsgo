@@ -28,14 +28,14 @@ import (
 	"gopkg.in/src-d/go-billy.v4/osfs"
 )
 
-func playgroundCompile(ctx context.Context, path string, req *http.Request, send, receive chan messages.Message) {
+func playgroundCompile(ctx context.Context, path string, req *http.Request, send func(messages.Message), receive chan messages.Message) {
 	if err := playgroundCompiler(ctx, path, req, send, receive); err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}
 }
 
-func playgroundCompiler(ctx context.Context, path string, req *http.Request, send, receive chan messages.Message) error {
+func playgroundCompiler(ctx context.Context, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 	var info messages.PlaygroundCompile
 	select {
 	case m := <-receive:
@@ -73,7 +73,7 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	}
 
 	// Send a message to the client that downloading step has started.
-	send <- messages.Download{Starting: true}
+	send(messages.Download{Starting: true})
 
 	if !config.UseLocal {
 		g := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"})
@@ -111,7 +111,7 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	file.Close()
 
 	// Send a message to the client that downloading step has finished.
-	send <- messages.Download{Done: true}
+	send(messages.Download{Done: true})
 
 	c := compile.New(assets.Assets, fs, send)
 

@@ -124,28 +124,28 @@ func init() {
 
 var payloadTypes = make(map[string]reflect.Type)
 
-func CompileWriter(send chan Message) compileWriter {
+func CompileWriter(send func(Message)) compileWriter {
 	return compileWriter{send: send}
 }
 
-func DownloadWriter(send chan Message) downloadWriter {
+func DownloadWriter(send func(Message)) downloadWriter {
 	return downloadWriter{send: send}
 }
 
 type compileWriter struct {
-	send chan Message
+	send func(Message)
 }
 
 type downloadWriter struct {
-	send chan Message
+	send func(Message)
 }
 
 func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send <- Download{Message: strings.TrimSuffix(string(b), "\n")}
+	w.send(Download{Message: strings.TrimSuffix(string(b), "\n")})
 	return len(b), nil
 }
 
 func (w compileWriter) Write(b []byte) (n int, err error) {
-	w.send <- Compile{Message: strings.TrimSuffix(string(b), "\n")}
+	w.send(Compile{Message: strings.TrimSuffix(string(b), "\n")})
 	return len(b), nil
 }

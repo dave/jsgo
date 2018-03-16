@@ -380,15 +380,21 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 		storeError(ctx, path, fmt.Errorf("upgrading request to websocket: %v", err), req)
 		return
 	}
+
+	var sendWg sync.WaitGroup
+	sendChan := make(chan messages.Message, 256)
+	receive := make(chan messages.Message, 256)
+
+	send := func(message messages.Message) {
+		sendWg.Add(1)
+		sendChan <- message
+	}
+
 	defer func() {
 		// wait for sends to finish before closing websocket
-		// TODO: Find better way of doing this
-		<-time.After(time.Millisecond * 200)
+		sendWg.Wait()
 		conn.Close()
 	}()
-
-	send := make(chan messages.Message, 256)
-	receive := make(chan messages.Message, 256)
 
 	// Recover from any panic and log the error.
 	defer func() {
@@ -406,23 +412,26 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 		}()
 		for {
 			select {
-			case message, ok := <-send:
-				conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
-				if !ok {
-					// The send channel was closed.
-					conn.WriteMessage(websocket.CloseMessage, []byte{})
-					return
-				}
-				b, err := messages.Marshal(message)
-				if err != nil {
-					conn.WriteMessage(websocket.CloseMessage, []byte{})
-					return
-				}
-				if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
-					// Error writing message, close and exit
-					conn.WriteMessage(websocket.CloseMessage, []byte{})
-					return
-				}
+			case message, ok := <-sendChan:
+				func() {
+					defer sendWg.Done()
+					conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
+					if !ok {
+						// The send channel was closed.
+						conn.WriteMessage(websocket.CloseMessage, []byte{})
+						return
+					}
+					b, err := messages.Marshal(message)
+					if err != nil {
+						conn.WriteMessage(websocket.CloseMessage, []byte{})
+						return
+					}
+					if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
+						// Error writing message, close and exit
+						conn.WriteMessage(websocket.CloseMessage, []byte{})
+						return
+					}
+				}()
 			case <-ticker.C:
 				conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
 				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
@@ -478,7 +487,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	// Request a slot in the queue...
 	start, end, err := h.Queue.Slot(func(position int) {
-		send <- messages.Queue{Position: position}
+		send(messages.Queue{Position: position})
 	})
 	if err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
@@ -497,7 +506,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Send a message to the client that queue step has finished.
-	send <- messages.Queue{Done: true}
+	send(messages.Queue{Done: true})
 
 	switch compileType {
 	case TypeCompile:
@@ -509,16 +518,16 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	return
 }
 
-func sendAndStoreError(ctx context.Context, send chan messages.Message, path string, err error, req *http.Request) {
+func sendAndStoreError(ctx context.Context, send func(messages.Message), path string, err error, req *http.Request) {
 	storeError(ctx, path, err, req)
 	sendError(send, path, err)
 }
 
-func sendError(send chan messages.Message, path string, err error) {
-	send <- messages.Error{
+func sendError(send func(messages.Message), path string, err error) {
+	send(messages.Error{
 		Path:    path,
 		Message: err.Error(),
-	}
+	})
 }
 
 func storeError(ctx context.Context, path string, err error, req *http.Request) {

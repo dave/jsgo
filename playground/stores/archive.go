@@ -142,63 +142,65 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		})
 	case *actions.UpdateMessage:
 		switch message := a.Message.(type) {
-		case messages.PlaygroundArchive, messages.PlaygroundIndex:
-			switch message := message.(type) {
-			case messages.PlaygroundArchive:
-				r, err := gzip.NewReader(bytes.NewBuffer(message.Contents))
-				if err != nil {
-					s.app.Fail(err)
-					return true
-				}
-				var a compiler.Archive
-				if err := gob.NewDecoder(r).Decode(&a); err != nil {
-					s.app.Fail(err)
-					return true
-				}
-				s.cache[message.Path] = CacheItem{
-					Hash:    message.Hash,
-					Archive: &a,
-				}
-			case messages.PlaygroundIndex:
-				s.index = message
+		case messages.PlaygroundArchive:
+			r, err := gzip.NewReader(bytes.NewBuffer(message.Contents))
+			if err != nil {
+				s.app.Fail(err)
+				return true
 			}
-			if s.index != nil {
-				fresh := true
-				for _, item := range s.index {
-					cached, ok := s.cache[item.Path]
-					if !ok {
-						fresh = false
-						break
-					}
-					if cached.Hash != item.Hash {
-						fresh = false
-						break
-					}
-				}
-				if fresh {
-					s.complete = true
-					var deps []*compiler.Archive
-					for _, v := range s.index {
-						a, ok := s.cache[v.Path]
-						if !ok {
-							s.app.Fail(fmt.Errorf("%s not found", v.Path))
-							return true
-						}
-						deps = append(deps, a.Archive)
-					}
-					s.dependencies = deps
-					payload.Notify()
-				}
+			var a compiler.Archive
+			if err := gob.NewDecoder(r).Decode(&a); err != nil {
+				s.app.Fail(err)
+				return true
 			}
-
+			s.cache[message.Path] = CacheItem{
+				Hash:    message.Hash,
+				Archive: &a,
+			}
+			s.updateFreshness(payload)
+		case messages.PlaygroundIndex:
+			s.index = message
+			s.updateFreshness(payload)
 		default:
 			fmt.Printf("%T: %#v\n", message, message)
 		}
 	case *actions.UpdateClose:
 		s.updating = false
-		fmt.Println("compile websocket closed")
+		s.updateFreshness(payload)
 		payload.Notify()
 	}
 
 	return true
+}
+
+func (s *ArchiveStore) updateFreshness(payload *flux.Payload) {
+	if s.index == nil {
+		return
+	}
+	fresh := true
+	for _, item := range s.index {
+		cached, ok := s.cache[item.Path]
+		if !ok {
+			fresh = false
+			break
+		}
+		if cached.Hash != item.Hash {
+			fresh = false
+			break
+		}
+	}
+	if fresh {
+		s.complete = true
+		var deps []*compiler.Archive
+		for _, v := range s.index {
+			a, ok := s.cache[v.Path]
+			if !ok {
+				s.app.Fail(fmt.Errorf("%s not found", v.Path))
+				return
+			}
+			deps = append(deps, a.Archive)
+		}
+		s.dependencies = deps
+		payload.Notify()
+	}
 }
