@@ -4,36 +4,53 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 )
 
 type Message interface{}
 
 var payloads = []interface{}{
-	Download{},
-	Compile{},
-	Store{},
+
+	// Progress messages:
+	Queueing{},
+	Downloading{},
+	Compiling{},
+	Storing{},
+	Updating{},
+
+	// Data messages:
 	Complete{},
 	Error{},
-	Queue{},
-	PlaygroundCompile{},
-	PlaygroundArchive{},
-	PlaygroundIndex{},
+	Archive{},
+	Index{},
+
+	// Commands:
+	Update{},
 }
 
-type Download struct {
+type Queueing struct {
+	Position int
+	Done     bool
+}
+
+type Downloading struct {
 	Starting bool
 	Message  string
 	Done     bool
 }
 
-type Compile struct {
+type Compiling struct {
 	Starting bool
 	Message  string
 	Done     bool
 }
 
-type Store struct {
+type Updating struct {
+	Starting bool
+	Message  string
+	Done     bool
+}
+
+type Storing struct {
 	Starting  bool
 	Finished  int
 	Unchanged int
@@ -53,36 +70,30 @@ type Error struct {
 	Message string
 }
 
-type Queue struct {
-	Position int
-	Done     bool
+// Update is sent by the client to the server asking it to compile the source and return the archive
+// files for all dependencies that are not found in the client cache.
+type Update struct {
+	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
+	Tags   []string                     // Build tags
+	Cache  map[string]string            // Map of path->hash of previously compiled dependencies to use if still in the cache
 }
 
-// PlaygroundCompile is sent by the client to the server asking it to compile the source and return the
-// archive files for all dependencies that are not found in the client cache.
-type PlaygroundCompile struct {
-	Source       map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
-	Tags         []string                     // Build tags
-	ArchiveCache map[string]string            // Map of path->hash of previously compiled dependencies to use if still in the cache
-}
+// Index is an ordered list of dependencies.
+type Index []IndexItem
 
-// PlaygroundIndex is an ordered list of dependencies.
-type PlaygroundIndex []PlaygroundIndexItem
-
-// PlaygroundIndexItem is an item in PlaygroundIndex. Unchanged is true for any that the client already
-// has cached as specified by ArchiveCache in the PlaygroundCompile message. Unchanged dependencies are
-// not sent as PlaygroundArchive messages.
-type PlaygroundIndexItem struct {
+// IndexItem is an item in Index. Unchanged is true if the client already has cached as specified by
+// Cache in the Update message. Unchanged dependencies are not sent as Archive messages.
+type IndexItem struct {
 	Path      string
-	Hash      string // Hash of the raw file (unzipped)
+	Hash      string // Hash of the js file
 	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
 }
 
-// PlaygroundArchive contains the contents (zipped) of the GopherJS archive file.
-type PlaygroundArchive struct {
+// Archive contains the contents (gzipped) of the GopherJS archive file.
+type Archive struct {
 	Path     string
-	Hash     string // Hash of the raw file (unzipped)
-	Contents []byte // Contents of the file (zipped)
+	Hash     string // Hash of the resultant js
+	Contents []byte // Contents of the file (gzipped)
 }
 
 func Marshal(in Message) ([]byte, error) {
@@ -123,29 +134,3 @@ func init() {
 }
 
 var payloadTypes = make(map[string]reflect.Type)
-
-func CompileWriter(send func(Message)) compileWriter {
-	return compileWriter{send: send}
-}
-
-func DownloadWriter(send func(Message)) downloadWriter {
-	return downloadWriter{send: send}
-}
-
-type compileWriter struct {
-	send func(Message)
-}
-
-type downloadWriter struct {
-	send func(Message)
-}
-
-func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send(Download{Message: strings.TrimSuffix(string(b), "\n")})
-	return len(b), nil
-}
-
-func (w compileWriter) Write(b []byte) (n int, err error) {
-	w.send(Compile{Message: strings.TrimSuffix(string(b), "\n")})
-	return len(b), nil
-}

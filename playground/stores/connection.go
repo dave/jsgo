@@ -3,6 +3,8 @@ package stores
 import (
 	"errors"
 
+	"fmt"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
@@ -58,6 +60,10 @@ func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
 			m, err := messages.Unmarshal([]byte(ev.Get("data").String()))
 			if err != nil {
 				s.app.Fail(err)
+				return
+			}
+			if e, ok := m.(messages.Error); ok {
+				s.app.Fail(fmt.Errorf("%s: %s", e.Path, e.Message))
 				return
 			}
 			s.app.Dispatch(action.Message(m))

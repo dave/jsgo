@@ -41,6 +41,7 @@ import (
 type Compiler struct {
 	root, path, temp billy.Filesystem
 	send             func(messages.Message)
+	log              io.Writer
 }
 
 func New(goroot, gopath billy.Filesystem, send func(messages.Message)) *Compiler {
@@ -107,7 +108,7 @@ func (s *Storer) Worker(ctx context.Context) {
 						done := atomic.LoadInt32(&s.done)
 						remain := atomic.LoadInt32(&s.total) - unchanged - done
 						if s.send != nil {
-							s.send(messages.Store{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
+							s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
 						} else {
 							fmt.Printf("Unchanged: %s\n", item.Message)
 						}
@@ -128,7 +129,7 @@ func (s *Storer) Worker(ctx context.Context) {
 				done := atomic.AddInt32(&s.done, 1)
 				remain := atomic.LoadInt32(&s.total) - unchanged - done
 				if s.send != nil {
-					s.send(messages.Store{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
+					s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
 				} else {
 					fmt.Printf("Finished: %s\n", item.Message)
 				}
@@ -144,7 +145,7 @@ func (s *Storer) AddJs(message, name string, contents []byte) {
 	done := atomic.LoadInt32(&s.done)
 	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
 	if s.send != nil {
-		s.send(messages.Store{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
+		s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
 	}
 
 	s.queue <- StorageItem{
@@ -182,11 +183,11 @@ type StorageItem struct {
 	Count          bool
 }
 
-func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompile) error {
+func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writer) error {
 
-	c.send(messages.Compile{Starting: true})
+	c.send(messages.Updating{Starting: true})
 
-	session, _, archive, err := c.compilePackage(ctx, "main", false)
+	session, _, archive, err := c.compilePackage(ctx, "main", log, false)
 	if err != nil {
 		return err
 	}
@@ -196,7 +197,7 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 		return err
 	}
 
-	var index messages.PlaygroundIndex
+	var index messages.Index
 
 	for _, archive := range deps {
 
@@ -213,11 +214,11 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 		hash := fmt.Sprintf("%x", hashBytes)
 
 		var unchanged bool
-		if cached, exists := info.ArchiveCache[archive.ImportPath]; exists && cached == hash {
+		if cached, exists := info.Cache[archive.ImportPath]; exists && cached == hash {
 			unchanged = true
 		}
 
-		index = append(index, messages.PlaygroundIndexItem{
+		index = append(index, messages.IndexItem{
 			Path:      archive.ImportPath,
 			Hash:      hash,
 			Unchanged: unchanged,
@@ -239,7 +240,7 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 
 		zw.Close()
 
-		c.send(messages.PlaygroundArchive{
+		c.send(messages.Archive{
 			Path:     archive.ImportPath,
 			Hash:     hash,
 			Contents: buf.Bytes(),
@@ -248,11 +249,11 @@ func (c *Compiler) Playground(ctx context.Context, info messages.PlaygroundCompi
 
 	c.send(index)
 
-	c.send(messages.Compile{Done: true})
+	c.send(messages.Updating{Done: true})
 	return nil
 }
 
-func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileOutput, err error) {
+func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer) (min, max *CompileOutput, err error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, nil, err
@@ -262,19 +263,19 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 	storer := NewStorer(ctx, client, c.send, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
-	c.send(messages.Compile{Starting: true})
-	c.send(messages.Store{Starting: true})
+	c.send(messages.Compiling{Starting: true})
+	c.send(messages.Storing{Starting: true})
 
-	data, outputMin, err := c.compileAndStore(ctx, path, storer, true)
+	data, outputMin, err := c.compileAndStore(ctx, path, storer, log, true)
 	if err != nil {
 		return nil, nil, err
 	}
-	_, outputMax, err := c.compileAndStore(ctx, path, storer, false)
+	_, outputMax, err := c.compileAndStore(ctx, path, storer, log, false)
 	if err != nil {
 		return nil, nil, err
 	}
 
-	c.send(messages.Compile{Message: "Loader"})
+	c.send(messages.Compiling{Message: "Loader"})
 	hashMin, err := genMain(ctx, storer, outputMin, true)
 	if err != nil {
 		return nil, nil, err
@@ -284,7 +285,7 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send(messages.Compile{Message: "Index"})
+	c.send(messages.Compiling{Message: "Index"})
 
 	tpl, err := c.getIndexTpl(data.Dir)
 	if err != nil {
@@ -298,26 +299,26 @@ func (c *Compiler) Compile(ctx context.Context, path string) (min, max *CompileO
 		return nil, nil, err
 	}
 
-	c.send(messages.Compile{Done: true})
+	c.send(messages.Compiling{Done: true})
 	storer.Wait()
 	if storer.Err != nil {
 		fmt.Println("detected fail")
 		return nil, nil, storer.Err
 	}
-	c.send(messages.Store{Done: true})
+	c.send(messages.Storing{Done: true})
 
 	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
 
 }
 
-func (c *Compiler) compilePackage(ctx context.Context, path string, min bool) (*builder.Session, *builder.PackageData, *compiler.Archive, error) {
+func (c *Compiler) compilePackage(ctx context.Context, path string, log io.Writer, min bool) (*builder.Session, *builder.PackageData, *compiler.Archive, error) {
 	options := &builder.Options{
 		Root:        c.root,
 		Path:        c.path,
 		Temporary:   c.temp,
 		Unvendor:    true,
 		Initializer: true,
-		Log:         messages.CompileWriter(c.send),
+		Log:         log,
 		Verbose:     true,
 		Minify:      min,
 		Standard:    std.Index,
@@ -334,9 +335,9 @@ func (c *Compiler) compilePackage(ctx context.Context, path string, min bool) (*
 	return session, data, archive, nil
 }
 
-func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, log io.Writer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
-	session, data, archive, err := c.compilePackage(ctx, path, min)
+	session, data, archive, err := c.compilePackage(ctx, path, log, min)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -31,7 +31,7 @@ type ArchiveStore struct {
 	imports []string
 
 	// index of the previously received update (path -> hash for all dependent packages)
-	index []messages.PlaygroundIndexItem
+	index []messages.IndexItem
 
 	dependencies []*compiler.Archive
 
@@ -60,8 +60,8 @@ func (s *ArchiveStore) Dependencies() []*compiler.Archive {
 	return deps
 }
 
-func (s *ArchiveStore) Index() []messages.PlaygroundIndexItem {
-	var index []messages.PlaygroundIndexItem
+func (s *ArchiveStore) Index() []messages.IndexItem {
+	var index []messages.IndexItem
 	for _, item := range s.index {
 		index = append(index, item)
 	}
@@ -129,20 +129,21 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		for path, item := range s.Cache() {
 			hashes[path] = item.Hash
 		}
-		message := messages.PlaygroundCompile{
+		message := messages.Update{
 			Source: map[string]map[string]string{
 				"main": {
 					"main.go": s.app.Editor.Text(),
 				},
 			},
-			ArchiveCache: hashes,
+			Cache: hashes,
 		}
 		s.app.Dispatch(&actions.Send{
 			Message: message,
 		})
 	case *actions.UpdateMessage:
 		switch message := a.Message.(type) {
-		case messages.PlaygroundArchive:
+		case messages.Archive:
+			fmt.Printf("%T: %#v\n", message, messages.Archive{Path: message.Path, Hash: message.Hash})
 			r, err := gzip.NewReader(bytes.NewBuffer(message.Contents))
 			if err != nil {
 				s.app.Fail(err)
@@ -158,9 +159,10 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 				Archive: &a,
 			}
 			s.updateFreshness(payload)
-		case messages.PlaygroundIndex:
+		case messages.Index:
 			s.index = message
 			s.updateFreshness(payload)
+			fmt.Printf("%T: %#v\n", message, message)
 		default:
 			fmt.Printf("%T: %#v\n", message, message)
 		}

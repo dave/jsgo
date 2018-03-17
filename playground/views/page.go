@@ -106,11 +106,22 @@ func (v *Page) renderLeft() *vecty.HTML {
 
 func (v *Page) renderHeader() *vecty.HTML {
 
-	buttonText := "Update"
-	buttonAction := v.onUpdate
-	if v.app.Archive.Fresh(v.app.Scanner.Imports()) {
+	var buttonText string
+	var buttonAction func(*vecty.Event)
+	var buttonDisabled bool
+
+	if v.app.Archive.Updating() {
+		buttonText = "Updating..."
+		buttonAction = nil
+		buttonDisabled = true
+	} else if v.app.Archive.Fresh(v.app.Scanner.Imports()) {
 		buttonText = "Compile"
 		buttonAction = v.onCompile
+		buttonDisabled = false
+	} else {
+		buttonText = "Update"
+		buttonAction = v.onUpdate
+		buttonDisabled = false
 	}
 
 	return elem.Navigation(
@@ -136,7 +147,7 @@ func (v *Page) renderHeader() *vecty.HTML {
 						vecty.Property("type", "button"),
 						vecty.Class("btn", "btn-primary"),
 						event.Click(buttonAction).PreventDefault(),
-						vecty.Property("disabled", v.app.Archive.Updating()),
+						vecty.Property("disabled", buttonDisabled),
 					),
 					vecty.Text(buttonText),
 				),

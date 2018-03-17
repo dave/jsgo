@@ -17,6 +17,8 @@ import (
 
 	"go/build"
 
+	"strings"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
@@ -36,11 +38,11 @@ func playgroundCompile(ctx context.Context, path string, req *http.Request, send
 }
 
 func playgroundCompiler(ctx context.Context, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
-	var info messages.PlaygroundCompile
+	var info messages.Update
 	select {
 	case m := <-receive:
 		var ok bool
-		if info, ok = m.(messages.PlaygroundCompile); !ok {
+		if info, ok = m.(messages.Update); !ok {
 			return fmt.Errorf("invalid init message %T", m)
 		}
 	case <-time.After(config.WebsocketInstructionTimeout):
@@ -73,10 +75,10 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	}
 
 	// Send a message to the client that downloading step has started.
-	send(messages.Download{Starting: true})
+	send(messages.Downloading{Starting: true})
 
 	if !config.UseLocal {
-		g := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"})
+		g := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"})
 
 		var imports []string
 		for _, spec := range f.Imports {
@@ -111,14 +113,23 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	file.Close()
 
 	// Send a message to the client that downloading step has finished.
-	send(messages.Download{Done: true})
+	send(messages.Downloading{Done: true})
 
 	c := compile.New(assets.Assets, fs, send)
 
-	if err := c.Playground(ctx, info); err != nil {
+	if err := c.Update(ctx, info, updateWriter{send: send}); err != nil {
 		return err
 	}
 
 	return nil
 
+}
+
+type updateWriter struct {
+	send func(messages.Message)
+}
+
+func (w updateWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Updating{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
 }

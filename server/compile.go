@@ -21,19 +21,19 @@ func jsgoCompile(ctx context.Context, path string, req *http.Request, send func(
 	fs := memfs.New()
 
 	// Send a message to the client that downloading step has started.
-	send(messages.Download{Starting: true})
+	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, messages.DownloadWriter(send), []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
+	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send(messages.Download{Done: true})
+	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path)
+	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send})
 	if err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
 		return
@@ -93,4 +93,13 @@ func storeSuccess(ctx context.Context, send func(messages.Message), path string,
 		return
 	}
 
+}
+
+type compileWriter struct {
+	send func(messages.Message)
+}
+
+func (w compileWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Compiling{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
 }

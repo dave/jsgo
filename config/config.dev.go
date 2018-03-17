@@ -14,5 +14,5 @@ const (
 	CompileKind = "CompileDev"
 	PackageKind = "PackageDev"
 
-	UseLocal = true
+	UseLocal = false
 )

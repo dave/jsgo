@@ -223,21 +223,21 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 					<div id="progress-panel" style="display: none;">
 						<table class="table table-dark">
 							<tbody>
-								<tr id="queue-item" style="display: none;">
+								<tr id="queueing-item" style="display: none;">
 									<th scope="row" class="w-25">Queued:</th>
-									<td class="w-75"><span id="queue-span"></span></td>
+									<td class="w-75"><span id="queueing-span"></span></td>
 								</tr>
-								<tr id="download-item" style="display: none;">
+								<tr id="downloading-item" style="display: none;">
 									<th scope="row" class="w-25">Downloading:</th>
-									<td class="w-75"><span id="download-span"></span></td>
+									<td class="w-75"><span id="downloading-span"></span></td>
 								</tr>
-								<tr id="compile-item" style="display: none;">
+								<tr id="compiling-item" style="display: none;">
 									<th scope="row" class="w-25">Compiling:</th>
-									<td class="w-75"><span id="compile-span"></span></td>
+									<td class="w-75"><span id="compiling-span"></span></td>
 								</tr>
-								<tr id="store-item" style="display: none;">
+								<tr id="storing-item" style="display: none;">
 									<th scope="row" class="w-25">Storing:</th>
-									<td class="w-75"><span id="store-span"></span></td>
+									<td class="w-75"><span id="storing-span"></span></td>
 								</tr>
 							</tbody>
 						</table>
@@ -287,10 +287,10 @@ var pageTemplate = template.Must(template.New("main").Parse(`
 			socket.onmessage = function (e) {
 				var payload = JSON.parse(e.data)
 				switch (payload.Type) {
-				case "Queue":
-				case "Download":
-				case "Compile":
-				case "Store":
+				case "Queueing":
+				case "Downloading":
+				case "Compiling":
+				case "Storing":
 					if (done[payload.Type]) {
 						// Messages might arrive out of order... Once we get a "done", ignore 
 						// any more.
@@ -487,7 +487,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	// Request a slot in the queue...
 	start, end, err := h.Queue.Slot(func(position int) {
-		send(messages.Queue{Position: position})
+		send(messages.Queueing{Position: position})
 	})
 	if err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
@@ -506,7 +506,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Send a message to the client that queue step has finished.
-	send(messages.Queue{Done: true})
+	send(messages.Queueing{Done: true})
 
 	switch compileType {
 	case TypeCompile:
@@ -531,8 +531,6 @@ func sendError(send func(messages.Message), path string, err error) {
 }
 
 func storeError(ctx context.Context, path string, err error, req *http.Request) {
-
-	fmt.Println("error:", err.Error())
 
 	if err == queue.TooManyItemsQueued {
 		// If the server is getting flooded by a DOS, this will prevent database flooding
@@ -657,4 +655,13 @@ func StreamWithTimeout(w io.Writer, r io.Reader) error {
 
 func WriteWithTimeout(w io.Writer, b []byte) error {
 	return StreamWithTimeout(w, bytes.NewBuffer(b))
+}
+
+type downloadWriter struct {
+	send func(messages.Message)
+}
+
+func (w downloadWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Downloading{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
 }
