@@ -2,9 +2,9 @@
 
 package config
 
-const DEV = false
-
 const (
+	DEV = false
+
 	PkgBucket   = "pkg.jsgo.io"
 	IndexBucket = "jsgo.io"
 
@@ -13,6 +13,4 @@ const (
 
 	CompileKind = "Compile"
 	PackageKind = "Package"
-
-	UseLocal = false
 )

@@ -40,3 +40,7 @@ type UserChangedSplit struct {
 type UserChangedText struct {
 	Text string
 }
+
+type FastCompileCheckbox struct {
+	Value bool
+}

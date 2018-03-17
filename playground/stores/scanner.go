@@ -49,26 +49,22 @@ func (s *ScannerStore) Handle(payload *flux.Payload) bool {
 	switch action := payload.Action.(type) {
 	case *actions.UserChangedText:
 		fset := token.NewFileSet()
-		f, err := parser.ParseFile(fset, "main.go", action.Text, parser.ImportsOnly)
-		if err != nil {
-			s.app.Fail(err)
-			return true
-		}
+
+		// ignore errors
+		f, _ := parser.ParseFile(fset, "main.go", action.Text, parser.ImportsOnly)
+
 		before := s.imports
 		s.imports = []string{}
 		for _, v := range f.Imports {
-			unquoted, err := strconv.Unquote(v.Path.Value)
-			if err != nil {
-				s.app.Fail(err)
-				return true
-			}
+			// ignore errors
+			unquoted, _ := strconv.Unquote(v.Path.Value)
 			s.imports = append(s.imports, unquoted)
 		}
+
 		sort.Strings(s.imports)
 		if s.Changed(before) {
 			payload.Notify()
 		}
-
 	}
 	return true
 }

@@ -114,8 +114,12 @@ func (v *Page) renderHeader() *vecty.HTML {
 		buttonText = "Updating..."
 		buttonAction = nil
 		buttonDisabled = true
-	} else if v.app.Archive.Fresh(v.app.Scanner.Imports()) {
-		buttonText = "Compile"
+	} else if v.app.Archive.Fresh() {
+		if v.app.Compile.Fast() && v.app.Compile.Fresh() {
+			buttonText = "Fast compile"
+		} else {
+			buttonText = "Compile"
+		}
 		buttonAction = v.onCompile
 		buttonDisabled = false
 	} else {
@@ -173,31 +177,32 @@ func (v *Page) renderHeader() *vecty.HTML {
 						),
 						vecty.Text("Update"),
 					),
-					/*
-						elem.Anchor(
+
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href("#"),
+							event.Click(func(*vecty.Event) {}).StopPropagation(),
+						),
+						elem.Input(
 							vecty.Markup(
-								vecty.Class("dropdown-item"),
-								prop.Href("#"),
-								event.Click(func(e *vecty.Event) {
-									js.Global.Call("alert", "TODO")
-								}).StopPropagation(),
-							),
-							elem.Input(
-								vecty.Markup(
-									prop.Type(prop.TypeCheckbox),
-									vecty.Class("form-check-input", "dropdown-item"),
-									prop.ID("dropdownCheckDeps"),
-								),
-							),
-							elem.Label(
-								vecty.Markup(
-									vecty.Class("form-check-label"),
-									prop.For("dropdownCheckDeps"),
-								),
-								vecty.Text("Update imports"),
+								prop.Type(prop.TypeCheckbox),
+								vecty.Class("form-check-input", "dropdown-item"),
+								prop.ID("dropdownCheckDeps"),
+								event.Change(func(ev *vecty.Event) {
+									v.app.Dispatch(&actions.FastCompileCheckbox{Value: ev.Target.Get("checked").Bool()})
+								}),
 							),
 						),
-					*/
+						elem.Label(
+							vecty.Markup(
+								vecty.Class("form-check-label"),
+								prop.For("dropdownCheckDeps"),
+							),
+							vecty.Text("Fast compile (might break)"),
+						),
+					),
+
 					elem.Div(
 						vecty.Markup(
 							vecty.Class("dropdown-divider"),

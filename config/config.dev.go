@@ -2,9 +2,9 @@
 
 package config
 
-const DEV = true
-
 const (
+	DEV = true
+
 	PkgBucket   = "dev-pkg.jsgo.io"
 	IndexBucket = "dev-index.jsgo.io"
 
@@ -13,6 +13,4 @@ const (
 
 	CompileKind = "CompileDev"
 	PackageKind = "PackageDev"
-
-	UseLocal = false
 )
