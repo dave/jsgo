@@ -95,8 +95,25 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 		}
 
 		doc := dom.GetWindow().Document()
-		frame := doc.GetElementByID("iframe").(*dom.HTMLIFrameElement).ContentDocument()
-		head := frame.GetElementsByTagName("head")[0]
+		var frame *dom.HTMLIFrameElement
+
+		if full {
+			holder := doc.GetElementByID("iframe-holder")
+			for _, v := range holder.ChildNodes() {
+				v.Underlying().Call("remove")
+			}
+			frame = doc.CreateElement("iframe").(*dom.HTMLIFrameElement)
+			frame.SetID("iframe")
+			frame.Style().Set("width", "100%")
+			frame.Style().Set("height", "100%")
+			frame.Style().Set("border", "0")
+			holder.AppendChild(frame)
+		} else {
+			frame = doc.GetElementByID("iframe").(*dom.HTMLIFrameElement)
+		}
+
+		content := frame.ContentDocument()
+		head := content.GetElementsByTagName("head")[0].(*dom.BasicHTMLElement)
 
 		if full {
 			script := doc.CreateElement("script")
