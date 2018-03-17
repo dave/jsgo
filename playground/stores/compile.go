@@ -9,8 +9,8 @@ import (
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builderjs"
 	"github.com/dave/jsgo/playground/actions"
-	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
+	"github.com/gopherjs/gopherjs/js"
 	"honnef.co/go/js/dom"
 )
 
@@ -23,147 +23,79 @@ func NewCompileStore(app *App) *CompileStore {
 
 type CompileStore struct {
 	app *App
-
-	// fast compile if possible?
-	fast bool
-
-	// imports at last full compile
-	imports []string
-
-	// are the imports from the editor all in the previous full compile?
-	fresh bool
-}
-
-func (s *CompileStore) Fresh() bool {
-	return s.fresh
-}
-
-func (s *CompileStore) Fast() bool {
-	return s.fast
-}
-
-func (s *CompileStore) updateFresh(payload *flux.Payload) {
-	previous := s.fresh
-	fresh := func() bool {
-		fromPrevious := map[string]bool{}
-		for _, v := range s.imports {
-			fromPrevious[v] = true
-		}
-		for _, p := range s.app.Scanner.Imports() {
-			if !fromPrevious[p] {
-				return false
-			}
-		}
-		return true
-	}()
-	if previous != fresh {
-		s.fresh = fresh
-		payload.Notify()
-	}
 }
 
 func (s *CompileStore) Handle(payload *flux.Payload) bool {
-	switch a := payload.Action.(type) {
-	case *actions.UserChangedText:
-		payload.Wait(s.app.Scanner)
-		s.updateFresh(payload)
-	case *actions.FastCompileCheckbox:
-		s.fast = a.Value
-		payload.Notify()
+	switch payload.Action.(type) {
 	case *actions.CompileStart:
-
-		full := true
-		if s.fast && s.fresh {
-			full = false
-		} else {
-			s.imports = s.app.Scanner.Imports()
-		}
-		s.updateFresh(payload)
-
-		deps, err := s.app.Archive.Collect(s.app.Scanner.Imports())
-		if err != nil {
-			s.app.Fail(err)
-			return true
-		}
-		archive, err := builderjs.BuildPackage(
-			map[string]string{"main.go": s.app.Editor.Text()},
-			deps,
-			false,
-		)
-		if err != nil {
-			s.app.Fail(err)
-			return true
-		}
-		if full {
-			deps = append(deps, archive)
-		} else {
-			deps = []*compiler.Archive{archive}
-		}
-
-		doc := dom.GetWindow().Document()
-		var frame *dom.HTMLIFrameElement
-
-		if full {
-			holder := doc.GetElementByID("iframe-holder")
-			for _, v := range holder.ChildNodes() {
-				v.Underlying().Call("remove")
-			}
-			frame = doc.CreateElement("iframe").(*dom.HTMLIFrameElement)
-			frame.SetID("iframe")
-			frame.Style().Set("width", "100%")
-			frame.Style().Set("height", "100%")
-			frame.Style().Set("border", "0")
-			holder.AppendChild(frame)
-		} else {
-			frame = doc.GetElementByID("iframe").(*dom.HTMLIFrameElement)
-		}
-
-		content := frame.ContentDocument()
-		head := content.GetElementsByTagName("head")[0].(*dom.BasicHTMLElement)
-
-		if full {
-			fmt.Println("Injecting prelude")
-			script := doc.CreateElement("script")
-			script.SetInnerHTML(prelude.Prelude)
-			head.AppendChild(script)
-		}
-
-		for _, d := range deps {
-			fmt.Println("Injecting", d.ImportPath)
-
-			code, _, err := builder.GetPackageCode(context.Background(), d, false, false)
-			if err != nil {
-				s.app.Fail(err)
-				return true
-			}
-
-			script := doc.CreateElement("script")
-			script.SetInnerHTML(string(code))
-			head.AppendChild(script)
-		}
-
-		var initCode string
-		if full {
-			fmt.Println("Injecting initializer")
-			initCode = `
-				$mainPkg = $packages["main"];
-				$synthesizeMethods();
-				$packages["runtime"].$init();
-				$go($mainPkg.$init, []);
-				$flushConsole();
-			`
-		} else {
-			fmt.Println("Injecting fast initializer")
-			initCode = `
-				$mainPkg = $packages["main"];
-				$go($mainPkg.$init, []);
-				$flushConsole();
-			`
-		}
-		script1 := doc.CreateElement("script")
-		script1.SetInnerHTML(initCode)
-		head.AppendChild(script1)
-
+		s.compile()
 	}
 	return true
+}
+
+// requestAnimationFrame calls the native JS function of the same name.
+func requestAnimationFrame(callback func(float64)) int {
+	return js.Global.Call("requestAnimationFrame", callback).Int()
+}
+
+func (s *CompileStore) compile() {
+
+	deps, err := s.app.Archive.Collect(s.app.Scanner.Imports())
+	if err != nil {
+		s.app.Fail(err)
+		return
+	}
+	archive, err := builderjs.BuildPackage(
+		map[string]string{"main.go": s.app.Editor.Text()},
+		deps,
+		false,
+	)
+	if err != nil {
+		s.app.Fail(err)
+		return
+	}
+	deps = append(deps, archive)
+
+	doc := dom.GetWindow().Document()
+	holder := doc.GetElementByID("iframe-holder")
+	for _, v := range holder.ChildNodes() {
+		v.Underlying().Call("remove")
+	}
+	frame := doc.CreateElement("iframe").(*dom.HTMLIFrameElement)
+	frame.SetID("iframe")
+	frame.Style().Set("width", "100%")
+	frame.Style().Set("height", "100%")
+	frame.Style().Set("border", "0")
+	holder.AppendChild(frame)
+
+	content := frame.ContentDocument()
+	head := content.GetElementsByTagName("head")[0].(*dom.BasicHTMLElement)
+
+	fmt.Println("Injecting prelude")
+	scriptPrelude := doc.CreateElement("script")
+	scriptPrelude.SetInnerHTML(prelude.Prelude)
+	head.AppendChild(scriptPrelude)
+
+	for _, d := range deps {
+		fmt.Println("Injecting", d.ImportPath)
+		code, _, err := builder.GetPackageCode(context.Background(), d, false, false)
+		if err != nil {
+			s.app.Fail(err)
+			return
+		}
+		scriptDep := doc.CreateElement("script")
+		scriptDep.SetInnerHTML(string(code))
+		head.AppendChild(scriptDep)
+	}
+
+	fmt.Println("Injecting initializer")
+	scriptInit := doc.CreateElement("script")
+	scriptInit.SetInnerHTML(`
+		$mainPkg = $packages["main"];
+		$synthesizeMethods();
+		$packages["runtime"].$init();
+		$go($mainPkg.$init, []);
+		$flushConsole();
+	`)
+	head.AppendChild(scriptInit)
 }

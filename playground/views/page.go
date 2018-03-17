@@ -59,14 +59,6 @@ func (v *Page) Unmount() {
 	v.app.Delete(v)
 }
 
-func (v *Page) onUpdate(event *vecty.Event) {
-	v.app.Dispatch(&actions.UpdateStart{})
-}
-
-func (v *Page) onCompile(event *vecty.Event) {
-	v.app.Dispatch(&actions.CompileStart{})
-}
-
 func (v *Page) Render() vecty.ComponentOrHTML {
 
 	v.left = v.renderLeft()
@@ -96,36 +88,147 @@ func (v *Page) renderLeft() *vecty.HTML {
 
 func (v *Page) renderHeader() *vecty.HTML {
 
-	var buttonText string
-	var buttonAction func(*vecty.Event)
-	var buttonDisabled bool
-
-	if v.app.Archive.Updating() {
-		buttonText = "Updating..."
-		buttonAction = nil
-		buttonDisabled = true
-	} else if v.app.Archive.Fresh() {
-		if v.app.Compile.Fast() && v.app.Compile.Fresh() {
-			buttonText = "Fast compile"
-		} else {
-			buttonText = "Compile"
-		}
-		buttonAction = v.onCompile
-		buttonDisabled = false
-	} else {
-		buttonText = "Update"
-		buttonAction = v.onUpdate
-		buttonDisabled = false
-	}
-
 	return elem.Navigation(
 		vecty.Markup(
 			vecty.Class("navbar", "navbar-expand", "navbar-light", "bg-light"),
 		),
-		elem.Div(
+		elem.UnorderedList(
 			vecty.Markup(
-				prop.ID("navbarSupportedContent"),
-				vecty.Class("collapse", "navbar-collapse"),
+				vecty.Class("navbar-nav", "mr-auto"),
+			),
+			elem.ListItem(
+				vecty.Markup(
+					vecty.Class("nav-item", "dropdown"),
+				),
+				elem.Anchor(
+					vecty.Markup(
+						prop.ID("packageDropdown"),
+						prop.Href(""),
+						vecty.Class("nav-link", "dropdown-toggle"),
+						vecty.Property("role", "button"),
+						vecty.Data("toggle", "dropdown"),
+						vecty.Property("aria-haspopup", "true"),
+						vecty.Property("aria-expanded", "false"),
+						event.Click(func(ev *vecty.Event) {}).PreventDefault(),
+					),
+					vecty.Text("main"),
+				),
+				elem.Div(
+					vecty.Markup(
+						vecty.Class("dropdown-menu"),
+						vecty.Property("aria-labelledby", "packageDropdown"),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("Package 1"),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("Package 2"),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("Package 3"),
+					),
+					elem.Div(
+						vecty.Markup(
+							vecty.Class("dropdown-divider"),
+						),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("Add package..."),
+					),
+				),
+			),
+			elem.ListItem(
+				vecty.Markup(
+					vecty.Class("nav-item", "dropdown"),
+				),
+				elem.Anchor(
+					vecty.Markup(
+						prop.ID("fileDropdown"),
+						prop.Href(""),
+						vecty.Class("nav-link", "dropdown-toggle"),
+						vecty.Property("role", "button"),
+						vecty.Data("toggle", "dropdown"),
+						vecty.Property("aria-haspopup", "true"),
+						vecty.Property("aria-expanded", "false"),
+						event.Click(func(ev *vecty.Event) {}).PreventDefault(),
+					),
+					vecty.Text("main.go"),
+				),
+				elem.Div(
+					vecty.Markup(
+						vecty.Class("dropdown-menu"),
+						vecty.Property("aria-labelledby", "fileDropdown"),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("File 1"),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("File 2"),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("File 3"),
+					),
+					elem.Div(
+						vecty.Markup(
+							vecty.Class("dropdown-divider"),
+						),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {}).PreventDefault(),
+						),
+						vecty.Text("Add file..."),
+					),
+				),
+			),
+		),
+		elem.UnorderedList(
+			vecty.Markup(
+				vecty.Class("navbar-nav", "mx-auto"),
+			),
+			elem.Span(
+				vecty.Markup(
+					vecty.Class("navbar-text"),
+					prop.ID("message"),
+				),
+				vecty.Text(""),
 			),
 		),
 		elem.UnorderedList(
@@ -140,10 +243,20 @@ func (v *Page) renderHeader() *vecty.HTML {
 					vecty.Markup(
 						vecty.Property("type", "button"),
 						vecty.Class("btn", "btn-primary"),
-						event.Click(buttonAction).PreventDefault(),
-						vecty.Property("disabled", buttonDisabled),
+						event.Click(func(e *vecty.Event) {
+							if v.app.Archive.Updating() {
+								return
+							} else if v.app.Archive.Fresh() {
+								v.app.Dispatch(&actions.CompileStart{})
+							} else {
+								v.app.Dispatch(&actions.UpdateStart{
+									Run: true,
+								})
+							}
+						}).PreventDefault(),
+						vecty.Property("disabled", v.app.Archive.Updating()),
 					),
-					vecty.Text(buttonText),
+					vecty.Text("Run"),
 				),
 				elem.Button(
 					vecty.Markup(
@@ -162,35 +275,12 @@ func (v *Page) renderHeader() *vecty.HTML {
 					elem.Anchor(
 						vecty.Markup(
 							vecty.Class("dropdown-item"),
-							prop.Href("#"),
-							event.Click(v.onUpdate).PreventDefault(),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {
+								v.app.Dispatch(&actions.UpdateStart{})
+							}).PreventDefault(),
 						),
 						vecty.Text("Update"),
-					),
-
-					elem.Anchor(
-						vecty.Markup(
-							vecty.Class("dropdown-item"),
-							prop.Href("#"),
-							event.Click(func(*vecty.Event) {}).StopPropagation(),
-						),
-						elem.Input(
-							vecty.Markup(
-								prop.Type(prop.TypeCheckbox),
-								vecty.Class("form-check-input", "dropdown-item"),
-								prop.ID("dropdownCheckDeps"),
-								event.Change(func(ev *vecty.Event) {
-									v.app.Dispatch(&actions.FastCompileCheckbox{Value: ev.Target.Get("checked").Bool()})
-								}),
-							),
-						),
-						elem.Label(
-							vecty.Markup(
-								vecty.Class("form-check-label"),
-								prop.For("dropdownCheckDeps"),
-							),
-							vecty.Text("Fast compile (might break)"),
-						),
 					),
 
 					elem.Div(
@@ -201,7 +291,7 @@ func (v *Page) renderHeader() *vecty.HTML {
 					elem.Anchor(
 						vecty.Markup(
 							vecty.Class("dropdown-item"),
-							prop.Href("#"),
+							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
 								js.Global.Call("alert", "TODO")
 							}).PreventDefault(),
@@ -216,7 +306,7 @@ func (v *Page) renderHeader() *vecty.HTML {
 					elem.Anchor(
 						vecty.Markup(
 							vecty.Class("dropdown-item"),
-							prop.Href("#"),
+							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
 								js.Global.Call("alert", "TODO")
 							}).PreventDefault(),
@@ -226,7 +316,7 @@ func (v *Page) renderHeader() *vecty.HTML {
 					elem.Anchor(
 						vecty.Markup(
 							vecty.Class("dropdown-item"),
-							prop.Href("#"),
+							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
 								js.Global.Call("alert", "TODO")
 							}).PreventDefault(),
@@ -236,7 +326,7 @@ func (v *Page) renderHeader() *vecty.HTML {
 					elem.Anchor(
 						vecty.Markup(
 							vecty.Class("dropdown-item"),
-							prop.Href("#"),
+							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
 								js.Global.Call("alert", "TODO")
 							}).PreventDefault(),

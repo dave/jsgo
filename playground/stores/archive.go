@@ -122,7 +122,7 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 			Url:     url,
 			Open:    func() flux.ActionInterface { return &actions.UpdateOpen{} },
 			Message: func(m interface{}) flux.ActionInterface { return &actions.UpdateMessage{Message: m} },
-			Close:   func() flux.ActionInterface { return &actions.UpdateClose{} },
+			Close:   func() flux.ActionInterface { return &actions.UpdateClose{Run: a.Run} },
 		})
 		payload.Notify()
 
@@ -159,17 +159,16 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 				Hash:    message.Hash,
 				Archive: &a,
 			}
-			s.updateComplete(payload)
-			s.updateFresh(payload)
 		case messages.Index:
 			s.index = message
-			s.updateComplete(payload)
-			s.updateFresh(payload)
 		}
 	case *actions.UpdateClose:
 		s.updating = false
 		s.updateComplete(payload)
 		s.updateFresh(payload)
+		if a.Run && s.complete && s.fresh {
+			s.app.Dispatch(&actions.CompileStart{})
+		}
 		payload.Notify()
 	}
 
