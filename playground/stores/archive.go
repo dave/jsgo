@@ -28,7 +28,7 @@ type ArchiveStore struct {
 	cache map[string]CacheItem
 
 	// index of the previously received update (path -> hash for all dependent packages)
-	index []messages.IndexItem
+	index messages.Index
 
 	// is the cache up to date?
 	complete bool
@@ -49,17 +49,36 @@ func NewArchiveStore(app *App) *ArchiveStore {
 	return s
 }
 
-func (s *ArchiveStore) Dependencies() []*compiler.Archive {
+func (s *ArchiveStore) Collect(imports []string) ([]*compiler.Archive, error) {
 	var deps []*compiler.Archive
-	for _, v := range s.index {
-		a, ok := s.cache[v.Path]
-		if !ok {
-			s.app.Fail(fmt.Errorf("%s not found", v.Path))
+	paths := make(map[string]bool)
+	var collectDependencies func(path string) error
+	collectDependencies = func(path string) error {
+		if paths[path] {
 			return nil
 		}
-		deps = append(deps, a.Archive)
+		item, ok := s.cache[path]
+		if !ok {
+			return fmt.Errorf("%s not found", path)
+		}
+		for _, imp := range item.Archive.Imports {
+			if err := collectDependencies(imp); err != nil {
+				return err
+			}
+		}
+		deps = append(deps, item.Archive)
+		paths[item.Archive.ImportPath] = true
+		return nil
 	}
-	return deps
+	if err := collectDependencies("runtime"); err != nil {
+		return nil, err
+	}
+	for _, imp := range imports {
+		if err := collectDependencies(imp); err != nil {
+			return nil, err
+		}
+	}
+	return deps, nil
 }
 
 // Updating is true if the update is in progress
@@ -165,8 +184,8 @@ func (s *ArchiveStore) updateComplete(payload *flux.Payload) {
 		if s.index == nil {
 			return false
 		}
-		for _, item := range s.index {
-			cached, ok := s.cache[item.Path]
+		for path, item := range s.index {
+			cached, ok := s.cache[path]
 			if !ok {
 				return false
 			}
@@ -189,12 +208,8 @@ func (s *ArchiveStore) updateFresh(payload *flux.Payload) {
 		if !s.complete {
 			return false
 		}
-		fromIndex := map[string]bool{}
-		for _, v := range s.index {
-			fromIndex[v.Path] = true
-		}
 		for _, p := range s.app.Scanner.Imports() {
-			if !fromIndex[p] {
+			if _, ok := s.index[p]; !ok {
 				return false
 			}
 		}

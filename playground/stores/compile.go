@@ -80,7 +80,11 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 		}
 		s.updateFresh(payload)
 
-		deps := s.app.Archive.Dependencies()
+		deps, err := s.app.Archive.Collect(s.app.Scanner.Imports())
+		if err != nil {
+			s.app.Fail(err)
+			return true
+		}
 		archive, err := builderjs.BuildPackage(
 			map[string]string{"main.go": s.app.Editor.Text()},
 			deps,

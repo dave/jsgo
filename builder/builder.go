@@ -501,6 +501,7 @@ type Session struct {
 	options  *Options
 	Archives map[string]*compiler.Archive
 	Types    map[string]*types.Package
+	Callback func(*compiler.Archive) error
 }
 
 // Gets either the Gopath or Goroot filesystems depending on the path
@@ -739,6 +740,12 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 	}
 
 	s.Archives[importPath] = archive
+
+	if s.Callback != nil {
+		if err := s.Callback(archive); err != nil {
+			return nil, err
+		}
+	}
 
 	// TODO: Why would PkgObj be empty?
 	if pkg.PkgObj == "" {

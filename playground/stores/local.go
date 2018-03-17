@@ -84,10 +84,18 @@ var (
 
 import (
 	"honnef.co/go/js/dom"
+	"math/rand"
+	"time"
+	"fmt"
 )
 
 func main() {
+    r := rand.Intn(10000)
 	body := dom.GetWindow().Document().GetElementsByTagName("body")[0]
-	body.SetInnerHTML("Hello, World!")
+	body.SetInnerHTML("Hello, World! " + fmt.Sprint(r))
+}
+
+func init() {
+    rand.Seed(time.Now().UTC().UnixNano())
 }`
 )

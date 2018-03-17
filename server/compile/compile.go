@@ -23,17 +23,10 @@ import (
 
 	"strings"
 
-	"sync"
-
-	"sync/atomic"
-
-	"compress/gzip"
-
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
-	"github.com/gopherjs/gopherjs/compiler"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -56,201 +49,6 @@ func New(goroot, gopath billy.Filesystem, send func(messages.Message)) *Compiler
 type CompileOutput struct {
 	*builder.CommandOutput
 	Hash []byte
-}
-
-type Storer struct {
-	client    *storage.Client
-	queue     chan StorageItem
-	buckets   map[string]*storage.BucketHandle
-	wait      sync.WaitGroup
-	send      func(messages.Message)
-	unchanged int32
-	done      int32
-	total     int32
-	Err       error
-}
-
-func NewStorer(ctx context.Context, client *storage.Client, send func(messages.Message), workers int) *Storer {
-	s := &Storer{
-		client: client,
-		buckets: map[string]*storage.BucketHandle{
-			config.PkgBucket:   client.Bucket(config.PkgBucket),
-			config.IndexBucket: client.Bucket(config.IndexBucket),
-		},
-		queue: make(chan StorageItem, 1000),
-		wait:  sync.WaitGroup{},
-		send:  send,
-	}
-	for i := 0; i < workers; i++ {
-		go s.Worker(ctx)
-	}
-	return s
-}
-
-func (s *Storer) Close() {
-	close(s.queue)
-}
-
-func (s *Storer) Wait() {
-	s.wait.Wait()
-}
-
-func (s *Storer) Worker(ctx context.Context) {
-	for item := range s.queue {
-		func() {
-			defer s.wait.Done()
-			ob := item.Bucket.Object(item.Name)
-			if item.OnlyIfNotExist {
-				_, err := ob.Attrs(ctx)
-				if err == nil || err != storage.ErrObjectNotExist {
-					if item.Count {
-						unchanged := atomic.AddInt32(&s.unchanged, 1)
-						done := atomic.LoadInt32(&s.done)
-						remain := atomic.LoadInt32(&s.total) - unchanged - done
-						if s.send != nil {
-							s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-						} else {
-							fmt.Printf("Unchanged: %s\n", item.Message)
-						}
-					}
-					return
-				}
-			}
-			wc := ob.NewWriter(ctx)
-			defer wc.Close()
-			wc.ContentType = item.ContentType
-			wc.CacheControl = item.CacheControl
-			if _, err := io.Copy(wc, bytes.NewBuffer(item.Contents)); err != nil {
-				s.Err = err
-				return
-			}
-			if item.Count {
-				unchanged := atomic.LoadInt32(&s.unchanged)
-				done := atomic.AddInt32(&s.done, 1)
-				remain := atomic.LoadInt32(&s.total) - unchanged - done
-				if s.send != nil {
-					s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-				} else {
-					fmt.Printf("Finished: %s\n", item.Message)
-				}
-			}
-		}()
-	}
-}
-
-func (s *Storer) AddJs(message, name string, contents []byte) {
-	s.wait.Add(1)
-
-	unchanged := atomic.LoadInt32(&s.unchanged)
-	done := atomic.LoadInt32(&s.done)
-	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
-	if s.send != nil {
-		s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-	}
-
-	s.queue <- StorageItem{
-		Message:        message,
-		Bucket:         s.buckets[config.PkgBucket],
-		Name:           name,
-		Contents:       contents,
-		ContentType:    "application/javascript",
-		CacheControl:   "public, max-age=31536000",
-		OnlyIfNotExist: true,
-		Count:          true,
-	}
-}
-
-func (s *Storer) AddHtml(message, name string, contents []byte) {
-	s.wait.Add(1)
-	s.queue <- StorageItem{
-		Message:      message,
-		Bucket:       s.buckets[config.IndexBucket],
-		Name:         name,
-		Contents:     contents,
-		ContentType:  "text/html",
-		CacheControl: "no-cache",
-	}
-}
-
-type StorageItem struct {
-	Message        string
-	Bucket         *storage.BucketHandle
-	Name           string
-	Contents       []byte
-	ContentType    string
-	CacheControl   string
-	OnlyIfNotExist bool
-	Count          bool
-}
-
-func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writer) error {
-
-	c.send(messages.Updating{Starting: true})
-
-	session, _, archive, err := c.compilePackage(ctx, "main", log, false)
-	if err != nil {
-		return err
-	}
-
-	deps, err := session.GetDependencies(ctx, archive)
-	if err != nil {
-		return err
-	}
-
-	var index messages.Index
-
-	for _, archive := range deps {
-
-		if archive.ImportPath == "main" {
-			continue
-		}
-
-		// The archive files aren't binary identical across compiles, so we have to render them to JS
-		// in order to get the hash for the cache. Not ideal, but it should work.
-		_, hashBytes, err := builder.GetPackageCode(ctx, archive, false, true)
-		if err != nil {
-			return err
-		}
-		hash := fmt.Sprintf("%x", hashBytes)
-
-		var unchanged bool
-		if cached, exists := info.Cache[archive.ImportPath]; exists && cached == hash {
-			unchanged = true
-		}
-
-		index = append(index, messages.IndexItem{
-			Path:      archive.ImportPath,
-			Hash:      hash,
-			Unchanged: unchanged,
-		})
-
-		if unchanged {
-			// If the dependency is unchanged from the client cache, don't return it as a PlaygroundArchive
-			// message
-			continue
-		}
-
-		buf := &bytes.Buffer{}
-
-		zw := gzip.NewWriter(buf)
-
-		if err := compiler.WriteArchive(archive, zw); err != nil {
-			return err
-		}
-
-		zw.Close()
-
-		c.send(messages.Archive{
-			Path:     archive.ImportPath,
-			Hash:     hash,
-			Contents: buf.Bytes(),
-		})
-	}
-
-	c.send(index)
-
-	c.send(messages.Updating{Done: true})
-	return nil
 }
 
 func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer) (min, max *CompileOutput, err error) {
@@ -311,8 +109,8 @@ func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer) (min
 
 }
 
-func (c *Compiler) compilePackage(ctx context.Context, path string, log io.Writer, min bool) (*builder.Session, *builder.PackageData, *compiler.Archive, error) {
-	options := &builder.Options{
+func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
+	return &builder.Options{
 		Root:        c.root,
 		Path:        c.path,
 		Temporary:   c.temp,
@@ -324,20 +122,13 @@ func (c *Compiler) compilePackage(ctx context.Context, path string, log io.Write
 		Standard:    std.Index,
 		BuildTags:   []string{"jsgo"},
 	}
-
-	session := builder.NewSession(options)
-
-	data, archive, err := session.BuildImportPath(ctx, path)
-	if err != nil {
-		return nil, nil, nil, err
-	}
-
-	return session, data, archive, nil
 }
 
 func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, log io.Writer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
-	session, data, archive, err := c.compilePackage(ctx, path, log, min)
+	session := builder.NewSession(c.defaultOptions(log, min))
+
+	data, archive, err := session.BuildImportPath(ctx, path)
 	if err != nil {
 		return nil, nil, err
 	}

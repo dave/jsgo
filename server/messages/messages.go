@@ -79,12 +79,11 @@ type Update struct {
 }
 
 // Index is an ordered list of dependencies.
-type Index []IndexItem
+type Index map[string]IndexItem
 
 // IndexItem is an item in Index. Unchanged is true if the client already has cached as specified by
 // Cache in the Update message. Unchanged dependencies are not sent as Archive messages.
 type IndexItem struct {
-	Path      string
 	Hash      string // Hash of the js file
 	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
 }
