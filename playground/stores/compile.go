@@ -3,6 +3,8 @@ package stores
 import (
 	"context"
 
+	"fmt"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builderjs"
@@ -116,12 +118,15 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 		head := content.GetElementsByTagName("head")[0].(*dom.BasicHTMLElement)
 
 		if full {
+			fmt.Println("Injecting prelude")
 			script := doc.CreateElement("script")
 			script.SetInnerHTML(prelude.Prelude)
 			head.AppendChild(script)
 		}
 
 		for _, d := range deps {
+			fmt.Println("Injecting", d.ImportPath)
+
 			code, _, err := builder.GetPackageCode(context.Background(), d, false, false)
 			if err != nil {
 				s.app.Fail(err)
@@ -135,6 +140,7 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 
 		var initCode string
 		if full {
+			fmt.Println("Injecting initializer")
 			initCode = `
 				$mainPkg = $packages["main"];
 				$synthesizeMethods();
@@ -142,8 +148,8 @@ func (s *CompileStore) Handle(payload *flux.Payload) bool {
 				$go($mainPkg.$init, []);
 				$flushConsole();
 			`
-
 		} else {
+			fmt.Println("Injecting fast initializer")
 			initCode = `
 				$mainPkg = $packages["main"];
 				$go($mainPkg.$init, []);

@@ -87,7 +87,6 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		payload.Wait(s.app.Scanner)
 		s.updateFresh(payload)
 	case *actions.UpdateStart:
-		fmt.Println("dialing compile websocket open")
 		s.updating = true
 		s.index = nil
 		s.complete = false
@@ -108,7 +107,6 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		payload.Notify()
 
 	case *actions.UpdateOpen:
-		fmt.Println("compile websocket open, sending compile init")
 		hashes := map[string]string{}
 		for path, item := range s.Cache() {
 			hashes[path] = item.Hash
@@ -127,7 +125,6 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 	case *actions.UpdateMessage:
 		switch message := a.Message.(type) {
 		case messages.Archive:
-			fmt.Printf("%T: %#v\n", message, messages.Archive{Path: message.Path, Hash: message.Hash})
 			r, err := gzip.NewReader(bytes.NewBuffer(message.Contents))
 			if err != nil {
 				s.app.Fail(err)
@@ -148,9 +145,6 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 			s.index = message
 			s.updateComplete(payload)
 			s.updateFresh(payload)
-			fmt.Printf("%T: %#v\n", message, message)
-		default:
-			fmt.Printf("%T: %#v\n", message, message)
 		}
 	case *actions.UpdateClose:
 		s.updating = false
