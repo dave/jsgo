@@ -60,7 +60,7 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 }
 
 var (
-	defaultSizes = []float64{75, 25}
+	defaultSizes = []float64{50, 50}
 	defaultText  = `package main
 
 import (
