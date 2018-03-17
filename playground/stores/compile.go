@@ -30,7 +30,7 @@ type CompileStore struct {
 	// imports at last full compile
 	imports []string
 
-	// all current imports were imported at last compile
+	// are the imports from the editor all in the previous full compile?
 	fresh bool
 }
 

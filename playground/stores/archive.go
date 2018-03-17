@@ -24,15 +24,16 @@ type ArchiveStore struct {
 	// is the update in progress?
 	updating bool
 
-	// cache (path -> hash) of all the archives cached in local storage
+	// cache (path -> item) of archives
 	cache map[string]CacheItem
 
-	// index of the previously received update (path -> hash for all dependent packages)
+	// index (path -> item) of the previously received update
 	index messages.Index
 
-	// is the cache up to date?
+	// has the cache finished downloading?
 	complete bool
 
+	// are the imports from the editor all in the previous update index?
 	fresh bool
 }
 

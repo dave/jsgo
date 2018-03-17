@@ -45,7 +45,6 @@ func (a *App) Init() {
 }
 
 func (a *App) Dispatch(action flux.ActionInterface) chan struct{} {
-	//js.Global.Get("console").Call("log", fmt.Sprintf("%T", action))
 	return a.Dispatcher.Dispatch(action)
 }
 
