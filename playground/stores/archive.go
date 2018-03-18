@@ -11,6 +11,8 @@ import (
 
 	"compress/gzip"
 
+	"errors"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
@@ -107,6 +109,7 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		payload.Wait(s.app.Scanner)
 		s.updateFresh(payload)
 	case *actions.UpdateStart:
+		s.app.Log("updating")
 		s.updating = true
 		s.index = nil
 		s.complete = false
@@ -144,6 +147,16 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		})
 	case *actions.UpdateMessage:
 		switch message := a.Message.(type) {
+		case messages.Queueing:
+			if message.Position > 1 {
+				s.app.Logf("queued position %d", message.Position)
+			}
+		case messages.Downloading:
+			if message.Message != "" {
+				s.app.Logf(message.Message)
+			} else if message.Done {
+				s.app.Logf("building")
+			}
 		case messages.Archive:
 			r, err := gzip.NewReader(bytes.NewBuffer(message.Contents))
 			if err != nil {
@@ -159,6 +172,7 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 				Hash:    message.Hash,
 				Archive: &a,
 			}
+			s.app.Logf("caching %s", a.Name)
 		case messages.Index:
 			s.index = message
 		}
@@ -166,8 +180,34 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		s.updating = false
 		s.updateComplete(payload)
 		s.updateFresh(payload)
-		if a.Run && s.complete && s.fresh {
+		if !s.complete {
+			s.app.Fail(errors.New("websocket closed but update incomplete"))
+			return true
+		}
+		if !s.fresh {
+			s.app.Fail(errors.New("websocket closed but archives not fresh"))
+			return true
+		}
+		if a.Run {
 			s.app.Dispatch(&actions.CompileStart{})
+		} else {
+			var downloaded, unchanged int
+			for _, v := range s.index {
+				if v.Unchanged {
+					unchanged++
+				} else {
+					downloaded++
+				}
+			}
+			if downloaded == 0 && unchanged == 0 {
+				s.app.Log()
+			} else if downloaded > 0 && unchanged > 0 {
+				s.app.Logf("%d downloaded, %d unchanged", downloaded, unchanged)
+			} else if downloaded > 0 {
+				s.app.Logf("%d downloaded", downloaded)
+			} else if unchanged > 0 {
+				s.app.Logf("%d unchanged", unchanged)
+			}
 		}
 		payload.Notify()
 	}

@@ -3,14 +3,11 @@ package stores
 import (
 	"context"
 
-	"fmt"
-
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builderjs"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
-	"github.com/gopherjs/gopherjs/js"
 	"honnef.co/go/js/dom"
 )
 
@@ -22,23 +19,26 @@ func NewCompileStore(app *App) *CompileStore {
 }
 
 type CompileStore struct {
-	app *App
+	app       *App
+	compiling bool
+}
+
+func (s *CompileStore) Compiling() bool {
+	return s.compiling
 }
 
 func (s *CompileStore) Handle(payload *flux.Payload) bool {
 	switch payload.Action.(type) {
 	case *actions.CompileStart:
+		s.compiling = true
 		s.compile()
+		s.compiling = false
 	}
 	return true
 }
 
-// requestAnimationFrame calls the native JS function of the same name.
-func requestAnimationFrame(callback func(float64)) int {
-	return js.Global.Call("requestAnimationFrame", callback).Int()
-}
-
 func (s *CompileStore) compile() {
+	s.app.Log("compiling")
 
 	deps, err := s.app.Archive.Collect(s.app.Scanner.Imports())
 	if err != nil {
@@ -56,6 +56,8 @@ func (s *CompileStore) compile() {
 	}
 	deps = append(deps, archive)
 
+	s.app.Log("running")
+
 	doc := dom.GetWindow().Document()
 	holder := doc.GetElementByID("iframe-holder")
 	for _, v := range holder.ChildNodes() {
@@ -71,13 +73,11 @@ func (s *CompileStore) compile() {
 	content := frame.ContentDocument()
 	head := content.GetElementsByTagName("head")[0].(*dom.BasicHTMLElement)
 
-	fmt.Println("Injecting prelude")
 	scriptPrelude := doc.CreateElement("script")
 	scriptPrelude.SetInnerHTML(prelude.Prelude)
 	head.AppendChild(scriptPrelude)
 
 	for _, d := range deps {
-		fmt.Println("Injecting", d.ImportPath)
 		code, _, err := builder.GetPackageCode(context.Background(), d, false, false)
 		if err != nil {
 			s.app.Fail(err)
@@ -88,7 +88,6 @@ func (s *CompileStore) compile() {
 		head.AppendChild(scriptDep)
 	}
 
-	fmt.Println("Injecting initializer")
 	scriptInit := doc.CreateElement("script")
 	scriptInit.SetInnerHTML(`
 		$mainPkg = $packages["main"];
@@ -98,4 +97,6 @@ func (s *CompileStore) compile() {
 		$flushConsole();
 	`)
 	head.AppendChild(scriptInit)
+
+	s.app.Log()
 }

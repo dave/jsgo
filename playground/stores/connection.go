@@ -29,7 +29,7 @@ func NewConnectionStore(app *App) *ConnectionStore {
 func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
 	switch action := payload.Action.(type) {
 	case *actions.Send:
-		js.Global.Get("console").Call("log", fmt.Sprintf("Sending %T", action.Message), action.Message)
+		s.app.Debug(fmt.Sprintf("Sending %T", action.Message), action.Message)
 		if !s.open {
 			s.app.Fail(errors.New("connection closed"))
 			return true
@@ -55,33 +55,41 @@ func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
 		}
 		s.open = true
 		s.ws.AddEventListener("open", false, func(ev *js.Object) {
-			js.Global.Get("console").Call("log", "Web socket open")
-			s.app.Dispatch(action.Open())
+			go func() {
+				s.app.Debug("Web socket open")
+				s.app.Dispatch(action.Open())
+			}()
 		})
 		s.ws.AddEventListener("message", false, func(ev *js.Object) {
-			m, err := messages.Unmarshal([]byte(ev.Get("data").String()))
-			if err != nil {
-				s.app.Fail(err)
-				return
-			}
-			js.Global.Get("console").Call("log", fmt.Sprintf("Received %T", m), m)
-			if e, ok := m.(messages.Error); ok {
-				s.app.Fail(fmt.Errorf("%s: %s", e.Path, e.Message))
-				return
-			}
-			s.app.Dispatch(action.Message(m))
+			go func() {
+				m, err := messages.Unmarshal([]byte(ev.Get("data").String()))
+				if err != nil {
+					s.app.Fail(err)
+					return
+				}
+				s.app.Debug(fmt.Sprintf("Received %T", m), m)
+				if e, ok := m.(messages.Error); ok {
+					s.app.Fail(fmt.Errorf("%s: %s", e.Path, e.Message))
+					return
+				}
+				s.app.Dispatch(action.Message(m))
+			}()
 		})
 		s.ws.AddEventListener("close", false, func(ev *js.Object) {
-			js.Global.Get("console").Call("log", "Web socket closed")
-			s.app.Dispatch(action.Close())
-			s.ws.Close()
-			s.open = false
+			go func() {
+				s.app.Debug("Web socket closed")
+				s.app.Dispatch(action.Close())
+				s.ws.Close()
+				s.open = false
+			}()
 		})
 		s.ws.AddEventListener("error", false, func(ev *js.Object) {
-			js.Global.Get("console").Call("log", "Web socket error")
-			s.app.Fail(errors.New("error from server"))
-			s.ws.Close()
-			s.open = false
+			go func() {
+				s.app.Debug("Web socket error")
+				s.app.Fail(errors.New("error from server"))
+				s.ws.Close()
+				s.open = false
+			}()
 		})
 	}
 	return true

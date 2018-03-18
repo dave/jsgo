@@ -63,6 +63,7 @@ func (s *ScannerStore) Handle(payload *flux.Payload) bool {
 
 		sort.Strings(s.imports)
 		if s.Changed(before) {
+			s.app.Debug("Imports", s.imports)
 			payload.Notify()
 		}
 	}
