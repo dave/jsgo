@@ -39,12 +39,20 @@ type ChangeText struct {
 	Text string
 }
 
+type ChangeFile struct {
+	Name string
+}
+
 type UserChangedSplit struct {
 	Sizes []float64
 }
 
 type UserChangedText struct {
 	Text string
+}
+
+type UserChangedFile struct {
+	Name string
 }
 
 type ImportsChanged struct{}

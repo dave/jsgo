@@ -51,7 +51,7 @@ func (s *ScannerStore) Handle(payload *flux.Payload) bool {
 		fset := token.NewFileSet()
 
 		// ignore errors
-		f, _ := parser.ParseFile(fset, "main.go", action.Text, parser.ImportsOnly)
+		f, _ := parser.ParseFile(fset, s.app.Editor.Current(), action.Text, parser.ImportsOnly)
 
 		var imports []string
 		for _, v := range f.Imports {

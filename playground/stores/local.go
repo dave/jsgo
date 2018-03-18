@@ -1,6 +1,8 @@
 package stores
 
 import (
+	"fmt"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/locstor"
@@ -34,6 +36,18 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		}
 		s.app.Dispatch(&actions.ChangeSplit{Sizes: sizes})
 
+		var file string
+		found, err = s.local.Find("current-file", &file)
+		if err != nil {
+			s.app.Fail(err)
+			return true
+		}
+		if !found {
+			file = defaultFile
+		}
+		fmt.Println("file", file)
+		s.app.Dispatch(&actions.ChangeFile{Name: file})
+
 		var text string
 		found, err = s.local.Find("editor-text", &text)
 		if err != nil {
@@ -55,12 +69,18 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 			s.app.Fail(err)
 			return true
 		}
+	case *actions.UserChangedFile:
+		if err := s.local.Save("current-file", action.Name); err != nil {
+			s.app.Fail(err)
+			return true
+		}
 	}
 	return true
 }
 
 var (
 	defaultSizes = []float64{50, 50}
+	defaultFile  = "main.go"
 	defaultText  = `package main
 
 import (

@@ -46,7 +46,7 @@ func (s *CompileStore) compile() {
 		return
 	}
 	archive, err := builderjs.BuildPackage(
-		map[string]string{"main.go": s.app.Editor.Text()},
+		s.app.Editor.Files(),
 		deps,
 		false,
 	)

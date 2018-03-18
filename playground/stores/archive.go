@@ -135,9 +135,7 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 		}
 		message := messages.Update{
 			Source: map[string]map[string]string{
-				"main": {
-					"main.go": s.app.Editor.Text(),
-				},
+				"main": s.app.Editor.Files(),
 			},
 			Cache: hashes,
 		}

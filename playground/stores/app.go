@@ -71,7 +71,7 @@ func (a *App) Debug(message ...interface{}) {
 func (a *App) Log(message ...interface{}) {
 	m := dom.GetWindow().Document().GetElementByID("message")
 	if len(message) == 0 {
-		m.SetInnerHTML("jsgo")
+		m.SetInnerHTML("")
 		return
 	}
 	s := fmt.Sprint(message[0])
