@@ -3,6 +3,7 @@ package stores
 import (
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
+	"github.com/gopherjs/gopherjs/js"
 )
 
 func NewEditorStore(app *App) *EditorStore {
@@ -19,6 +20,7 @@ type EditorStore struct {
 	sizes   []float64
 	files   map[string]string
 	current string
+	adding  bool
 }
 
 func (s *EditorStore) Sizes() []float64 {
@@ -31,6 +33,10 @@ func (s *EditorStore) Text() string {
 
 func (s *EditorStore) Current() string {
 	return s.current
+}
+
+func (s *EditorStore) Adding() bool {
+	return s.adding
 }
 
 func (s *EditorStore) Files() map[string]string {
@@ -59,7 +65,17 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 		s.files[s.current] = a.Text
 	case *actions.UserChangedFile:
 		s.current = a.Name
-
+	case *actions.AddFileClick:
+		js.Global.Call("$", "#add-file").Call("modal", "show")
+		s.adding = true
+		payload.Notify()
+	case *actions.UsedClosedAddFileModal:
+		s.adding = false
+		payload.Notify()
+	case *actions.CloseAddFileModal:
+		js.Global.Call("$", "#add-file").Call("modal", "hide")
+		s.adding = false
+		payload.Notify()
 	}
 	return true
 }

@@ -1,8 +1,6 @@
 package stores
 
 import (
-	"fmt"
-
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/locstor"
@@ -45,7 +43,6 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		if !found {
 			file = defaultFile
 		}
-		fmt.Println("file", file)
 		s.app.Dispatch(&actions.ChangeFile{Name: file})
 
 		var text string

@@ -1,8 +1,6 @@
 package views
 
 import (
-	"fmt"
-
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/playground/stores"
 	"github.com/dave/splitter"
@@ -73,6 +71,7 @@ func (v *Page) Render() vecty.ComponentOrHTML {
 			),
 			v.left,
 			v.right,
+			NewAddFileModal(v.app),
 		),
 	)
 }
@@ -97,7 +96,6 @@ func (v *Page) renderHeader() *vecty.HTML {
 			vecty.Property("aria-labelledby", "fileDropdown"),
 		),
 	)
-	fmt.Printf("%#v\n", v.app.Editor.Files())
 	for k := range v.app.Editor.Files() {
 		fileItems = append(fileItems,
 			elem.Anchor(
@@ -123,7 +121,9 @@ func (v *Page) renderHeader() *vecty.HTML {
 			vecty.Markup(
 				vecty.Class("dropdown-item"),
 				prop.Href(""),
-				event.Click(func(e *vecty.Event) {}).PreventDefault(),
+				event.Click(func(e *vecty.Event) {
+					v.app.Dispatch(&actions.AddFileClick{})
+				}).PreventDefault(),
 			),
 			vecty.Text("Add file..."),
 		),
