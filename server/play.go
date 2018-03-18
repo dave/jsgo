@@ -19,6 +19,8 @@ import (
 
 	"strings"
 
+	"go/ast"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
@@ -54,15 +56,14 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 		return errors.New("can't find main package in source")
 	}
 
-	mainSource, ok := mainPackageSource["main.go"]
-	if !ok {
-		return errors.New("can't find main.go in source")
-	}
-
 	fset := token.NewFileSet()
-	f, err := parser.ParseFile(fset, "main.go", mainSource, parser.ImportsOnly)
-	if err != nil {
-		return err
+	var files []*ast.File
+	for name, contents := range mainPackageSource {
+		f, err := parser.ParseFile(fset, name, contents, parser.ImportsOnly)
+		if err != nil {
+			return err
+		}
+		files = append(files, f)
 	}
 
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
@@ -80,16 +81,18 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	if !config.UseLocal {
 		g := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"})
 
-		var imports []string
-		for _, spec := range f.Imports {
-			p, err := strconv.Unquote(spec.Path.Value)
-			if err != nil {
-				return err
+		imports := map[string]bool{}
+		for _, f := range files {
+			for _, spec := range f.Imports {
+				p, err := strconv.Unquote(spec.Path.Value)
+				if err != nil {
+					return err
+				}
+				imports[p] = true
 			}
-			imports = append(imports, p)
 		}
 
-		for _, p := range imports {
+		for p := range imports {
 			// Start the download process - just like the "go get" command.
 			if err := g.Get(ctx, p, false, false); err != nil {
 				return err
@@ -102,15 +105,22 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 	if err := fs.MkdirAll(dir, 0777); err != nil {
 		return err
 	}
-	file, err := fs.Create(filepath.Join(dir, "main.go"))
-	if err != nil {
-		return err
+	createFile := func(name, contents string) error {
+		file, err := fs.Create(filepath.Join(dir, name))
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		if _, err := file.Write([]byte(contents)); err != nil {
+			return err
+		}
+		return nil
 	}
-	if _, err := file.Write([]byte(mainSource)); err != nil {
-		file.Close()
-		return err
+	for name, contents := range mainPackageSource {
+		if err := createFile(name, contents); err != nil {
+			return err
+		}
 	}
-	file.Close()
 
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})

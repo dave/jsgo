@@ -1,6 +1,8 @@
 package stores
 
 import (
+	"sort"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/gopherjs/gopherjs/js"
@@ -47,6 +49,15 @@ func (s *EditorStore) Files() map[string]string {
 	return f
 }
 
+func (s *EditorStore) Filenames() []string {
+	var f []string
+	for k := range s.files {
+		f = append(f, k)
+	}
+	sort.Strings(f)
+	return f
+}
+
 func (s *EditorStore) Handle(payload *flux.Payload) bool {
 	switch a := payload.Action.(type) {
 
@@ -65,6 +76,7 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 		s.files[s.current] = a.Text
 	case *actions.UserChangedFile:
 		s.current = a.Name
+		payload.Notify()
 	case *actions.AddFileClick:
 		js.Global.Call("$", "#add-file").Call("modal", "show")
 		s.adding = true
@@ -75,6 +87,16 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 	case *actions.CloseAddFileModal:
 		js.Global.Call("$", "#add-file").Call("modal", "hide")
 		s.adding = false
+		payload.Notify()
+	case *actions.AddFile:
+		s.files[a.Name] = ""
+		s.current = a.Name
+		payload.Notify()
+	case *actions.LoadFiles:
+		s.files = a.Files
+		s.app.Dispatch(&actions.ChangeText{
+			Text: s.files[s.current],
+		})
 		payload.Notify()
 	}
 	return true

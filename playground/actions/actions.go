@@ -39,6 +39,10 @@ type ChangeText struct {
 	Text string
 }
 
+type LoadFiles struct {
+	Files map[string]string
+}
+
 type ChangeFile struct {
 	Name string
 }
@@ -55,6 +59,9 @@ type UserChangedFile struct {
 	Name string
 }
 
+type AddFile struct {
+	Name string
+}
 type AddFileClick struct{}
 type UsedClosedAddFileModal struct{}
 type CloseAddFileModal struct{}

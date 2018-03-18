@@ -14,59 +14,81 @@ import (
 
 func NewScannerStore(app *App) *ScannerStore {
 	s := &ScannerStore{
-		app: app,
+		app:     app,
+		imports: map[string][]string{},
 	}
 	return s
 }
 
 type ScannerStore struct {
 	app     *App
-	imports []string
+	imports map[string][]string
 }
 
-// Imports returns a snapshot of imports
+// Imports returns all the imports from all files
 func (s *ScannerStore) Imports() []string {
 	var a []string
-	for _, v := range s.imports {
-		a = append(a, v)
-	}
-	return a
-}
-
-func (s *ScannerStore) Changed(compare []string) bool {
-	if len(compare) != len(s.imports) {
-		return true
-	}
-	for i := range compare {
-		if s.imports[i] != compare[i] {
-			return true
+	for _, f := range s.imports {
+		for _, i := range f {
+			a = append(a, i)
 		}
 	}
-	return false
+	return a
 }
 
 func (s *ScannerStore) Handle(payload *flux.Payload) bool {
 	switch action := payload.Action.(type) {
 	case *actions.UserChangedText:
-		fset := token.NewFileSet()
-
-		// ignore errors
-		f, _ := parser.ParseFile(fset, s.app.Editor.Current(), action.Text, parser.ImportsOnly)
-
-		var imports []string
-		for _, v := range f.Imports {
-			// ignore errors
-			unquoted, _ := strconv.Unquote(v.Path.Value)
-			imports = append(imports, unquoted)
+		if s.refresh(s.app.Editor.Current(), action.Text) {
+			s.app.Dispatch(&actions.ImportsChanged{})
+			payload.Notify()
 		}
-		sort.Strings(imports)
-
-		if s.Changed(imports) {
-			s.imports = imports
-			s.app.Debug("Imports", s.imports)
+	case *actions.LoadFiles:
+		payload.Wait(s.app.Editor)
+		var changed bool
+		for name, contents := range s.app.Editor.Files() {
+			if s.refresh(name, contents) {
+				changed = true
+			}
+		}
+		if changed {
 			s.app.Dispatch(&actions.ImportsChanged{})
 			payload.Notify()
 		}
 	}
 	return true
+}
+
+func (s *ScannerStore) refresh(filename, contents string) bool {
+	fset := token.NewFileSet()
+
+	// ignore errors
+	f, _ := parser.ParseFile(fset, filename, contents, parser.ImportsOnly)
+
+	var imports []string
+	for _, v := range f.Imports {
+		// ignore errors
+		unquoted, _ := strconv.Unquote(v.Path.Value)
+		imports = append(imports, unquoted)
+	}
+	sort.Strings(imports)
+
+	if s.changed(s.imports[filename], imports) {
+		s.imports[filename] = imports
+		s.app.Debug("Imports", s.imports)
+		return true
+	}
+	return false
+}
+
+func (s *ScannerStore) changed(imports, compare []string) bool {
+	if len(compare) != len(imports) {
+		return true
+	}
+	for i := range compare {
+		if imports[i] != compare[i] {
+			return true
+		}
+	}
+	return false
 }

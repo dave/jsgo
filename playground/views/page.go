@@ -96,18 +96,23 @@ func (v *Page) renderHeader() *vecty.HTML {
 			vecty.Property("aria-labelledby", "fileDropdown"),
 		),
 	)
-	for k := range v.app.Editor.Files() {
+	for _, name := range v.app.Editor.Filenames() {
+		name := name
 		fileItems = append(fileItems,
 			elem.Anchor(
 				vecty.Markup(
 					vecty.Class("dropdown-item"),
 					vecty.ClassMap{
-						"disabled": k == v.app.Editor.Current(),
+						"disabled": name == v.app.Editor.Current(),
 					},
 					prop.Href(""),
-					event.Click(func(e *vecty.Event) {}).PreventDefault(),
+					event.Click(func(e *vecty.Event) {
+						v.app.Dispatch(&actions.UserChangedFile{
+							Name: name,
+						})
+					}).PreventDefault(),
 				),
-				vecty.Text(k),
+				vecty.Text(name),
 			),
 		)
 	}

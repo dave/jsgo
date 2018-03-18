@@ -34,35 +34,36 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		}
 		s.app.Dispatch(&actions.ChangeSplit{Sizes: sizes})
 
-		var file string
-		found, err = s.local.Find("current-file", &file)
+		var current string
+		found, err = s.local.Find("current-file", &current)
 		if err != nil {
 			s.app.Fail(err)
 			return true
 		}
 		if !found {
-			file = defaultFile
+			current = defaultFile
 		}
-		s.app.Dispatch(&actions.ChangeFile{Name: file})
+		s.app.Dispatch(&actions.ChangeFile{Name: current})
 
-		var text string
-		found, err = s.local.Find("editor-text", &text)
+		var files map[string]string
+		found, err = s.local.Find("files", &files)
 		if err != nil {
 			s.app.Fail(err)
 			return true
 		}
 		if !found {
-			text = defaultText
+			files = defaultFiles
 		}
-		s.app.Dispatch(&actions.ChangeText{Text: text})
+		s.app.Dispatch(&actions.LoadFiles{Files: files})
 
 	case *actions.UserChangedSplit:
 		if err := s.local.Save("split-sizes", action.Sizes); err != nil {
 			s.app.Fail(err)
 			return true
 		}
-	case *actions.UserChangedText:
-		if err := s.local.Save("editor-text", action.Text); err != nil {
+	case *actions.UserChangedText, *actions.AddFile:
+		payload.Wait(s.app.Editor)
+		if err := s.local.Save("files", s.app.Editor.Files()); err != nil {
 			s.app.Fail(err)
 			return true
 		}
@@ -78,22 +79,31 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 var (
 	defaultSizes = []float64{50, 50}
 	defaultFile  = "main.go"
-	defaultText  = `package main
+	defaultFiles = map[string]string{
+		"main.go": `package main
 
 import (
 	"honnef.co/go/js/dom"
-	"math/rand"
-	"time"
-	"fmt"
 )
 
 func main() {
+    body := dom.GetWindow().Document().GetElementsByTagName("body")[0]
+	body.SetInnerHTML("Hello, World! " + randnum())
+}`,
+		"rand.go": `package main
+
+import (
+    "fmt"
+    "time"
+    "math/rand"
+)
+
+func randnum() string {
     r := rand.Intn(10000)
-	body := dom.GetWindow().Document().GetElementsByTagName("body")[0]
-	body.SetInnerHTML("Hello, World! " + fmt.Sprint(r))
+    return fmt.Sprint(r)
 }
 
 func init() {
     rand.Seed(time.Now().UTC().UnixNano())
-}`
+}`}
 )
