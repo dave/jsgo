@@ -105,8 +105,7 @@ func (s *ArchiveStore) Cache() map[string]CacheItem {
 
 func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 	switch a := payload.Action.(type) {
-	case *actions.UserChangedText:
-		payload.Wait(s.app.Scanner)
+	case *actions.ImportsChanged:
 		s.updateFresh(payload)
 	case *actions.UpdateStart:
 		s.app.Log("updating")

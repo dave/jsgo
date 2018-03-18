@@ -53,17 +53,18 @@ func (s *ScannerStore) Handle(payload *flux.Payload) bool {
 		// ignore errors
 		f, _ := parser.ParseFile(fset, "main.go", action.Text, parser.ImportsOnly)
 
-		before := s.imports
-		s.imports = []string{}
+		var imports []string
 		for _, v := range f.Imports {
 			// ignore errors
 			unquoted, _ := strconv.Unquote(v.Path.Value)
-			s.imports = append(s.imports, unquoted)
+			imports = append(imports, unquoted)
 		}
+		sort.Strings(imports)
 
-		sort.Strings(s.imports)
-		if s.Changed(before) {
+		if s.Changed(imports) {
+			s.imports = imports
 			s.app.Debug("Imports", s.imports)
+			s.app.Dispatch(&actions.ImportsChanged{})
 			payload.Notify()
 		}
 	}

@@ -46,3 +46,5 @@ type UserChangedSplit struct {
 type UserChangedText struct {
 	Text string
 }
+
+type ImportsChanged struct{}

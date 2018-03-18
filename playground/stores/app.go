@@ -74,7 +74,7 @@ func (a *App) Log(message ...interface{}) {
 		m.SetInnerHTML("jsgo")
 		return
 	}
-	s := fmt.Sprint("jsgo - ", message[0])
+	s := fmt.Sprint(message[0])
 	if m.InnerHTML() != s {
 		requestAnimationFrame()
 		m.SetInnerHTML(s)
