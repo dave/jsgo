@@ -78,14 +78,15 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 		s.current = a.Name
 		payload.Notify()
 	case *actions.AddFileClick:
-		js.Global.Call("$", "#add-file").Call("modal", "show")
+		js.Global.Call("$", "#add-file-modal").Call("modal", "show")
+		js.Global.Call("$", "#add-file-input").Call("focus")
 		s.adding = true
 		payload.Notify()
 	case *actions.UsedClosedAddFileModal:
 		s.adding = false
 		payload.Notify()
 	case *actions.CloseAddFileModal:
-		js.Global.Call("$", "#add-file").Call("modal", "hide")
+		js.Global.Call("$", "#add-file-modal").Call("modal", "hide")
 		s.adding = false
 		payload.Notify()
 	case *actions.AddFile:
