@@ -7,7 +7,6 @@ import (
 
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/playground/stores"
-	"github.com/gopherjs/gopherjs/js"
 	"github.com/gopherjs/vecty"
 	"github.com/gopherjs/vecty/elem"
 	"github.com/gopherjs/vecty/event"
@@ -27,12 +26,6 @@ func NewAddFileModal(app *stores.App) *AddFileModal {
 	return v
 }
 
-func (v *AddFileModal) Mount() {
-	js.Global.Call("$", "#add-file-modal").Call("on", "hide.bs.modal", func(ev *vecty.Event) {
-		v.app.Dispatch(&actions.UsedClosedAddFileModal{})
-	})
-}
-
 func (v *AddFileModal) Render() vecty.ComponentOrHTML {
 	v.input = elem.Input(
 		vecty.Markup(
@@ -48,6 +41,7 @@ func (v *AddFileModal) Render() vecty.ComponentOrHTML {
 		),
 	)
 	return Modal(
+		"Add file...",
 		"add-file-modal",
 		v.save,
 	).Body(
@@ -85,5 +79,4 @@ func (v *AddFileModal) save(*vecty.Event) {
 	v.app.Dispatch(&actions.AddFile{
 		Name: value,
 	})
-	v.app.Dispatch(&actions.CloseAddFileModal{})
 }

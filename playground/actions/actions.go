@@ -62,8 +62,10 @@ type UserChangedFile struct {
 type AddFile struct {
 	Name string
 }
+type DeleteFile struct {
+	Name string
+}
 type AddFileClick struct{}
-type UsedClosedAddFileModal struct{}
-type CloseAddFileModal struct{}
+type DeleteFileClick struct{}
 
 type ImportsChanged struct{}

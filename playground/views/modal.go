@@ -8,15 +8,16 @@ import (
 )
 
 type ModalBuilder struct {
-	id   string
-	save func(*vecty.Event)
-	body []vecty.MarkupOrChild
+	id, title string
+	action    func(*vecty.Event)
+	body      []vecty.MarkupOrChild
 }
 
-func Modal(id string, save func(*vecty.Event)) *ModalBuilder {
+func Modal(title, id string, action func(*vecty.Event)) *ModalBuilder {
 	return &ModalBuilder{
-		id:   id,
-		save: save,
+		id:     id,
+		title:  title,
+		action: action,
 	}
 }
 
@@ -58,7 +59,7 @@ func (m *ModalBuilder) Build() vecty.ComponentOrHTML {
 						vecty.Markup(
 							vecty.Class("modal-title"),
 						),
-						vecty.Text("Add file"),
+						vecty.Text(m.title),
 					),
 					elem.Button(
 						vecty.Markup(
@@ -86,9 +87,9 @@ func (m *ModalBuilder) Build() vecty.ComponentOrHTML {
 						vecty.Markup(
 							prop.Type(prop.TypeButton),
 							vecty.Class("btn", "btn-primary"),
-							event.Click(m.save).PreventDefault(),
+							event.Click(m.action).PreventDefault(),
 						),
-						vecty.Text("Save"),
+						vecty.Text("OK"),
 					),
 					elem.Button(
 						vecty.Markup(

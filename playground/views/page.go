@@ -72,6 +72,7 @@ func (v *Page) Render() vecty.ComponentOrHTML {
 			v.left,
 			v.right,
 			NewAddFileModal(v.app),
+			NewDeleteFileModal(v.app),
 		),
 	)
 }
@@ -131,6 +132,16 @@ func (v *Page) renderHeader() *vecty.HTML {
 				}).PreventDefault(),
 			),
 			vecty.Text("Add file..."),
+		),
+		elem.Anchor(
+			vecty.Markup(
+				vecty.Class("dropdown-item"),
+				prop.Href(""),
+				event.Click(func(e *vecty.Event) {
+					v.app.Dispatch(&actions.DeleteFileClick{})
+				}).PreventDefault(),
+			),
+			vecty.Text("Delete file..."),
 		),
 	)
 

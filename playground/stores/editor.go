@@ -3,6 +3,8 @@ package stores
 import (
 	"sort"
 
+	"errors"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/gopherjs/gopherjs/js"
@@ -22,7 +24,6 @@ type EditorStore struct {
 	sizes   []float64
 	files   map[string]string
 	current string
-	adding  bool
 }
 
 func (s *EditorStore) Sizes() []float64 {
@@ -35,10 +36,6 @@ func (s *EditorStore) Text() string {
 
 func (s *EditorStore) Current() string {
 	return s.current
-}
-
-func (s *EditorStore) Adding() bool {
-	return s.adding
 }
 
 func (s *EditorStore) Files() map[string]string {
@@ -80,18 +77,26 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 	case *actions.AddFileClick:
 		js.Global.Call("$", "#add-file-modal").Call("modal", "show")
 		js.Global.Call("$", "#add-file-input").Call("focus")
-		s.adding = true
 		payload.Notify()
-	case *actions.UsedClosedAddFileModal:
-		s.adding = false
-		payload.Notify()
-	case *actions.CloseAddFileModal:
-		js.Global.Call("$", "#add-file-modal").Call("modal", "hide")
-		s.adding = false
+	case *actions.DeleteFileClick:
+		js.Global.Call("$", "#delete-file-modal").Call("modal", "show")
+		js.Global.Call("$", "#delete-file-input").Call("focus")
 		payload.Notify()
 	case *actions.AddFile:
+		js.Global.Call("$", "#add-file-modal").Call("modal", "hide")
 		s.files[a.Name] = ""
 		s.current = a.Name
+		payload.Notify()
+	case *actions.DeleteFile:
+		js.Global.Call("$", "#delete-file-modal").Call("modal", "hide")
+		if len(s.files) == 1 {
+			s.app.Fail(errors.New("can't delete last file"))
+			return true
+		}
+		delete(s.files, a.Name)
+		if s.current == a.Name {
+			s.current = s.Filenames()[0]
+		}
 		payload.Notify()
 	case *actions.LoadFiles:
 		s.files = a.Files
