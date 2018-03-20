@@ -58,6 +58,7 @@ if it's having trouble compiling your project.
 * https://jsgo.io/shurcooL/tictactoe/cmd/tictactoe
 * https://jsgo.io/dave/todomvc
 * https://jsgo.io/gopherjs/vecty/example/markdown
+* https://jsgo.io/dave/html2vecty
 * https://jsgo.io/dave/compress/image
 * https://jsgo.io/dave/compress/zip  
 
