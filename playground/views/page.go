@@ -267,11 +267,11 @@ func (v *Page) renderHeader() *vecty.HTML {
 							if v.app.Archive.Updating() || v.app.Compile.Compiling() {
 								return
 							} else if v.app.Archive.Fresh() {
+								v.app.Dispatch(&actions.FormatCode{})
 								v.app.Dispatch(&actions.CompileStart{})
 							} else {
-								v.app.Dispatch(&actions.UpdateStart{
-									Run: true,
-								})
+								v.app.Dispatch(&actions.FormatCode{})
+								v.app.Dispatch(&actions.UpdateStart{Run: true})
 							}
 						}).PreventDefault(),
 					),
@@ -296,6 +296,7 @@ func (v *Page) renderHeader() *vecty.HTML {
 							vecty.Class("dropdown-item"),
 							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
+								v.app.Dispatch(&actions.FormatCode{})
 								v.app.Dispatch(&actions.UpdateStart{})
 							}).PreventDefault(),
 						),
@@ -312,46 +313,48 @@ func (v *Page) renderHeader() *vecty.HTML {
 							vecty.Class("dropdown-item"),
 							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
-								js.Global.Call("alert", "TODO")
+								v.app.Dispatch(&actions.FormatCode{})
 							}).PreventDefault(),
 						),
 						vecty.Text("Format code"),
 					),
-					elem.Div(
-						vecty.Markup(
-							vecty.Class("dropdown-divider"),
+					/*
+
+						elem.Div(
+							vecty.Markup(
+								vecty.Class("dropdown-divider"),
+							),
 						),
-					),
-					elem.Anchor(
-						vecty.Markup(
-							vecty.Class("dropdown-item"),
-							prop.Href(""),
-							event.Click(func(e *vecty.Event) {
-								js.Global.Call("alert", "TODO")
-							}).PreventDefault(),
+						elem.Anchor(
+							vecty.Markup(
+								vecty.Class("dropdown-item"),
+								prop.Href(""),
+								event.Click(func(e *vecty.Event) {
+									js.Global.Call("alert", "TODO")
+								}).PreventDefault(),
+							),
+							vecty.Text("Build tags..."),
 						),
-						vecty.Text("Build tags..."),
-					),
-					elem.Anchor(
-						vecty.Markup(
-							vecty.Class("dropdown-item"),
-							prop.Href(""),
-							event.Click(func(e *vecty.Event) {
-								js.Global.Call("alert", "TODO")
-							}).PreventDefault(),
+						elem.Anchor(
+							vecty.Markup(
+								vecty.Class("dropdown-item"),
+								prop.Href(""),
+								event.Click(func(e *vecty.Event) {
+									js.Global.Call("alert", "TODO")
+								}).PreventDefault(),
+							),
+							vecty.Text("Save"),
 						),
-						vecty.Text("Save"),
-					),
-					elem.Anchor(
-						vecty.Markup(
-							vecty.Class("dropdown-item"),
-							prop.Href(""),
-							event.Click(func(e *vecty.Event) {
-								js.Global.Call("alert", "TODO")
-							}).PreventDefault(),
-						),
-						vecty.Text("Deploy"),
-					),
+						elem.Anchor(
+							vecty.Markup(
+								vecty.Class("dropdown-item"),
+								prop.Href(""),
+								event.Click(func(e *vecty.Event) {
+									js.Global.Call("alert", "TODO")
+								}).PreventDefault(),
+							),
+							vecty.Text("Deploy"),
+						),*/
 				),
 			),
 		),

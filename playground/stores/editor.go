@@ -5,6 +5,8 @@ import (
 
 	"errors"
 
+	"go/format"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/gopherjs/gopherjs/js"
@@ -103,6 +105,14 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 		s.app.Dispatch(&actions.ChangeText{
 			Text: s.files[s.current],
 		})
+		payload.Notify()
+	case *actions.FormatCode:
+		b, err := format.Source([]byte(s.files[s.current]))
+		if err != nil {
+			s.app.Fail(err)
+			return true
+		}
+		s.files[s.current] = string(b)
 		payload.Notify()
 	}
 	return true
