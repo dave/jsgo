@@ -1,0 +1,8 @@
+[
+	{
+		"origin": ["https://jsgo.io", "https://play.jsgo.io"],
+		"responseHeader": ["Content-Type"],
+		"method": ["GET", "HEAD"],
+		"maxAgeSeconds": 31536000
+	}
+]

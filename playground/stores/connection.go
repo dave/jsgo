@@ -3,7 +3,11 @@ package stores
 import (
 	"errors"
 
+	"honnef.co/go/js/dom"
+
 	"fmt"
+
+	"strings"
 
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
@@ -24,6 +28,10 @@ func NewConnectionStore(app *App) *ConnectionStore {
 		app: app,
 	}
 	return s
+}
+
+func (s *ConnectionStore) Open() bool {
+	return s.open
 }
 
 func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
@@ -93,4 +101,14 @@ func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
 		})
 	}
 	return true
+}
+
+func defaultUrl() string {
+	var url string
+	if strings.HasPrefix(dom.GetWindow().Document().DocumentURI(), "https://") {
+		url = "wss://compile.jsgo.io/_pg/"
+	} else {
+		url = "ws://localhost:8081/_pg/"
+	}
+	return url
 }

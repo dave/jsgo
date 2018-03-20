@@ -264,14 +264,16 @@ func (v *Page) renderHeader() *vecty.HTML {
 						vecty.Property("type", "button"),
 						vecty.Class("btn", "btn-primary"),
 						event.Click(func(e *vecty.Event) {
-							if v.app.Archive.Updating() || v.app.Compile.Compiling() {
+							if v.app.Connection.Open() || v.app.Compile.Compiling() {
 								return
 							} else if v.app.Archive.Fresh() {
-								v.app.Dispatch(&actions.FormatCode{})
-								v.app.Dispatch(&actions.CompileStart{})
+								v.app.Dispatch(&actions.FormatCode{
+									Then: &actions.CompileStart{},
+								})
 							} else {
-								v.app.Dispatch(&actions.FormatCode{})
-								v.app.Dispatch(&actions.UpdateStart{Run: true})
+								v.app.Dispatch(&actions.FormatCode{
+									Then: &actions.UpdateStart{Run: true},
+								})
 							}
 						}).PreventDefault(),
 					),
@@ -296,13 +298,13 @@ func (v *Page) renderHeader() *vecty.HTML {
 							vecty.Class("dropdown-item"),
 							prop.Href(""),
 							event.Click(func(e *vecty.Event) {
-								v.app.Dispatch(&actions.FormatCode{})
-								v.app.Dispatch(&actions.UpdateStart{})
+								v.app.Dispatch(&actions.FormatCode{
+									Then: &actions.UpdateStart{},
+								})
 							}).PreventDefault(),
 						),
 						vecty.Text("Update"),
 					),
-
 					elem.Div(
 						vecty.Markup(
 							vecty.Class("dropdown-divider"),
@@ -317,6 +319,23 @@ func (v *Page) renderHeader() *vecty.HTML {
 							}).PreventDefault(),
 						),
 						vecty.Text("Format code"),
+					),
+					elem.Div(
+						vecty.Markup(
+							vecty.Class("dropdown-divider"),
+						),
+					),
+					elem.Anchor(
+						vecty.Markup(
+							vecty.Class("dropdown-item"),
+							prop.Href(""),
+							event.Click(func(e *vecty.Event) {
+								v.app.Dispatch(&actions.FormatCode{
+									Then: &actions.ShareStart{},
+								})
+							}).PreventDefault(),
+						),
+						vecty.Text("Share"),
 					),
 					/*
 

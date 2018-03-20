@@ -69,4 +69,12 @@ type AddFileClick struct{}
 type DeleteFileClick struct{}
 
 type ImportsChanged struct{}
-type FormatCode struct{}
+
+type FormatCode struct {
+	Then flux.ActionInterface
+}
+
+type ShareStart struct{}
+type ShareOpen struct{}
+type ShareMessage struct{ Message interface{} }
+type ShareClose struct{}

@@ -1,9 +1,21 @@
 package stores
 
 import (
+	"fmt"
+	"net/http"
+	"strings"
+
+	"honnef.co/go/js/dom"
+
+	"encoding/json"
+
+	"errors"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
+	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/locstor"
+	"github.com/gopherjs/gopherjs/js"
 )
 
 type LocalStore struct {
@@ -46,13 +58,36 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		s.app.Dispatch(&actions.ChangeFile{Name: current})
 
 		var files map[string]string
-		found, err = s.local.Find("files", &files)
-		if err != nil {
-			s.app.Fail(err)
-			return true
-		}
-		if !found {
-			files = defaultFiles
+		hash := strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#")
+		if hash != "" {
+			resp, err := http.Get(fmt.Sprintf("https://%s/%s.json", srcHost(), hash))
+			if err != nil {
+				s.app.Fail(err)
+				return true
+			}
+			if resp.StatusCode != 200 {
+				s.app.Fail(fmt.Errorf("error %d loading source", resp.StatusCode))
+				return true
+			}
+			var m messages.Share
+			if err := json.NewDecoder(resp.Body).Decode(&m); err != nil {
+				s.app.Fail(err)
+				return true
+			}
+			var ok bool
+			if files, ok = m.Source["main"]; !ok {
+				s.app.Fail(errors.New("package main not found in source"))
+				return true
+			}
+		} else {
+			found, err = s.local.Find("files", &files)
+			if err != nil {
+				s.app.Fail(err)
+				return true
+			}
+			if !found {
+				files = defaultFiles
+			}
 		}
 		s.app.Dispatch(&actions.LoadFiles{Files: files})
 
@@ -107,3 +142,13 @@ func init() {
     rand.Seed(time.Now().UTC().UnixNano())
 }`}
 )
+
+func srcHost() string {
+	var url string
+	if strings.HasPrefix(dom.GetWindow().Document().DocumentURI(), "https://") {
+		url = "src.jsgo.io"
+	} else {
+		url = "dev-src.jsgo.io"
+	}
+	return url
+}

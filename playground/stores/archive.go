@@ -3,8 +3,6 @@ package stores
 import (
 	"fmt"
 
-	"strings"
-
 	"bytes"
 
 	"encoding/gob"
@@ -17,26 +15,16 @@ import (
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/gopherjs/gopherjs/compiler"
-	"honnef.co/go/js/dom"
 )
 
 type ArchiveStore struct {
 	app *App
-
-	// is the update in progress?
-	updating bool
 
 	// cache (path -> item) of archives
 	cache map[string]CacheItem
 
 	// index (path -> item) of the previously received update
 	index messages.Index
-
-	// has the cache finished downloading?
-	complete bool
-
-	// are the imports from the editor all in the previous update index?
-	fresh bool
 }
 
 type CacheItem struct {
@@ -84,14 +72,32 @@ func (s *ArchiveStore) Collect(imports []string) ([]*compiler.Archive, error) {
 	return deps, nil
 }
 
-// Updating is true if the update is in progress
-func (s *ArchiveStore) Updating() bool {
-	return s.updating
-}
-
 // Fresh is true if current cache matches the previously downloaded archives
 func (s *ArchiveStore) Fresh() bool {
-	return s.fresh
+	// if index is nil, either the page has just loaded or we're in the middle of an update
+	if s.index == nil {
+		return false
+	}
+
+	// first check that all indexed packages are in the cache at the right versions
+	for path, item := range s.index {
+		cached, ok := s.cache[path]
+		if !ok {
+			return false
+		}
+		if cached.Hash != item.Hash {
+			return false
+		}
+	}
+
+	// then check that all the current imports are found in the index
+	for _, p := range s.app.Scanner.Imports() {
+		if _, ok := s.index[p]; !ok {
+			return false
+		}
+	}
+
+	return true
 }
 
 // Cache takes a snapshot of the cache (path -> hash)
@@ -105,23 +111,11 @@ func (s *ArchiveStore) Cache() map[string]CacheItem {
 
 func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 	switch a := payload.Action.(type) {
-	case *actions.ImportsChanged:
-		s.updateFresh(payload)
 	case *actions.UpdateStart:
 		s.app.Log("updating")
-		s.updating = true
 		s.index = nil
-		s.complete = false
-
-		var url string
-		if strings.HasPrefix(dom.GetWindow().Document().DocumentURI(), "https://") {
-			url = "wss://compile.jsgo.io/_pg/"
-		} else {
-			url = "ws://localhost:8081/_pg/"
-		}
-
 		s.app.Dispatch(&actions.Dial{
-			Url:     url,
+			Url:     defaultUrl(),
 			Open:    func() flux.ActionInterface { return &actions.UpdateOpen{} },
 			Message: func(m interface{}) flux.ActionInterface { return &actions.UpdateMessage{Message: m} },
 			Close:   func() flux.ActionInterface { return &actions.UpdateClose{Run: a.Run} },
@@ -174,17 +168,11 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 			s.index = message
 		}
 	case *actions.UpdateClose:
-		s.updating = false
-		s.updateComplete(payload)
-		s.updateFresh(payload)
-		if !s.complete {
-			s.app.Fail(errors.New("websocket closed but update incomplete"))
+		if !s.Fresh() {
+			s.app.Fail(errors.New("websocket closed but archives not updated"))
 			return true
 		}
-		if !s.fresh {
-			s.app.Fail(errors.New("websocket closed but archives not fresh"))
-			return true
-		}
+
 		if a.Run {
 			s.app.Dispatch(&actions.CompileStart{})
 		} else {
@@ -210,50 +198,4 @@ func (s *ArchiveStore) Handle(payload *flux.Payload) bool {
 	}
 
 	return true
-}
-
-// updateComplete sets s.complete to true if the index has been received and all the cached archives
-// match the index. We run this every time an archive is received, when the index is received and also
-// when the update websocket is closed.
-func (s *ArchiveStore) updateComplete(payload *flux.Payload) {
-	previous := s.complete
-	complete := func() bool {
-		if s.index == nil {
-			return false
-		}
-		for path, item := range s.index {
-			cached, ok := s.cache[path]
-			if !ok {
-				return false
-			}
-			if cached.Hash != item.Hash {
-				return false
-			}
-		}
-		return true
-	}()
-	if previous != complete {
-		s.complete = complete
-		payload.Notify()
-	}
-}
-
-// updateFresh sets s.fresh to true if the imports from the editor are all in the current index
-func (s *ArchiveStore) updateFresh(payload *flux.Payload) {
-	previous := s.fresh
-	fresh := func() bool {
-		if !s.complete {
-			return false
-		}
-		for _, p := range s.app.Scanner.Imports() {
-			if _, ok := s.index[p]; !ok {
-				return false
-			}
-		}
-		return true
-	}()
-	if previous != fresh {
-		s.fresh = fresh
-		payload.Notify()
-	}
 }

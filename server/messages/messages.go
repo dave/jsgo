@@ -22,9 +22,11 @@ var payloads = []interface{}{
 	Error{},
 	Archive{},
 	Index{},
+	ShareComplete{},
 
 	// Commands:
 	Update{},
+	Share{},
 }
 
 type Queueing struct {
@@ -76,6 +78,17 @@ type Update struct {
 	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
 	Tags   []string                     // Build tags
 	Cache  map[string]string            // Map of path->hash of previously compiled dependencies to use if still in the cache
+}
+
+// Share is sent by the client to persist the setup on the server. This will be persisted publicly as
+// json, so best to use json tags to lower-case the names.
+type Share struct {
+	Version int                          `json:"version"`
+	Source  map[string]map[string]string `json:"source"` // Source packages for this build: map[<package>]map[<filename>]<contents>
+}
+
+type ShareComplete struct {
+	Hash string
 }
 
 // Index is an ordered list of dependencies.

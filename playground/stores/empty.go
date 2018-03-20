@@ -1,8 +1,6 @@
 package stores
 
 import (
-	"fmt"
-
 	"github.com/dave/flux"
 )
 
@@ -20,7 +18,7 @@ type EmptyStore struct {
 func (s *EmptyStore) Handle(payload *flux.Payload) bool {
 	switch action := payload.Action.(type) {
 	default:
-		fmt.Println(action)
+		_ = action
 	}
 	return true
 }

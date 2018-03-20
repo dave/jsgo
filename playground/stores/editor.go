@@ -114,6 +114,9 @@ func (s *EditorStore) Handle(payload *flux.Payload) bool {
 		}
 		s.files[s.current] = string(b)
 		payload.Notify()
+		if a.Then != nil {
+			s.app.Dispatch(a.Then)
+		}
 	}
 	return true
 }

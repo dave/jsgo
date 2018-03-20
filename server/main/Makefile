@@ -2,12 +2,12 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v78
+VER=v79
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
 DEPLOYMENT=back-deployment
-BUCKET=pkg.jsgo.io
+BUCKET=dev-src.jsgo.io
 
 # Run this to do a full deploy (remember to increment VER first)
 all:
@@ -76,3 +76,5 @@ bucket:
 	gsutil mb -p ${PROJECT} -c multi_regional -l us gs://${BUCKET}/
 	gsutil defacl set public-read gs://${BUCKET}
 	
+cors:
+	gsutil cors set cors-config-dev.json gs://${BUCKET}

@@ -6,6 +6,8 @@ import (
 	"net/http"
 	"time"
 
+	"cloud.google.com/go/storage"
+
 	"fmt"
 
 	"go/parser"
@@ -20,6 +22,11 @@ import (
 	"strings"
 
 	"go/ast"
+
+	"bytes"
+	"crypto/sha1"
+	"encoding/json"
+	"io"
 
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
@@ -40,17 +47,51 @@ func playgroundCompile(ctx context.Context, path string, req *http.Request, send
 }
 
 func playgroundCompiler(ctx context.Context, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
-	var info messages.Update
 	select {
 	case m := <-receive:
-		var ok bool
-		if info, ok = m.(messages.Update); !ok {
+		switch m := m.(type) {
+		case messages.Update:
+			return playgroundUpdate(ctx, m, path, req, send, receive)
+		case messages.Share:
+			return playgroundShare(ctx, m, path, req, send, receive)
+		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}
 	case <-time.After(config.WebsocketInstructionTimeout):
 		return errors.New("timed out waiting for instruction from client")
 	}
+}
 
+func playgroundShare(ctx context.Context, info messages.Share, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+
+	send(messages.Storing{Starting: true})
+
+	buf := &bytes.Buffer{}
+	sha := sha1.New()
+	w := io.MultiWriter(buf, sha)
+	if err := json.NewEncoder(w).Encode(info); err != nil {
+		return err
+	}
+	hash := sha.Sum(nil)
+
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		return err
+	}
+	defer client.Close()
+
+	storer := compile.NewStorer(ctx, client, send, config.ConcurrentStorageUploads)
+	storer.AddSrc("source", fmt.Sprintf("%x.json", hash), buf.Bytes())
+	storer.Wait()
+
+	send(messages.Storing{Done: true})
+
+	send(messages.ShareComplete{Hash: fmt.Sprintf("%x", hash)})
+
+	return nil
+}
+
+func playgroundUpdate(ctx context.Context, info messages.Update, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 	mainPackageSource, ok := info.Source["main"]
 	if !ok {
 		return errors.New("can't find main package in source")

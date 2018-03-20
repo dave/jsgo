@@ -29,6 +29,7 @@ func NewStorer(ctx context.Context, client *storage.Client, send func(messages.M
 	s := &Storer{
 		client: client,
 		buckets: map[string]*storage.BucketHandle{
+			config.SrcBucket:   client.Bucket(config.SrcBucket),
 			config.PkgBucket:   client.Bucket(config.PkgBucket),
 			config.IndexBucket: client.Bucket(config.IndexBucket),
 		},
@@ -93,6 +94,28 @@ func (s *Storer) Worker(ctx context.Context) {
 	}
 }
 
+func (s *Storer) AddSrc(message, name string, contents []byte) {
+	s.wait.Add(1)
+
+	unchanged := atomic.LoadInt32(&s.unchanged)
+	done := atomic.LoadInt32(&s.done)
+	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
+	if s.send != nil {
+		s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
+	}
+
+	s.queue <- StorageItem{
+		Message:        message,
+		Bucket:         s.buckets[config.SrcBucket],
+		Name:           name,
+		Contents:       contents,
+		ContentType:    "application/json",
+		CacheControl:   "public, max-age=31536000",
+		OnlyIfNotExist: true,
+		Count:          true,
+	}
+}
+
 func (s *Storer) AddJs(message, name string, contents []byte) {
 	s.wait.Add(1)
 
@@ -118,12 +141,14 @@ func (s *Storer) AddJs(message, name string, contents []byte) {
 func (s *Storer) AddHtml(message, name string, contents []byte) {
 	s.wait.Add(1)
 	s.queue <- StorageItem{
-		Message:      message,
-		Bucket:       s.buckets[config.IndexBucket],
-		Name:         name,
-		Contents:     contents,
-		ContentType:  "text/html",
-		CacheControl: "no-cache",
+		Message:        message,
+		Bucket:         s.buckets[config.IndexBucket],
+		Name:           name,
+		Contents:       contents,
+		ContentType:    "text/html",
+		CacheControl:   "no-cache",
+		OnlyIfNotExist: false,
+		Count:          false,
 	}
 }
 
