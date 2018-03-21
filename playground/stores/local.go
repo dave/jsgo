@@ -96,19 +96,37 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 			s.app.Fail(err)
 			return true
 		}
-	case *actions.UserChangedText, *actions.AddFile:
+	case *actions.UserChangedText:
 		payload.Wait(s.app.Editor)
-		if err := s.local.Save("files", s.app.Editor.Files()); err != nil {
+		if err := s.saveFiles(); err != nil {
 			s.app.Fail(err)
 			return true
 		}
 	case *actions.UserChangedFile:
-		if err := s.local.Save("current-file", action.Name); err != nil {
+		payload.Wait(s.app.Editor)
+		if err := s.saveCurrentFile(); err != nil {
+			s.app.Fail(err)
+			return true
+		}
+	case *actions.AddFile, *actions.DeleteFile:
+		payload.Wait(s.app.Editor)
+		if err := s.saveFiles(); err != nil {
+			s.app.Fail(err)
+			return true
+		}
+		if err := s.saveCurrentFile(); err != nil {
 			s.app.Fail(err)
 			return true
 		}
 	}
 	return true
+}
+
+func (s *LocalStore) saveFiles() error {
+	return s.local.Save("files", s.app.Editor.Files())
+}
+func (s *LocalStore) saveCurrentFile() error {
+	return s.local.Save("current-file", s.app.Editor.Current())
 }
 
 var (
