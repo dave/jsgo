@@ -102,6 +102,8 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 		}
 
 		// Package path in hash -> open websocket and load files
+		hash = strings.TrimPrefix(strings.TrimSuffix(hash, "/"), "/")
+		s.app.Dispatch(&actions.GetStart{Path: hash})
 
 	case *actions.UserChangedSplit:
 		if err := s.local.Save("split-sizes", action.Sizes); err != nil {

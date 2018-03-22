@@ -20,14 +20,19 @@ type Dial struct {
 type CompileStart struct{}
 
 // UpdateStart updates the deps from the server and if Run == true, compiles and runs the app
-type UpdateStart struct {
-	Run bool
-}
+type UpdateStart struct{ Run bool }
 type UpdateOpen struct{}
 type UpdateMessage struct{ Message interface{} }
-type UpdateClose struct {
-	Run bool
+type UpdateClose struct{ Run bool }
+
+// UpdateStart updates the deps from the server and if Run == true, compiles and runs the app
+type GetStart struct{ Path string }
+type GetOpen struct{ Path string }
+type GetMessage struct {
+	Path    string
+	Message interface{}
 }
+type GetClose struct{}
 
 type Load struct{}
 

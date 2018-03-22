@@ -112,6 +112,67 @@ type Handler struct {
 }
 
 func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
+	if config.DEV {
+		// always run the compile page in dev mode
+		h.compileHandler(w, req)
+		return
+	}
+	switch req.Host {
+	case "play.jsgo.io":
+		h.playHandler(w, req)
+		return
+	case "compile.jsgo.io":
+		h.compileHandler(w, req)
+		return
+	default:
+		http.Error(w, fmt.Sprintf("unknown host %s", req.Host), 500)
+		return
+	}
+}
+
+func (h *Handler) playHandler(w http.ResponseWriter, req *http.Request) {
+	v := struct {
+		Script string
+	}{
+		Script: "https://pkg.jsgo.io/github.com/dave/jsgo/playground.608a385ac16492b79037e2eabe163cd6ebd45c2e.js",
+	}
+	if err := playPageTemplate.Execute(w, v); err != nil {
+		http.Error(w, err.Error(), 500)
+		return
+	}
+}
+
+var playPageTemplate = template.Must(template.New("main").Parse(`<html>
+	<head>
+		<meta charset="utf-8">
+        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
+        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.1/ace.js"></script>
+	</head>
+	<body id="wrapper" style="margin: 0;">
+		<div id="progress-holder" style="width: 100%; padding: 25%;">
+			<div class="progress">
+				<div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>
+			</div>
+		</div>
+		<script>
+			window.jsgoProgress = function(count, total) {
+				var value = (count * 100.0) / (total * 1.0);
+				var bar = document.getElementById("progress-bar");
+				bar.style.width = value+"%";
+				bar.setAttribute('aria-valuenow', value);
+				if (count === total) {
+					document.getElementById("progress-holder").style.display = "none";
+				}
+			}
+		</script>
+    	<script src="{{ .Script }}"></script>
+	</body>
+</html>`))
+
+func (h *Handler) compileHandler(w http.ResponseWriter, req *http.Request) {
 
 	ctx, cancel := context.WithTimeout(req.Context(), config.PageTimeout)
 	defer cancel()
@@ -154,13 +215,13 @@ func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
 		v.Last = humanize.Time(data.Time)
 	}
 
-	if err := pageTemplate.Execute(w, v); err != nil {
+	if err := compilePageTemplate.Execute(w, v); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
 	}
 }
 
-var pageTemplate = template.Must(template.New("main").Parse(`
+var compilePageTemplate = template.Must(template.New("main").Parse(`
 <html>
 	<head>
 		<meta charset="utf-8">

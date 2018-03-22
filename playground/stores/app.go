@@ -24,6 +24,7 @@ type App struct {
 	Scanner    *ScannerStore
 	Compile    *CompileStore
 	Share      *ShareStore
+	Get        *GetStore
 }
 
 func (a *App) Init() {
@@ -39,6 +40,7 @@ func (a *App) Init() {
 	a.Scanner = NewScannerStore(a)
 	a.Compile = NewCompileStore(a)
 	a.Share = NewShareStore(a)
+	a.Get = NewGetStore(a)
 
 	a.Dispatcher = flux.NewDispatcher(
 		// Notifier:
@@ -51,6 +53,7 @@ func (a *App) Init() {
 		a.Scanner,
 		a.Compile,
 		a.Share,
+		a.Get,
 	)
 }
 

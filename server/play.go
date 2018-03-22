@@ -30,6 +30,8 @@ import (
 
 	"os"
 
+	"io/ioutil"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
@@ -56,12 +58,65 @@ func playgroundCompiler(ctx context.Context, path string, req *http.Request, sen
 			return playgroundUpdate(ctx, m, path, req, send, receive)
 		case messages.Share:
 			return playgroundShare(ctx, m, path, req, send, receive)
+		case messages.Get:
+			return playgroundGet(ctx, m, path, req, send, receive)
 		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}
 	case <-time.After(config.WebsocketInstructionTimeout):
 		return errors.New("timed out waiting for instruction from client")
 	}
+}
+
+func playgroundGet(ctx context.Context, info messages.Get, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+
+	// TODO: fix this
+	path = info.Path
+
+	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
+	fs := memfs.New()
+
+	// Send a message to the client that downloading step has started.
+	send(messages.Downloading{Starting: true})
+
+	// Start the download process - just like the "go get" command.
+	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
+		return err
+	}
+
+	// Send a message to the client that downloading step has finished.
+	send(messages.Downloading{Done: true})
+
+	source := map[string]map[string]string{
+		path: {},
+	}
+
+	dir := filepath.Join("gopath", "src", path)
+	fis, err := fs.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, fi := range fis {
+		if !strings.HasSuffix(fi.Name(), ".go") && !strings.HasSuffix(fi.Name(), ".html") {
+			continue
+		}
+		f, err := fs.Open(filepath.Join(dir, fi.Name()))
+		if err != nil {
+			return err
+		}
+		b, err := ioutil.ReadAll(f)
+		if err != nil {
+			f.Close()
+			return err
+		}
+		f.Close()
+		source[path][fi.Name()] = string(b)
+	}
+
+	// Send a message to the client that downloading step has finished.
+	send(messages.GetComplete{Source: source})
+
+	return nil
 }
 
 func playgroundShare(ctx context.Context, info messages.Share, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {

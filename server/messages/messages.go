@@ -23,10 +23,12 @@ var payloads = []interface{}{
 	Archive{},
 	Index{},
 	ShareComplete{},
+	GetComplete{},
 
 	// Commands:
 	Update{},
 	Share{},
+	Get{},
 }
 
 type Queueing struct {
@@ -85,6 +87,15 @@ type Update struct {
 type Share struct {
 	Version int                          `json:"version"`
 	Source  map[string]map[string]string `json:"source"` // Source packages for this build: map[<package>]map[<filename>]<contents>
+}
+
+// Get is sent by the client to the server asking it to download a package and return the source.
+type Get struct {
+	Path string
+}
+
+type GetComplete struct {
+	Source map[string]map[string]string
 }
 
 type ShareComplete struct {
