@@ -134,7 +134,7 @@ func (h *Handler) playHandler(w http.ResponseWriter, req *http.Request) {
 	v := struct {
 		Script string
 	}{
-		Script: "https://pkg.jsgo.io/github.com/dave/jsgo/playground.f036cfc1f86c9c55d5030a7f9fc12c35bcaaec2a.js",
+		Script: "https://pkg.jsgo.io/github.com/dave/play.fe4504ca156e060e6e3820404ddcfa91e37b9608.js",
 	}
 	if err := playPageTemplate.Execute(w, v); err != nil {
 		http.Error(w, err.Error(), 500)
