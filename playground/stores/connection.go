@@ -56,6 +56,7 @@ func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
 			s.app.Fail(errors.New("connection already open"))
 			return true
 		}
+		s.app.Debug("Web socket dialing", action.Url)
 		var err error
 		if s.ws, err = websocketjs.New(action.Url); err != nil {
 			s.app.Fail(err)
@@ -77,7 +78,11 @@ func (s *ConnectionStore) Handle(payload *flux.Payload) bool {
 				}
 				s.app.Debug(fmt.Sprintf("Received %T", m), m)
 				if e, ok := m.(messages.Error); ok {
-					s.app.Fail(fmt.Errorf("%s: %s", e.Path, e.Message))
+					if e.Path != "" {
+						s.app.Fail(fmt.Errorf("%s: %s", e.Path, e.Message))
+					} else {
+						s.app.Fail(errors.New(e.Message))
+					}
 					return
 				}
 				s.app.Dispatch(action.Message(m))

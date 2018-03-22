@@ -692,7 +692,8 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 			}
 			_, archive, err := s.buildImportPathWithSrcDir(ctx, path, pkg.Dir)
 			if err != nil {
-				return nil, err
+				return nil, pathErr{error: err, path: path}
+
 			}
 			localImportPathCache[path] = archive
 			return archive, nil
@@ -757,6 +758,15 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 	}
 
 	return archive, nil
+}
+
+type pathErr struct {
+	error
+	path string
+}
+
+func (p pathErr) Path() string {
+	return p.path
 }
 
 func readArchive(ctx context.Context, fs billy.Filesystem, fpath, path string, types map[string]*types.Package) (*compiler.Archive, error) {

@@ -524,6 +524,9 @@ func sendAndStoreError(ctx context.Context, send func(messages.Message), path st
 }
 
 func sendError(send func(messages.Message), path string, err error) {
+	if p, ok := err.(Pather); ok {
+		path = p.Path()
+	}
 	send(messages.Error{
 		Path:    path,
 		Message: err.Error(),
@@ -535,6 +538,10 @@ func storeError(ctx context.Context, path string, err error, req *http.Request) 
 	if err == queue.TooManyItemsQueued {
 		// If the server is getting flooded by a DOS, this will prevent database flooding
 		return
+	}
+
+	if p, ok := err.(Pather); ok {
+		path = p.Path()
 	}
 
 	// ignore errors when logging an error
@@ -664,4 +671,8 @@ type downloadWriter struct {
 func (w downloadWriter) Write(b []byte) (n int, err error) {
 	w.send(messages.Downloading{Message: strings.TrimSuffix(string(b), "\n")})
 	return len(b), nil
+}
+
+type Pather interface {
+	Path() string
 }

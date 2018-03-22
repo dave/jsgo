@@ -2,10 +2,14 @@ package stores
 
 import (
 	"fmt"
+	"strconv"
+
+	"honnef.co/go/js/dom"
+
+	"strings"
 
 	"github.com/dave/flux"
 	"github.com/gopherjs/gopherjs/js"
-	"honnef.co/go/js/dom"
 )
 
 type App struct {
@@ -71,19 +75,20 @@ func (a *App) Debug(message ...interface{}) {
 	js.Global.Get("console").Call("log", message...)
 }
 
-func (a *App) Log(message ...interface{}) {
+func (a *App) Log(args ...interface{}) {
 	m := dom.GetWindow().Document().GetElementByID("message")
-	if len(message) == 0 {
-		m.SetInnerHTML("")
-		return
+	var message string
+	if len(args) > 0 {
+		message = strings.TrimSuffix(fmt.Sprintln(args...), "\n")
 	}
-	s := fmt.Sprint(message[0])
-	if m.InnerHTML() != s {
+	if m.InnerHTML() != message {
+		if message != "" {
+			js.Global.Get("console").Call("log", "Status", strconv.Quote(message))
+		}
 		requestAnimationFrame()
-		m.SetInnerHTML(s)
+		m.SetInnerHTML(message)
 		requestAnimationFrame()
 	}
-	js.Global.Get("console").Call("log", message...)
 }
 
 func (a *App) Logf(format string, args ...interface{}) {

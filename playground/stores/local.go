@@ -11,6 +11,8 @@ import (
 
 	"errors"
 
+	"regexp"
+
 	"github.com/dave/flux"
 	"github.com/dave/jsgo/playground/actions"
 	"github.com/dave/jsgo/server/messages"
@@ -59,7 +61,23 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 
 		var files map[string]string
 		hash := strings.TrimPrefix(js.Global.Get("location").Get("hash").String(), "#")
-		if hash != "" {
+
+		// No hash -> load files from local storage or use default files
+		if hash == "" {
+			found, err = s.local.Find("files", &files)
+			if err != nil {
+				s.app.Fail(err)
+				return true
+			}
+			if !found {
+				files = defaultFiles
+			}
+			s.app.Dispatch(&actions.LoadFiles{Files: files})
+			break
+		}
+
+		// Sha in hash -> load files from src.jsgo.io json blob
+		if shaRegex.MatchString(hash) {
 			resp, err := http.Get(fmt.Sprintf("https://%s/%s.json", srcHost(), hash))
 			if err != nil {
 				s.app.Fail(err)
@@ -79,17 +97,11 @@ func (s *LocalStore) Handle(payload *flux.Payload) bool {
 				s.app.Fail(errors.New("package main not found in source"))
 				return true
 			}
-		} else {
-			found, err = s.local.Find("files", &files)
-			if err != nil {
-				s.app.Fail(err)
-				return true
-			}
-			if !found {
-				files = defaultFiles
-			}
+			s.app.Dispatch(&actions.LoadFiles{Files: files})
+			break
 		}
-		s.app.Dispatch(&actions.LoadFiles{Files: files})
+
+		// Package path in hash -> open websocket and load files
 
 	case *actions.UserChangedSplit:
 		if err := s.local.Save("split-sizes", action.Sizes); err != nil {
@@ -170,3 +182,5 @@ func srcHost() string {
 	}
 	return url
 }
+
+var shaRegex = regexp.MustCompile("^[0-9a-f]{40}$")

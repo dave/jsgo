@@ -28,6 +28,8 @@ import (
 	"encoding/json"
 	"io"
 
+	"os"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
@@ -111,6 +113,13 @@ func playgroundUpdate(ctx context.Context, info messages.Update, path string, re
 	fs := memfs.New()
 
 	if config.UseLocal {
+
+		// KLUDGE JUST FOR TESTING IN LOCAL MODE: "main" dir will be created in gopath/src. Remove it
+		// before starting.
+		if err := os.RemoveAll(filepath.Join(build.Default.GOPATH, "src", "main")); err != nil {
+			return err
+		}
+
 		local := osfs.New(filepath.Join(build.Default.GOPATH, "src"))
 		mounted := mount.New(fs, filepath.Join("gopath", "src"), local)
 		fs = chroot.New(mounted, "/")

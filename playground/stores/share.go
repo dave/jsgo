@@ -41,7 +41,6 @@ func (s *ShareStore) Handle(payload *flux.Payload) bool {
 			Message: message,
 		})
 	case *actions.ShareMessage:
-		fmt.Printf("%T %#v\n", action.Message, action.Message)
 		switch message := action.Message.(type) {
 		case messages.Storing:
 			s.app.Log("storing")
