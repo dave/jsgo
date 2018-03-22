@@ -37,6 +37,7 @@ import (
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
+	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4/helper/chroot"
 	"gopkg.in/src-d/go-billy.v4/helper/mount"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -72,6 +73,40 @@ func playgroundGet(ctx context.Context, info messages.Get, path string, req *htt
 
 	// TODO: fix this
 	path = info.Path
+
+	if strings.HasPrefix(path, "p/") {
+		// play link
+		var httpClient = &http.Client{
+			Timeout: config.HttpTimeout,
+		}
+
+		send(messages.Downloading{Message: path})
+
+		resp, err := ctxhttp.Get(ctx, httpClient, fmt.Sprintf("https://play.golang.org/%s.go", path))
+		if err != nil {
+			return err
+		}
+		defer resp.Body.Close()
+		if resp.StatusCode != 200 {
+			return fmt.Errorf("error %d", resp.StatusCode)
+		}
+		b, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return err
+		}
+
+		send(messages.Downloading{Done: true})
+
+		files := map[string]map[string]string{
+			path: {
+				"main.go": string(b),
+			},
+		}
+
+		send(messages.GetComplete{Source: files})
+
+		return nil
+	}
 
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
@@ -113,7 +148,6 @@ func playgroundGet(ctx context.Context, info messages.Get, path string, req *htt
 		source[path][fi.Name()] = string(b)
 	}
 
-	// Send a message to the client that downloading step has finished.
 	send(messages.GetComplete{Source: source})
 
 	return nil
