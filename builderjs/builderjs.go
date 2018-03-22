@@ -11,6 +11,8 @@ import (
 
 	"fmt"
 
+	"strings"
+
 	"github.com/gopherjs/gopherjs/compiler"
 	"golang.org/x/tools/go/gcimporter15"
 )
@@ -34,6 +36,9 @@ func BuildPackage(source map[string]string, deps []*compiler.Archive, minify boo
 	fset := token.NewFileSet()
 	var files []*ast.File
 	for name, contents := range source {
+		if !strings.HasSuffix(name, ".go") {
+			continue
+		}
 		f, err := parser.ParseFile(fset, name, contents, parser.ParseComments)
 		if err != nil {
 			return nil, err

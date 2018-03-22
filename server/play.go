@@ -157,6 +157,9 @@ func playgroundUpdate(ctx context.Context, info messages.Update, path string, re
 	fset := token.NewFileSet()
 	var files []*ast.File
 	for name, contents := range mainPackageSource {
+		if !strings.HasSuffix(name, ".go") {
+			continue
+		}
 		f, err := parser.ParseFile(fset, name, contents, parser.ImportsOnly)
 		if err != nil {
 			return err
