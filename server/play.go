@@ -115,7 +115,7 @@ func playgroundGet(ctx context.Context, info messages.Get, path string, req *htt
 	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
+	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false, true); err != nil {
 		return err
 	}
 
@@ -236,7 +236,7 @@ func playgroundUpdate(ctx context.Context, info messages.Update, path string, re
 
 		for p := range imports {
 			// Start the download process - just like the "go get" command.
-			if err := g.Get(ctx, p, false, false); err != nil {
+			if err := g.Get(ctx, p, false, false, false); err != nil {
 				return err
 			}
 		}

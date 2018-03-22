@@ -24,7 +24,7 @@ func jsgoCompile(ctx context.Context, path string, req *http.Request, send func(
 	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false); err != nil {
+	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false, false); err != nil {
 		sendAndStoreError(ctx, send, path, err, req)
 		return
 	}

@@ -46,9 +46,9 @@ func New(fs billy.Filesystem, log io.Writer, buildTags []string) *Session {
 
 }
 
-func (s *Session) Get(ctx context.Context, path string, update bool, insecure bool) error {
+func (s *Session) Get(ctx context.Context, path string, update bool, insecure, single bool) error {
 	var stk ImportStack
-	return s.download(ctx, path, nil, &stk, update, insecure)
+	return s.download(ctx, path, nil, &stk, update, insecure, single)
 }
 
 func newBuildContext(fs billy.Filesystem, buildTags []string) *build.Context {

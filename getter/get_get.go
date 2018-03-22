@@ -8,7 +8,7 @@ import (
 	"context"
 )
 
-func (s *Session) download(ctx context.Context, path string, parent *Package, stk *ImportStack, update bool, insecure bool) error {
+func (s *Session) download(ctx context.Context, path string, parent *Package, stk *ImportStack, update bool, insecure, single bool) error {
 	load1 := func(path string, useVendor bool) *Package {
 		if parent == nil {
 			return s.LoadImport(ctx, path, "/", nil, stk, false)
@@ -74,6 +74,11 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 
 	}
 
+	// single mode - don't process dependencies
+	if single {
+		return nil
+	}
+
 	// Process package, which might now be multiple packages
 	// due to wildcard expansion.
 	for _, p := range pkgs {
@@ -106,7 +111,7 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 			if i >= len(p.Imports) {
 				path = s.VendoredImportPath(p, path)
 			}
-			if err := s.download(ctx, path, p, stk, update, insecure); err != nil {
+			if err := s.download(ctx, path, p, stk, update, insecure, false); err != nil {
 				return err
 			}
 		}
