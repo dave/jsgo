@@ -259,6 +259,9 @@ func playgroundUpdate(ctx context.Context, info messages.Update, path string, re
 		return nil
 	}
 	for name, contents := range mainPackageSource {
+		if !strings.HasSuffix(name, ".go") {
+			continue
+		}
 		if err := createFile(name, contents); err != nil {
 			return err
 		}

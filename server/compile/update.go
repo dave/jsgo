@@ -72,6 +72,11 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 		return nil
 	}
 
+	// All programs need runtime and it's dependencies
+	if _, _, err := session.BuildImportPath(ctx, "runtime"); err != nil {
+		return err
+	}
+
 	if _, _, err := session.BuildImportPath(ctx, "main"); err != nil {
 		return err
 	}
