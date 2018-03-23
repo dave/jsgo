@@ -131,11 +131,23 @@ func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) playHandler(w http.ResponseWriter, req *http.Request) {
-	v := struct {
-		Script string
-	}{
-		Script: "https://pkg.jsgo.io/github.com/dave/play.d43a0c97314efb777efd62809c78559cbe3f586e.js",
+
+	ctx, cancel := context.WithTimeout(req.Context(), config.PageTimeout)
+	defer cancel()
+
+	found, c, err := store.Lookup(ctx, "github.com/dave/play")
+	if err != nil {
+		http.Error(w, err.Error(), 500)
+		return
 	}
+	if !found {
+		http.Error(w, "play package not found", 500)
+		return
+	}
+	url := fmt.Sprintf("https://pkg.jsgo.io/github.com/dave/play.%s.js", c.Min.Main)
+
+	v := struct{ Script string }{Script: url}
+
 	if err := playPageTemplate.Execute(w, v); err != nil {
 		http.Error(w, err.Error(), 500)
 		return
