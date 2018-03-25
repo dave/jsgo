@@ -205,7 +205,6 @@ func playgroundUpdate(ctx context.Context, info messages.Update, path string, re
 	fs := memfs.New()
 
 	if config.UseLocal {
-
 		// KLUDGE JUST FOR TESTING IN LOCAL MODE: "main" dir will be created in gopath/src. Remove it
 		// before starting.
 		if err := os.RemoveAll(filepath.Join(build.Default.GOPATH, "src", "main")); err != nil {

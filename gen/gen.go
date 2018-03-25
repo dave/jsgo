@@ -15,17 +15,18 @@ import (
 	"bytes"
 	"io"
 
-	"flag"
-
 	"io/ioutil"
 
 	"crypto/sha1"
+
+	"encoding/gob"
 
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/fscopy"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
+	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -34,45 +35,170 @@ import (
 
 func main() {
 
-	flag.Parse()
-	command := flag.Arg(0)
+	ctx := context.Background()
+	client, err := storage.NewClient(ctx)
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer client.Close()
+	storer := compile.NewStorer(ctx, client, nil, 20)
 
-	switch command {
-	case "js":
-		if err := Js(); err != nil {
-			log.Fatal(err)
-		}
-	case "src":
-		if err := Src(); err != nil {
-			log.Fatal(err)
-		}
-	case "prelude":
-		if err := Prelude(); err != nil {
-			log.Fatal(err)
-		}
+	index := map[string]map[bool]string{}
+	archives := map[string]map[bool]*compiler.Archive{}
+	packages, err := getStandardLibraryPackages()
+	if err != nil {
+		log.Fatal(err)
+	}
+	root, err := getRootFilesystem()
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err := CompileAndStoreJavascript(ctx, storer, packages, root, index, archives); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := Prelude(storer); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := CreateAssetsZip(storer, root, archives); err != nil {
+		log.Fatal(err)
+	}
+
+	fmt.Println("Waiting for storage operations...")
+	storer.Wait()
+	fmt.Println("Storage operations finished.")
+	if storer.Err != nil {
+		log.Fatal(err)
 	}
 
 }
 
-func Src() error {
+func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
-	root, err := getRootFilesystem()
-	if err != nil {
+
+	buildAndSend := func(min bool) error {
+		session := builder.NewSession(&builder.Options{
+			Root:        root,
+			Path:        memfs.New(),
+			Temporary:   memfs.New(),
+			Unvendor:    true,
+			Initializer: true,
+			Minify:      min,
+		})
+
+		var minified = " (un-minified)"
+		if min {
+			minified = " (minified)"
+		}
+
+		sent := map[string]bool{}
+		for _, p := range packages {
+			fmt.Println("Compiling:", p+minified)
+			if _, _, err := session.BuildImportPath(ctx, p); err != nil {
+				return err
+			}
+
+			for _, archive := range session.Archives {
+				path := builder.UnvendorPath(archive.ImportPath)
+				if sent[path] {
+					continue
+				}
+				fmt.Println("Storing:", path+minified)
+
+				contents, hash, err := builder.GetPackageCode(ctx, archive, min, true)
+				if err != nil {
+					return err
+				}
+				storer.AddJs(path+minified, fmt.Sprintf("%s.%x.js", path, hash), contents)
+
+				// NOTE: Archive binaries can change across compiles, so we can't take the hash of the
+				// archive file. We use the hash of the JS instead. Could this cause a subtle bug when
+				// GopherJS is upgraded? It would need the Archive to change, but the emitted JS to stay
+				// exactly the same. Clients would get the old archive. If this is the case, we may have
+				// to include a version in the hash. This would mean the the entire cache is invalidated
+				// on every version increment instead of just the changed files.
+				buf := &bytes.Buffer{}
+				if err := compiler.WriteArchive(archive, buf); err != nil {
+					return err
+				}
+				storer.AddArchive(path+" archive"+minified, fmt.Sprintf("%s.%x.a", path, hash), buf.Bytes())
+
+				if index[path] == nil {
+					index[path] = make(map[bool]string, 2)
+				}
+				index[path][min] = fmt.Sprintf("%x", hash)
+
+				if archives[path] == nil {
+					archives[path] = make(map[bool]*compiler.Archive, 2)
+				}
+				archives[path][min] = archive
+
+				sent[path] = true
+			}
+		}
+
+		return nil
+	}
+
+	if err := buildAndSend(true); err != nil {
+		return err
+	}
+	if err := buildAndSend(false); err != nil {
 		return err
 	}
 
+	fmt.Println("Saving index...")
+	/*
+		var Index = map[string]map[bool]string{
+			{
+				false: "...",
+				true: "...",
+			},
+			...
+		}
+	*/
+	f := jen.NewFile("std")
+	f.Var().Id("Index").Op("=").Map(jen.String()).Map(jen.Bool()).String().Values(jen.DictFunc(func(d jen.Dict) {
+		for path, p := range index {
+			d[jen.Lit(path)] = jen.Values(jen.Dict{
+				jen.Lit(false): jen.Lit(p[false]),
+				jen.Lit(true):  jen.Lit(p[true]),
+			})
+		}
+	}))
+	if err := f.Save("./builder/std/index.go"); err != nil {
+		return err
+	}
+	fmt.Println("Done.")
+
+	return nil
+}
+
+func CreateAssetsZip(storer *compile.Storer, root billy.Filesystem, archives map[string]map[bool]*compiler.Archive) error {
+	fmt.Println("Loading...")
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
 
 	fmt.Println("Zipping...")
 	var compress func(billy.Filesystem, string) error
 	compress = func(fs billy.Filesystem, dir string) error {
+
+		destinationDir := dir
+		unvendoredImportPath := builder.UnvendorPath(strings.TrimPrefix(filepath.ToSlash(dir), "/goroot/src/"))
+		if archives[unvendoredImportPath] != nil {
+			// only unvendor the packages that correspond to archives
+			destinationDir = filepath.Join("/", "goroot", "src", unvendoredImportPath)
+		}
+
 		fis, err := fs.ReadDir(dir)
 		if err != nil {
 			return err
 		}
 		for _, fi := range fis {
 			fpath := filepath.Join(dir, fi.Name())
+			fpathDestination := filepath.Join(destinationDir, fi.Name())
 			if fi.IsDir() {
 				if err := compress(fs, fpath); err != nil {
 					return err
@@ -82,7 +208,7 @@ func Src() error {
 			if strings.HasSuffix(fpath, "_test.go") {
 				continue
 			}
-			z, err := w.Create(fpath)
+			z, err := w.Create(fpathDestination)
 			if err != nil {
 				return err
 			}
@@ -105,6 +231,15 @@ func Src() error {
 	if err := compress(osfs.New("./assets/static"), "/"); err != nil {
 		return err
 	}
+
+	z, err := w.Create("/archives.gob")
+	if err != nil {
+		return err
+	}
+	if err := gob.NewEncoder(z).Encode(archives); err != nil {
+		return err
+	}
+
 	if err := w.Flush(); err != nil {
 		return err
 	}
@@ -115,216 +250,50 @@ func Src() error {
 		return err
 	}
 
-	fmt.Println("Uploading...")
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	bucket := client.Bucket(config.PkgBucket)
-	if err := storeZip(ctx, bucket, bytes.NewBuffer(buf.Bytes()), config.AssetsFilename); err != nil {
-		return err
-	}
-	fmt.Println("Done.")
+	storer.AddZip("assets", config.AssetsFilename, buf.Bytes())
 
 	return nil
 }
 
-// Add dummy package prelude to the loader so prelude can be loaded like a package
-const jsGoPrelude = `$load.prelude=function(){};`
-
-func Prelude() error {
-	fmt.Println("Storing prelude...")
-
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	bucket := client.Bucket(config.PkgBucket)
-
-	store := func(contents string) ([]byte, error) {
+func Prelude(storer *compile.Storer) error {
+	store := func(suffix, contents string) ([]byte, error) {
 		b := []byte(contents)
 		s := sha1.New()
 		if _, err := s.Write(b); err != nil {
 			return nil, err
 		}
 		hash := s.Sum(nil)
-		fname := fmt.Sprintf("prelude.%x.js", hash)
-		if err := storeJs(ctx, bucket, bytes.NewBuffer(b), fname); err != nil {
-			return nil, nil
-		}
+		storer.AddJs("prelude"+suffix, fmt.Sprintf("prelude.%x.js", hash), b)
 		return hash, nil
 	}
-	hashMin, err := store(prelude.Minified + jsGoPrelude)
+	hashMin, err := store(" (minified)", prelude.Minified+jsGoPrelude)
 	if err != nil {
 		return err
 	}
-	hashMax, err := store(prelude.Prelude + jsGoPrelude)
+	hashMax, err := store(" (non-minified)", prelude.Prelude+jsGoPrelude)
 	if err != nil {
 		return err
 	}
 
 	/*
-		const (
-			PreludeMin = "..."
-			PreludeMax = "..."
-		)
+		var Prelude = map[bool]string{
+			false: "...",
+			true: "...",
+		}
 	*/
 	f := jen.NewFile("std")
-	f.Const().Defs(
-		jen.Id("PreludeMin").Op("=").Lit(fmt.Sprintf("%x", hashMin)),
-		jen.Id("PreludeMax").Op("=").Lit(fmt.Sprintf("%x", hashMax)),
-	)
+	f.Var().Id("Prelude").Op("=").Map(jen.Bool()).String().Values(jen.Dict{
+		jen.Lit(false): jen.Lit(fmt.Sprintf("%x", hashMax)),
+		jen.Lit(true):  jen.Lit(fmt.Sprintf("%x", hashMin)),
+	})
 	if err := f.Save("./builder/std/prelude.go"); err != nil {
 		return err
 	}
-	fmt.Println("Done.")
 	return nil
 }
 
-func Js() error {
-	fmt.Println("Loading...")
-	packages, err := getStandardLibraryPackages()
-	if err != nil {
-		return err
-	}
-	rootfs, err := getRootFilesystem()
-	if err != nil {
-		return err
-	}
-	pathfs := memfs.New()
-	archivefs := memfs.New()
-
-	ctx := context.Background()
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	storer := compile.NewStorer(ctx, client, nil, 20)
-
-	output := map[string]*builder.PackageHash{}
-
-	buildAndSend := func(min bool) error {
-		session := builder.NewSession(&builder.Options{
-			Root:        rootfs,
-			Path:        pathfs,
-			Temporary:   archivefs,
-			Unvendor:    true,
-			Initializer: true,
-			Minify:      min,
-		})
-
-		var minified = " (un-minified)"
-		if min {
-			minified = " (minified)"
-		}
-
-		sent := map[string]bool{}
-		for _, p := range packages {
-			fmt.Println("Compiling:", p+minified)
-			if _, _, err := session.BuildImportPath(ctx, p); err != nil {
-				return err
-			}
-
-			for _, archive := range session.Archives {
-				path := archive.ImportPath
-				if sent[path] {
-					continue
-				}
-				fmt.Println("Storing:", path+minified)
-				contents, hash, err := builder.GetPackageCode(ctx, archive, min, true)
-				if err != nil {
-					return err
-				}
-				storer.AddJs(path+minified, fmt.Sprintf("%s.%x.js", path, hash), contents)
-				if output[path] == nil {
-					output[path] = &builder.PackageHash{}
-				}
-				if min {
-					output[path].HashMin = fmt.Sprintf("%x", hash)
-				} else {
-					output[path].HashMax = fmt.Sprintf("%x", hash)
-				}
-				sent[path] = true
-			}
-		}
-
-		return nil
-	}
-
-	if err := buildAndSend(true); err != nil {
-		return err
-	}
-	if err := buildAndSend(false); err != nil {
-		return err
-	}
-
-	fmt.Println("Compile finished. Waiting for storage operations...")
-	storer.Wait()
-	fmt.Println("Storage operations finished.")
-	if storer.Err != nil {
-		return err
-	}
-
-	fmt.Println("Saving index...")
-	/*
-		var Index = map[string]builder.PackageHash{
-			{
-				HashMax: "...",
-				HashMin: "...",
-			},
-			...
-		}
-	*/
-	f := jen.NewFile("std")
-	f.Var().Id("Index").Op("=").Map(jen.String()).Qual("github.com/dave/jsgo/builder", "PackageHash").Values(jen.DictFunc(func(d jen.Dict) {
-		for path, p := range output {
-			d[jen.Lit(path)] = jen.Values(jen.Dict{
-				jen.Id("HashMax"): jen.Lit(p.HashMax),
-				jen.Id("HashMin"): jen.Lit(p.HashMin),
-			})
-		}
-	}))
-	if err := f.Save("./builder/std/index.go"); err != nil {
-		return err
-	}
-	fmt.Println("Done.")
-
-	return nil
-}
-
-func sendToStorage(ctx context.Context, bucket *storage.BucketHandle, path string, contents, hash []byte) error {
-	fpath := fmt.Sprintf("%s.%x.js", path, hash)
-	if err := storeJs(ctx, bucket, bytes.NewBuffer(contents), fpath); err != nil {
-		return err
-	}
-	return nil
-}
-
-func storeJs(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader, filename string) error {
-	wc := bucket.Object(filename).NewWriter(ctx)
-	defer wc.Close()
-	wc.ContentType = "application/javascript"
-	wc.CacheControl = "public, max-age=31536000"
-	if _, err := io.Copy(wc, reader); err != nil {
-		return err
-	}
-	return nil
-}
-
-func storeZip(ctx context.Context, bucket *storage.BucketHandle, reader io.Reader, filename string) error {
-	wc := bucket.Object(filename).NewWriter(ctx)
-	defer wc.Close()
-	wc.ContentType = "application/zip"
-	if _, err := io.Copy(wc, reader); err != nil {
-		return err
-	}
-	return nil
-}
+// Add dummy package prelude to the loader so prelude can be loaded like a package
+const jsGoPrelude = `$load.prelude=function(){};`
 
 func getRootFilesystem() (billy.Filesystem, error) {
 	root := memfs.New()
@@ -368,4 +337,21 @@ func getStandardLibraryPackages() ([]string, error) {
 		filtered = append(filtered, p)
 	}
 	return filtered, nil
+}
+
+func printDir(fs billy.Filesystem, dir string) error {
+	fis, err := fs.ReadDir(dir)
+	if err != nil {
+		return err
+	}
+	for _, fi := range fis {
+		fpath := filepath.Join(dir, fi.Name())
+		fmt.Println(fpath)
+		if fi.IsDir() {
+			if err := printDir(fs, fpath); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
 }

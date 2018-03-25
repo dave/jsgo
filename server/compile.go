@@ -55,12 +55,7 @@ func storeSuccess(ctx context.Context, send func(messages.Message), path string,
 	getCompileContents := func(c *compile.CompileOutput, min bool) store.CompileContents {
 		val := store.CompileContents{}
 		val.Main = fmt.Sprintf("%x", c.Hash)
-		var preludeHash string
-		if min {
-			preludeHash = std.PreludeMin
-		} else {
-			preludeHash = std.PreludeMax
-		}
+		preludeHash := std.Prelude[min]
 		val.Packages = []store.CompilePackage{
 			{
 				Path:     "prelude",

@@ -17,16 +17,20 @@ import (
 
 	"strings"
 
+	"encoding/gob"
+
 	"github.com/dave/jsgo/config"
 	"github.com/dave/patsy"
 	"github.com/dave/patsy/vos"
+	"github.com/gopherjs/gopherjs/compiler"
 	billy "gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 var Assets = memfs.New()
+var Archives map[string]map[bool]*compiler.Archive
 
-func init() {
+func Init() {
 	if err := loadAssets(Assets); err != nil {
 		panic(err)
 	}
@@ -82,6 +86,18 @@ func loadAssets(fs billy.Filesystem) error {
 }
 
 func loadAssetFile(zipFile *zip.File, fs billy.Filesystem) error {
+	if zipFile.Name == "/archives.gob" {
+		// special case for archives gob file
+		decompressed, err := zipFile.Open()
+		if err != nil {
+			return err
+		}
+		defer decompressed.Close()
+		if err := gob.NewDecoder(decompressed).Decode(&Archives); err != nil {
+			return err
+		}
+		return nil
+	}
 	fsFile, err := fs.Create(zipFile.Name)
 	if err != nil {
 		return err

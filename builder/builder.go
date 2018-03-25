@@ -27,8 +27,10 @@ import (
 
 	"context"
 
+	"github.com/dave/jsgo/assets"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
+	"golang.org/x/tools/go/gcimporter15"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -450,7 +452,7 @@ type Options struct {
 	Minify         bool
 	Color          bool
 	BuildTags      []string
-	Standard       map[string]PackageHash
+	Standard       map[string]map[bool]string
 }
 
 func (o *Options) PrintError(format string, a ...interface{}) {
@@ -467,24 +469,13 @@ func (o *Options) PrintSuccess(format string, a ...interface{}) {
 	fmt.Fprintf(os.Stderr, format, a...)
 }
 
-type PackageHash struct {
-	HashMin string
-	HashMax string
-}
-
-func (p PackageHash) Bytes(min bool) []byte {
-	var h string
-	if min {
-		h = p.HashMin
-	} else {
-		h = p.HashMax
-	}
-	if h == "" {
+func Bytes(in string) []byte {
+	if in == "" {
 		return nil
 	}
-	b, err := hex.DecodeString(h)
+	b, err := hex.DecodeString(in)
 	if err != nil {
-		panic(fmt.Sprintf("invalid hex: %s", h))
+		panic(fmt.Sprintf("invalid hex: %s", in))
 	}
 	return b
 }
@@ -622,6 +613,46 @@ func (s *Session) buildImportPathWithSrcDir(ctx context.Context, path string, sr
 	return pkg, archive, nil
 }
 
+func (s *Session) ImportStandardArchive(ctx context.Context, importPath string) (*compiler.Archive, error) {
+
+	if assets.Archives == nil {
+		// assets.Archives may be nil if we don't initialise the assets (for bootstrapping we need to
+		// run "go generate" without existing assets).
+		return nil, nil
+	}
+
+	archivePair, ok := assets.Archives[importPath]
+	if !ok {
+		return nil, nil
+	}
+
+	archive := archivePair[s.options.Minify]
+	_, p, err := gcimporter.BImportData(token.NewFileSet(), s.Types, archive.ExportData, importPath)
+	if err != nil {
+		return nil, err
+	}
+	s.Types[importPath] = p
+	s.Archives[importPath] = archive
+
+	if s.Callback != nil {
+		if err := s.Callback(archive); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, p := range archive.Imports {
+		if s.Archives[p] != nil {
+			continue
+		}
+		if _, err := s.ImportStandardArchive(ctx, p); err != nil {
+			return nil, err
+		}
+	}
+
+	return archive, nil
+
+}
+
 func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler.Archive, error) {
 
 	importPath := pkg.ImportPath
@@ -633,48 +664,11 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 		return archive, nil
 	}
 
-	if pkg.PkgObj != "" {
-
-		// TODO: Is this needed? I don't think so?
-		/*
-			for _, importedPkgPath := range pkg.Imports {
-				// Ignore all imports that aren't mentioned in import specs of pkg.
-				// For example, this ignores imports such as runtime/internal/sys and runtime/internal/atomic.
-				ignored := true
-				for _, pos := range pkg.ImportPos[importedPkgPath] {
-					importFile := filepath.Base(pos.Filename)
-					for _, file := range pkg.GoFiles {
-						if importFile == file {
-							ignored = false
-							break
-						}
-					}
-					if !ignored {
-						break
-					}
-				}
-
-				if importedPkgPath == "unsafe" || ignored {
-					continue
-				}
-				if _, _, err := s.buildImportPathWithSrcDir(importedPkgPath, pkg.Dir); err != nil {
-					return nil, err
-				}
-			}
-		*/
-
-		if _, err := s.options.Temporary.Stat(pkg.PkgObj); err == nil {
-			// package object exists, load from disk
-			pkg.UpToDate = true
-
-			archive, err := readArchive(ctx, s.options.Temporary, pkg.PkgObj, importPath, s.Types)
-			if err != nil {
-				return nil, err
-			}
-
-			s.Archives[importPath] = archive
-			return archive, err
-		}
+	// If the archive exists in the std lib precompiled archives, load it...
+	if archive, err := s.ImportStandardArchive(ctx, importPath); err != nil {
+		return nil, err
+	} else if archive != nil {
+		return archive, nil
 	}
 
 	fileSet := token.NewFileSet()
@@ -874,7 +868,7 @@ func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Arc
 	return c, nil
 }
 
-func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer bool, standard map[string]PackageHash) (string, []*PackageOutput, error) {
+func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer bool, standard map[string]map[bool]string) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -886,7 +880,7 @@ func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer b
 			if ph, ok := standard[pkg.ImportPath]; ok {
 				packageOutputs = append(packageOutputs, &PackageOutput{
 					Path:     pkg.ImportPath,
-					Hash:     ph.Bytes(minify),
+					Hash:     Bytes(ph[minify]),
 					Standard: true,
 				})
 				continue

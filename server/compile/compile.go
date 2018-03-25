@@ -244,12 +244,7 @@ func genIndex(storer *Storer, tpl *template.Template, path string, hash []byte, 
 
 func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
 
-	var preludeHash string
-	if min {
-		preludeHash = std.PreludeMin
-	} else {
-		preludeHash = std.PreludeMax
-	}
+	preludeHash := std.Prelude[min]
 	pkgs := []PkgJson{
 		{
 			// Always include the prelude dummy package first

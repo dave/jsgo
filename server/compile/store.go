@@ -56,7 +56,7 @@ func (s *Storer) Worker(ctx context.Context) {
 		func() {
 			defer s.wait.Done()
 			ob := item.Bucket.Object(item.Name)
-			if item.OnlyIfNotExist {
+			if !item.Overwrite {
 				_, err := ob.Attrs(ctx)
 				if err == nil || err != storage.ErrObjectNotExist {
 					if item.Count {
@@ -94,71 +94,63 @@ func (s *Storer) Worker(ctx context.Context) {
 	}
 }
 
-func (s *Storer) AddSrc(message, name string, contents []byte) {
+func (s *Storer) add(message, name string, contents []byte, bucket, mime string, count, cache, overwrite bool) {
 	s.wait.Add(1)
 
-	unchanged := atomic.LoadInt32(&s.unchanged)
-	done := atomic.LoadInt32(&s.done)
-	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
-	if s.send != nil {
-		s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
+	if count {
+		unchanged := atomic.LoadInt32(&s.unchanged)
+		done := atomic.LoadInt32(&s.done)
+		remain := atomic.AddInt32(&s.total, 1) - unchanged - done
+		if s.send != nil {
+			s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
+		}
+	}
+
+	cacheHeader := "no-cache"
+	if cache {
+		cacheHeader = "public, max-age=31536000"
 	}
 
 	s.queue <- StorageItem{
-		Message:        message,
-		Bucket:         s.buckets[config.SrcBucket],
-		Name:           name,
-		Contents:       contents,
-		ContentType:    "application/json",
-		CacheControl:   "public, max-age=31536000",
-		OnlyIfNotExist: true,
-		Count:          true,
+		Message:      message,
+		Bucket:       s.buckets[bucket],
+		Name:         name,
+		Contents:     contents,
+		ContentType:  mime,
+		CacheControl: cacheHeader,
+		Overwrite:    overwrite,
+		Count:        count,
 	}
+
+}
+
+func (s *Storer) AddSrc(message, name string, contents []byte) {
+	s.add(message, name, contents, config.SrcBucket, "application/json", true, true, false)
 }
 
 func (s *Storer) AddJs(message, name string, contents []byte) {
-	s.wait.Add(1)
+	s.add(message, name, contents, config.PkgBucket, "application/javascript", true, true, false)
+}
 
-	unchanged := atomic.LoadInt32(&s.unchanged)
-	done := atomic.LoadInt32(&s.done)
-	remain := atomic.AddInt32(&s.total, 1) - unchanged - done
-	if s.send != nil {
-		s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-	}
-
-	s.queue <- StorageItem{
-		Message:        message,
-		Bucket:         s.buckets[config.PkgBucket],
-		Name:           name,
-		Contents:       contents,
-		ContentType:    "application/javascript",
-		CacheControl:   "public, max-age=31536000",
-		OnlyIfNotExist: true,
-		Count:          true,
-	}
+func (s *Storer) AddArchive(message, name string, contents []byte) {
+	s.add(message, name, contents, config.PkgBucket, "application/octet-stream", true, true, false)
 }
 
 func (s *Storer) AddHtml(message, name string, contents []byte) {
-	s.wait.Add(1)
-	s.queue <- StorageItem{
-		Message:        message,
-		Bucket:         s.buckets[config.IndexBucket],
-		Name:           name,
-		Contents:       contents,
-		ContentType:    "text/html",
-		CacheControl:   "no-cache",
-		OnlyIfNotExist: false,
-		Count:          false,
-	}
+	s.add(message, name, contents, config.IndexBucket, "text/html", false, false, true)
+}
+
+func (s *Storer) AddZip(message, name string, contents []byte) {
+	s.add(message, name, contents, config.PkgBucket, "application/zip", false, false, true)
 }
 
 type StorageItem struct {
-	Message        string
-	Bucket         *storage.BucketHandle
-	Name           string
-	Contents       []byte
-	ContentType    string
-	CacheControl   string
-	OnlyIfNotExist bool
-	Count          bool
+	Message      string
+	Bucket       *storage.BucketHandle
+	Name         string
+	Contents     []byte
+	ContentType  string
+	CacheControl string
+	Overwrite    bool
+	Count        bool
 }

@@ -37,6 +37,10 @@ import (
 	"gopkg.in/src-d/go-billy.v4"
 )
 
+func init() {
+	assets.Init()
+}
+
 func New(shutdown chan struct{}) *Handler {
 	h := &Handler{
 		mux:       http.NewServeMux(),
