@@ -54,17 +54,20 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 
 		sent[archive.ImportPath] = true
 
-		if std.Index[archive.ImportPath] != nil {
-			// All standard library archives are in the CDN, so we instruct the client to get them from
-			// there. This way we can benefit from browser caching.
-			c.send(messages.Archive{
-				Path:     archive.ImportPath,
-				Hash:     hash,
-				Contents: nil,
-				Standard: true,
-			})
-			return nil
-		}
+		// TODO: uncomment when deploy works
+		/*
+			if std.Index[archive.ImportPath] != nil {
+				// All standard library archives are in the CDN, so we instruct the client to get them from
+				// there. This way we can benefit from browser caching.
+				c.send(messages.Archive{
+					Path:     archive.ImportPath,
+					Hash:     hash,
+					Contents: buf.Bytes(),
+					Standard: true,
+				})
+				return nil
+			}
+		*/
 
 		buf := &bytes.Buffer{}
 
@@ -80,7 +83,7 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 			Path:     archive.ImportPath,
 			Hash:     hash,
 			Contents: buf.Bytes(),
-			Standard: false,
+			Standard: std.Index[archive.ImportPath] != nil, // TODO: reset to "false" when deploy works
 		})
 
 		return nil

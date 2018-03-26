@@ -1,6 +1,7 @@
 package builderjs
 
 import (
+	"context"
 	"errors"
 	"go/token"
 	"go/types"
@@ -12,6 +13,9 @@ import (
 	"fmt"
 
 	"strings"
+
+	"bytes"
+	"crypto/sha1"
 
 	"github.com/gopherjs/gopherjs/compiler"
 	"golang.org/x/tools/go/gcimporter15"
@@ -100,4 +104,66 @@ func BuildPackage(source map[string]string, deps []*compiler.Archive, minify boo
 	*/
 
 	return archive, nil
+}
+
+func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, initializer bool) (contents []byte, hash []byte, err error) {
+	dceSelection := make(map[*compiler.Decl]struct{})
+	for _, d := range archive.Declarations {
+		dceSelection[d] = struct{}{}
+	}
+	buf := new(bytes.Buffer)
+
+	if initializer {
+		var s string
+		if minify {
+			s = `$load["%s"]=function(){`
+		} else {
+			s = `$load["%s"] = function () {` + "\n"
+		}
+		if _, err := fmt.Fprintf(buf, s, archive.ImportPath); err != nil {
+			return nil, nil, err
+		}
+	}
+	if WithCancel(ctx, func() {
+		err = compiler.WritePkgCode(archive, dceSelection, minify, &compiler.SourceMapFilter{Writer: buf})
+	}) {
+		return nil, nil, ctx.Err()
+	}
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if minify {
+		// compiler.WritePkgCode always finishes with a "\n". In minified mode we should remove this.
+		buf.Truncate(buf.Len() - 1)
+	}
+
+	if initializer {
+		if _, err := fmt.Fprint(buf, "};"); err != nil {
+			return nil, nil, err
+		}
+	}
+
+	sha := sha1.New()
+	if _, err := sha.Write(buf.Bytes()); err != nil {
+		return nil, nil, err
+	}
+	return buf.Bytes(), sha.Sum(nil), nil
+}
+
+// WithCancel executes the provided function, but returns early with true if the context cancellation
+// signal was recieved.
+func WithCancel(ctx context.Context, f func()) bool {
+
+	finished := make(chan struct{})
+	go func() {
+		f()
+		close(finished)
+	}()
+	select {
+	case <-finished:
+		return false
+	case <-ctx.Done():
+		return true
+	}
 }
