@@ -1,9 +1,8 @@
 package queue
 
 import (
+	"errors"
 	"sync"
-
-	"github.com/pkg/errors"
 )
 
 func New(workers, max int) *Queue {

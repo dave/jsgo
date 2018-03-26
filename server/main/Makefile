@@ -2,12 +2,12 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v101
+VER=v104
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
 DEPLOYMENT=back-deployment
-BUCKET=dev-src.jsgo.io
+BUCKET=dev-pkg.jsgo.io
 
 # Run this to do a full deploy (remember to increment VER first)
 all:

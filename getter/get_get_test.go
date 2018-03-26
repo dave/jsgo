@@ -63,7 +63,7 @@ func TestClone2(t *testing.T) {
 	}
 
 	_, err = git.CloneContext(ctx, store, fs, &git.CloneOptions{
-		URL:               "https://gopkg.in/src-d/go-billy.v4",
+		URL:               "https://code.googlesource.com/google-api-go-client",
 		SingleBranch:      true,
 		Depth:             1,
 		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
@@ -77,7 +77,7 @@ func TestClone2(t *testing.T) {
 func TestNew(t *testing.T) {
 	fs := memfs.New()
 	c := New(fs, os.Stdout, []string{})
-	if err := c.Get(context.Background(), "gopkg.in/src-d/go-billy.v4", false, false); err != nil {
+	if err := c.Get(context.Background(), "gopkg.in/src-d/go-billy.v4", false, false, false); err != nil {
 		t.Fatal(err.Error())
 	}
 	var printDir func(string) error
