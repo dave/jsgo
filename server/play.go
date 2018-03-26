@@ -111,12 +111,26 @@ func playgroundGet(ctx context.Context, info messages.Get, path string, req *htt
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
+	if config.UseLocal {
+		// KLUDGE JUST FOR TESTING IN LOCAL MODE: "main" dir will be created in gopath/src. Remove it
+		// before starting.
+		if err := os.RemoveAll(filepath.Join(build.Default.GOPATH, "src", "main")); err != nil {
+			return err
+		}
+
+		local := osfs.New(filepath.Join(build.Default.GOPATH, "src"))
+		mounted := mount.New(fs, filepath.Join("gopath", "src"), local)
+		fs = chroot.New(mounted, "/")
+	}
+
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
-	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false, true); err != nil {
-		return err
+	if !config.UseLocal {
+		// Start the download process - just like the "go get" command.
+		if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false, true); err != nil {
+			return err
+		}
 	}
 
 	// Send a message to the client that downloading step has finished.
@@ -156,6 +170,12 @@ func playgroundGet(ctx context.Context, info messages.Get, path string, req *htt
 func playgroundShare(ctx context.Context, info messages.Share, path string, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
 	send(messages.Storing{Starting: true})
+
+	if config.UseLocal {
+		// dummy for local dev
+		send(messages.ShareComplete{Hash: "56f9ea337c5f39631fa095e789e44957344e498f"})
+		return nil
+	}
 
 	buf := &bytes.Buffer{}
 	sha := sha1.New()

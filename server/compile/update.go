@@ -9,6 +9,7 @@ import (
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/gopherjs/gopherjs/compiler"
 )
@@ -20,9 +21,15 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 	session := builder.NewSession(c.defaultOptions(log, false))
 
 	index := messages.Index{}
-	sent := map[string]bool{}
+	done := map[string]bool{}
 
 	session.Callback = func(archive *compiler.Archive) error {
+
+		if done[archive.ImportPath] {
+			return nil
+		}
+
+		done[archive.ImportPath] = true
 
 		if archive.ImportPath == "main" {
 			return nil
@@ -52,22 +59,19 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 			return nil
 		}
 
-		sent[archive.ImportPath] = true
-
-		// TODO: uncomment when deploy works
-		/*
-			if std.Index[archive.ImportPath] != nil {
+		if !config.UseLocal {
+			if hashPair := std.Index[archive.ImportPath]; hashPair != nil {
 				// All standard library archives are in the CDN, so we instruct the client to get them from
 				// there. This way we can benefit from browser caching.
 				c.send(messages.Archive{
 					Path:     archive.ImportPath,
-					Hash:     hash,
-					Contents: buf.Bytes(),
+					Hash:     hashPair[false],
+					Contents: nil,
 					Standard: true,
 				})
 				return nil
 			}
-		*/
+		}
 
 		buf := &bytes.Buffer{}
 
@@ -83,7 +87,7 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 			Path:     archive.ImportPath,
 			Hash:     hash,
 			Contents: buf.Bytes(),
-			Standard: std.Index[archive.ImportPath] != nil, // TODO: reset to "false" when deploy works
+			Standard: false,
 		})
 
 		return nil
