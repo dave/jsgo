@@ -16,7 +16,10 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
-func jsgoCompile(ctx context.Context, path string, req *http.Request, send func(messages.Message)) {
+func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message) error {
+
+	path := info.Path
+
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
@@ -25,8 +28,7 @@ func jsgoCompile(ctx context.Context, path string, req *http.Request, send func(
 
 	// Start the download process - just like the "go get" command.
 	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false, false); err != nil {
-		sendAndStoreError(ctx, send, path, err, req)
-		return
+		return err
 	}
 
 	// Send a message to the client that downloading step has finished.
@@ -35,8 +37,7 @@ func jsgoCompile(ctx context.Context, path string, req *http.Request, send func(
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
 	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send})
 	if err != nil {
-		sendAndStoreError(ctx, send, path, err, req)
-		return
+		return err
 	}
 
 	// Logs the success in the datastore
@@ -49,6 +50,7 @@ func jsgoCompile(ctx context.Context, path string, req *http.Request, send func(
 		HashMin: fmt.Sprintf("%x", min.Hash),
 		HashMax: fmt.Sprintf("%x", max.Hash),
 	})
+	return nil
 }
 
 func storeSuccess(ctx context.Context, send func(messages.Message), path string, req *http.Request, min, max *compile.CompileOutput) {

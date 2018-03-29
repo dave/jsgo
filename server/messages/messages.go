@@ -26,6 +26,7 @@ var payloads = []interface{}{
 	GetComplete{},
 
 	// Commands:
+	Compile{},
 	Update{},
 	Share{},
 	Get{},
@@ -92,6 +93,10 @@ type Share struct {
 
 type Deploy struct {
 	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
+}
+
+type Compile struct {
+	Path string
 }
 
 // Get is sent by the client to the server asking it to download a package and return the source.
