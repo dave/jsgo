@@ -23,6 +23,8 @@ import (
 
 	"strings"
 
+	"sync"
+
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
@@ -48,13 +50,13 @@ func New(goroot, gopath billy.Filesystem, send func(messages.Message)) *Compiler
 
 type CompileOutput struct {
 	*builder.CommandOutput
-	Hash []byte
+	MainHash, IndexHash []byte
 }
 
-func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer) (min, max *CompileOutput, err error) {
+func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play bool) (map[bool]*CompileOutput, error) {
 	client, err := storage.NewClient(ctx)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	defer client.Close()
 
@@ -64,48 +66,77 @@ func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer) (min
 	c.send(messages.Compiling{Starting: true})
 	c.send(messages.Storing{Starting: true})
 
-	data, outputMin, err := c.compileAndStore(ctx, path, storer, log, true)
-	if err != nil {
-		return nil, nil, err
-	}
-	_, outputMax, err := c.compileAndStore(ctx, path, storer, log, false)
-	if err != nil {
-		return nil, nil, err
+	wg := &sync.WaitGroup{}
+
+	outputs := map[bool]*builder.CommandOutput{}
+	mainHashes := map[bool][]byte{}
+	indexHashes := map[bool][]byte{}
+
+	var outer error
+	do := func(min bool) {
+		defer wg.Done()
+
+		var err error
+		var data *builder.PackageData
+
+		data, outputs[min], err = c.compileAndStore(ctx, path, storer, log, min)
+		if err != nil {
+			outer = err
+			return
+		}
+
+		c.send(messages.Compiling{Message: "Loader"})
+
+		mainHashes[min], err = genMain(ctx, storer, outputs[min], min)
+		if err != nil {
+			outer = err
+			return
+		}
+
+		c.send(messages.Compiling{Message: "Index"})
+
+		tpl, err := c.getIndexTpl(data.Dir)
+		if err != nil {
+			outer = err
+			return
+		}
+
+		indexHashes[min], err = genIndex(storer, tpl, path, mainHashes[min], min, play)
+		if err != nil {
+			outer = err
+			return
+		}
 	}
 
-	c.send(messages.Compiling{Message: "Loader"})
-	hashMin, err := genMain(ctx, storer, outputMin, true)
-	if err != nil {
-		return nil, nil, err
+	wg.Add(1)
+	go do(true)
+	if !play {
+		// TODO: make this configurable
+		wg.Add(1)
+		go do(false)
 	}
-	hashMax, err := genMain(ctx, storer, outputMax, false)
-	if err != nil {
-		return nil, nil, err
+	wg.Wait()
+	if outer != nil {
+		return nil, outer
 	}
-
-	c.send(messages.Compiling{Message: "Index"})
-
-	tpl, err := c.getIndexTpl(data.Dir)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	if err := genIndex(storer, tpl, path, hashMin, true); err != nil {
-		return nil, nil, err
-	}
-	if err := genIndex(storer, tpl, path, hashMax, false); err != nil {
-		return nil, nil, err
-	}
-
 	c.send(messages.Compiling{Done: true})
+
 	storer.Wait()
 	if storer.Err != nil {
-		fmt.Println("detected fail")
-		return nil, nil, storer.Err
+		return nil, storer.Err
 	}
 	c.send(messages.Storing{Done: true})
 
-	return &CompileOutput{CommandOutput: outputMin, Hash: hashMin}, &CompileOutput{CommandOutput: outputMax, Hash: hashMax}, nil
+	out := map[bool]*CompileOutput{}
+	for min := range outputs {
+		out[min] = &CompileOutput{
+			CommandOutput: outputs[min],
+			MainHash:      mainHashes[min],
+			IndexHash:     indexHashes[min],
+		}
+	}
+
+	return out, nil
 
 }
 
@@ -204,41 +235,43 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func genIndex(storer *Storer, tpl *template.Template, path string, hash []byte, min bool) error {
+func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []byte, min, play bool) ([]byte, error) {
 
 	v := IndexVars{
 		Path:   path,
-		Hash:   fmt.Sprintf("%x", hash),
-		Script: fmt.Sprintf("https://%s/%s.%x.js", config.PkgHost, path, hash),
+		Hash:   fmt.Sprintf("%x", loaderHash),
+		Script: fmt.Sprintf("https://%s/%s.%x.js", config.PkgHost, path, loaderHash),
 	}
 
 	buf := &bytes.Buffer{}
-	if err := tpl.Execute(buf, v); err != nil {
-		return err
+	sha := sha1.New()
+
+	if err := tpl.Execute(io.MultiWriter(buf, sha), v); err != nil {
+		return nil, err
 	}
 
-	fullpath := path
-	if !min {
-		fullpath = fmt.Sprintf("%s$max", path)
-	}
+	indexHash := sha.Sum(nil)
 
-	shortpath := strings.TrimPrefix(fullpath, "github.com/")
-
-	var message string
-	if min {
-		message = "Index (minified)"
+	if play {
+		storer.AddHtmlCached("Index", fmt.Sprintf("%x", indexHash), buf.Bytes())
+		storer.AddHtmlCached("", fmt.Sprintf("%s/index.html", fmt.Sprintf("%x", indexHash)), buf.Bytes())
 	} else {
-		message = "Index (un-minified)"
-	}
-	storer.AddHtml(message, shortpath, buf.Bytes())
-	storer.AddHtml("", fmt.Sprintf("%s/index.html", shortpath), buf.Bytes())
+		fullpath := path
+		if !min {
+			fullpath = fmt.Sprintf("%s$max", path)
+		}
+		shortpath := strings.TrimPrefix(fullpath, "github.com/")
 
-	if shortpath != fullpath {
-		storer.AddHtml("", fullpath, buf.Bytes())
-		storer.AddHtml("", fmt.Sprintf("%s/index.html", fullpath), buf.Bytes())
+		storer.AddHtml("Index", shortpath, buf.Bytes())
+		storer.AddHtml("", fmt.Sprintf("%s/index.html", shortpath), buf.Bytes())
+
+		if shortpath != fullpath {
+			storer.AddHtml("", fullpath, buf.Bytes())
+			storer.AddHtml("", fmt.Sprintf("%s/index.html", fullpath), buf.Bytes())
+		}
 	}
 
-	return nil
+	return indexHash, nil
 
 }
 

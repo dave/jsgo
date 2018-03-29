@@ -24,6 +24,7 @@ var payloads = []interface{}{
 	Index{},
 	ShareComplete{},
 	GetComplete{},
+	DeployComplete{},
 
 	// Commands:
 	Compile{},
@@ -69,6 +70,11 @@ type Complete struct {
 	Short   string
 	HashMin string
 	HashMax string
+}
+
+type DeployComplete struct {
+	Main  string
+	Index string
 }
 
 type Error struct {

@@ -8,7 +8,11 @@ import (
 	"path/filepath"
 	"strings"
 
+	"fmt"
+
+	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/getter"
+	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -40,13 +44,20 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})
 
-	//c := compile.New(assets.Assets, fs, send)
+	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
+	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, "main", compileWriter{send: send}, true)
+	if err != nil {
+		return err
+	}
 
-	//if err := c.Update(ctx, info, updateWriter{send: send}); err != nil {
-	//	return err
-	//}
+	// TODO: store in database
 
-	//return nil
+	// Send a message to the client that the process has successfully finished
+	// TODO: make minify configurable
+	send(messages.DeployComplete{
+		Main:  fmt.Sprintf("%x", output[true].MainHash),
+		Index: fmt.Sprintf("%x", output[true].IndexHash),
+	})
 
 	return nil
 }

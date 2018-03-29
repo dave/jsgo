@@ -140,6 +140,10 @@ func (s *Storer) AddHtml(message, name string, contents []byte) {
 	s.add(message, name, contents, config.IndexBucket, "text/html", false, false, true)
 }
 
+func (s *Storer) AddHtmlCached(message, name string, contents []byte) {
+	s.add(message, name, contents, config.IndexBucket, "text/html", true, true, false)
+}
+
 func (s *Storer) AddZip(message, name string, contents []byte) {
 	s.add(message, name, contents, config.PkgBucket, "application/zip", false, false, true)
 }

@@ -35,28 +35,28 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	min, max, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send})
+	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send}, false)
 	if err != nil {
 		return err
 	}
 
 	// Logs the success in the datastore
-	storeSuccess(ctx, send, path, req, min, max)
+	storeSuccess(ctx, send, path, req, output)
 
 	// Send a message to the client that the process has successfully finished
 	send(messages.Complete{
 		Path:    path,
 		Short:   strings.TrimPrefix(path, "github.com/"),
-		HashMin: fmt.Sprintf("%x", min.Hash),
-		HashMax: fmt.Sprintf("%x", max.Hash),
+		HashMin: fmt.Sprintf("%x", output[true].MainHash),
+		HashMax: fmt.Sprintf("%x", output[false].MainHash),
 	})
 	return nil
 }
 
-func storeSuccess(ctx context.Context, send func(messages.Message), path string, req *http.Request, min, max *compile.CompileOutput) {
+func storeSuccess(ctx context.Context, send func(messages.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
 	getCompileContents := func(c *compile.CompileOutput, min bool) store.CompileContents {
 		val := store.CompileContents{}
-		val.Main = fmt.Sprintf("%x", c.Hash)
+		val.Main = fmt.Sprintf("%x", c.MainHash)
 		preludeHash := std.Prelude[min]
 		val.Packages = []store.CompilePackage{
 			{
@@ -79,8 +79,8 @@ func storeSuccess(ctx context.Context, send func(messages.Message), path string,
 		Path:    path,
 		Time:    time.Now(),
 		Success: true,
-		Min:     getCompileContents(min, true),
-		Max:     getCompileContents(max, false),
+		Min:     getCompileContents(output[true], true),
+		Max:     getCompileContents(output[false], false),
 		Ip:      req.Header.Get("X-Forwarded-For"),
 	}
 
