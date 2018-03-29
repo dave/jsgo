@@ -29,6 +29,7 @@ var payloads = []interface{}{
 	Update{},
 	Share{},
 	Get{},
+	Deploy{},
 }
 
 type Queueing struct {
@@ -87,6 +88,10 @@ type Update struct {
 type Share struct {
 	Version int                          `json:"version"`
 	Source  map[string]map[string]string `json:"source"` // Source packages for this build: map[<package>]map[<filename>]<contents>
+}
+
+type Deploy struct {
+	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
 }
 
 // Get is sent by the client to the server asking it to download a package and return the source.
