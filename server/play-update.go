@@ -25,22 +25,15 @@ import (
 )
 
 func playUpdate(ctx context.Context, info messages.Update, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+
 	mainPackageSource, ok := info.Source["main"]
 	if !ok {
 		return errors.New("can't find main package in source")
 	}
 
-	fset := token.NewFileSet()
-	var files []*ast.File
-	for name, contents := range mainPackageSource {
-		if !strings.HasSuffix(name, ".go") {
-			continue
-		}
-		f, err := parser.ParseFile(fset, name, contents, parser.ImportsOnly)
-		if err != nil {
-			return err
-		}
-		files = append(files, f)
+	files, err := parseForImports(mainPackageSource)
+	if err != nil {
+		return err
 	}
 
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
@@ -83,29 +76,8 @@ func playUpdate(ctx context.Context, info messages.Update, req *http.Request, se
 		}
 	}
 
-	// Add a dummy package to the filesystem that we can build
-	dir := filepath.Join("gopath", "src", "main")
-	if err := fs.MkdirAll(dir, 0777); err != nil {
+	if err := storeTemporaryPackage(fs, "main", mainPackageSource); err != nil {
 		return err
-	}
-	createFile := func(name, contents string) error {
-		file, err := fs.Create(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		if _, err := file.Write([]byte(contents)); err != nil {
-			return err
-		}
-		return nil
-	}
-	for name, contents := range mainPackageSource {
-		if !strings.HasSuffix(name, ".go") {
-			continue
-		}
-		if err := createFile(name, contents); err != nil {
-			return err
-		}
 	}
 
 	// Send a message to the client that downloading step has finished.
@@ -128,4 +100,20 @@ type updateWriter struct {
 func (w updateWriter) Write(b []byte) (n int, err error) {
 	w.send(messages.Updating{Message: strings.TrimSuffix(string(b), "\n")})
 	return len(b), nil
+}
+
+func parseForImports(source map[string]string) ([]*ast.File, error) {
+	fset := token.NewFileSet()
+	var files []*ast.File
+	for name, contents := range source {
+		if !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, contents, parser.ImportsOnly)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, f)
+	}
+	return files, nil
 }
