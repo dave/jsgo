@@ -62,38 +62,28 @@ var upgrader = websocket.Upgrader{
 }
 
 func sendAndStoreError(ctx context.Context, send func(messages.Message), path string, err error, req *http.Request) {
-	storeError(ctx, path, err, req)
-	sendError(send, path, err)
+	storeError(ctx, err, req)
+	sendError(send, err)
 }
 
-func sendError(send func(messages.Message), path string, err error) {
-	if p, ok := err.(Pather); ok {
-		path = p.Path()
-	}
+func sendError(send func(messages.Message), err error) {
 	send(messages.Error{
-		Path:    path,
 		Message: err.Error(),
 	})
 }
 
-func storeError(ctx context.Context, path string, err error, req *http.Request) {
+func storeError(ctx context.Context, err error, req *http.Request) {
 
 	if err == queue.TooManyItemsQueued {
 		// If the server is getting flooded by a DOS, this will prevent database flooding
 		return
 	}
 
-	if p, ok := err.(Pather); ok {
-		path = p.Path()
-	}
-
 	// ignore errors when logging an error
-	store.Save(ctx, path, store.CompileData{
-		Path:    path,
-		Time:    time.Now(),
-		Success: false,
-		Error:   err.Error(),
-		Ip:      req.Header.Get("X-Forwarded-For"),
+	store.StoreError(ctx, store.Error{
+		Time:  time.Now(),
+		Error: err.Error(),
+		Ip:    req.Header.Get("X-Forwarded-For"),
 	})
 
 }

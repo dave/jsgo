@@ -9,10 +9,13 @@ import (
 	"io"
 	"net/http"
 
+	"time"
+
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/store"
 )
 
 func playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
@@ -45,7 +48,30 @@ func playShare(ctx context.Context, info messages.Share, req *http.Request, send
 
 	send(messages.Storing{Done: true})
 
+	if err := storeShare(ctx, info.Source, fmt.Sprintf("%x", hash), send, req); err != nil {
+		return err
+	}
+
 	send(messages.ShareComplete{Hash: fmt.Sprintf("%x", hash)})
 
+	return nil
+}
+
+func storeShare(ctx context.Context, source map[string]map[string]string, hash string, send func(messages.Message), req *http.Request) error {
+	var count int
+	for _, pkg := range source {
+		for range pkg {
+			count++
+		}
+	}
+	data := store.ShareData{
+		Time:  time.Now(),
+		Ip:    req.Header.Get("X-Forwarded-For"),
+		Files: count,
+		Hash:  hash,
+	}
+	if err := store.StoreShare(ctx, data); err != nil {
+		return err
+	}
 	return nil
 }

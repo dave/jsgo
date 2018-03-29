@@ -43,7 +43,7 @@ func (h *Handler) handleCompilePage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	found, data, err := store.Lookup(ctx, path)
+	found, data, err := store.Package(ctx, path)
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
@@ -188,7 +188,7 @@ var compilePageTemplate = template.Must(template.New("main").Parse(`
 		document.getElementById("short-url-checkbox").onchange = refresh;
 		document.getElementById("btn").onclick = function(event) {
 			event.preventDefault();
-			var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/{{ .Path }}");
+			var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/");
 
 			var headerPanel = document.getElementById("header-panel");
 			var buttonPanel = document.getElementById("button-panel");
@@ -201,6 +201,12 @@ var compilePageTemplate = template.Must(template.New("main").Parse(`
 			var complete = false;
 
 			socket.onopen = function() {
+				socket.send(JSON.stringify({
+					"Type": "Compile",
+					"Message": {
+						"Path": "{{ .Path }}"
+					}
+				}));
 				buttonPanel.style.display = "none";
 				progressPanel.style.display = "";
 			};
@@ -269,7 +275,7 @@ func (h *Handler) handlePlayPage(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), config.PageTimeout)
 	defer cancel()
 
-	found, c, err := store.Lookup(ctx, "github.com/dave/play")
+	found, c, err := store.Package(ctx, "github.com/dave/play")
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return

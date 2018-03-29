@@ -45,7 +45,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
-		storeError(ctx, "", fmt.Errorf("upgrading request to websocket: %v", err), req)
+		storeError(ctx, fmt.Errorf("upgrading request to websocket: %v", err), req)
 		return
 	}
 
@@ -128,12 +128,12 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 					// Don't bother storing an error if the client disconnects gracefully
 					break
 				}
-				storeError(ctx, "", err, req)
+				storeError(ctx, err, req)
 				break
 			}
 			message, err := messages.Unmarshal(messageBytes)
 			if err != nil {
-				storeError(ctx, "", err, req)
+				storeError(ctx, err, req)
 				break
 			}
 			select {

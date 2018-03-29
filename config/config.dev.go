@@ -13,6 +13,9 @@ const (
 	PkgHost   = "dev-pkg.jsgo.io"
 	IndexHost = "dev-index.jsgo.io"
 
+	ErrorKind   = "ErrorDev"
 	CompileKind = "CompileDev"
 	PackageKind = "PackageDev"
+	DeployKind  = "DeployDev"
+	ShareKind   = "ShareDev"
 )

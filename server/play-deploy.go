@@ -10,10 +10,14 @@ import (
 
 	"fmt"
 
+	"time"
+
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/store"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -50,7 +54,9 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 		return err
 	}
 
-	// TODO: store in database
+	if err := storeDeploy(ctx, send, true, req, output[true]); err != nil {
+		return err
+	}
 
 	// Send a message to the client that the process has successfully finished
 	// TODO: make minify configurable
@@ -88,4 +94,39 @@ func storeTemporaryPackage(fs billy.Filesystem, path string, source map[string]s
 		}
 	}
 	return nil
+}
+
+func storeDeploy(ctx context.Context, send func(messages.Message), min bool, req *http.Request, output *compile.CompileOutput) error {
+	data := store.DeployData{
+		Time:     time.Now(),
+		Contents: getDeployContents(output, min),
+		Minify:   min, // TODO: make this configurable
+		Ip:       req.Header.Get("X-Forwarded-For"),
+	}
+	if err := store.StoreDeploy(ctx, data); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getDeployContents(c *compile.CompileOutput, min bool) store.DeployContents {
+	val := store.DeployContents{}
+	val.Main = fmt.Sprintf("%x", c.MainHash)
+	val.Index = fmt.Sprintf("%x", c.IndexHash)
+	preludeHash := std.Prelude[min]
+	val.Packages = []store.CompilePackage{
+		{
+			Path:     "prelude",
+			Hash:     preludeHash,
+			Standard: true,
+		},
+	}
+	for _, p := range c.Packages {
+		val.Packages = append(val.Packages, store.CompilePackage{
+			Path:     p.Path,
+			Hash:     fmt.Sprintf("%x", p.Hash),
+			Standard: p.Standard,
+		})
+	}
+	return val
 }

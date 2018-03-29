@@ -78,7 +78,6 @@ type DeployComplete struct {
 }
 
 type Error struct {
-	Path    string
 	Message string
 }
 

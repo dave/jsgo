@@ -41,7 +41,7 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	}
 
 	// Logs the success in the datastore
-	storeSuccess(ctx, send, path, req, output)
+	storeCompile(ctx, send, path, req, output)
 
 	// Send a message to the client that the process has successfully finished
 	send(messages.Complete{
@@ -53,43 +53,41 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	return nil
 }
 
-func storeSuccess(ctx context.Context, send func(messages.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
-	getCompileContents := func(c *compile.CompileOutput, min bool) store.CompileContents {
-		val := store.CompileContents{}
-		val.Main = fmt.Sprintf("%x", c.MainHash)
-		preludeHash := std.Prelude[min]
-		val.Packages = []store.CompilePackage{
-			{
-				Path:     "prelude",
-				Hash:     preludeHash,
-				Standard: true,
-			},
-		}
-		for _, p := range c.Packages {
-			val.Packages = append(val.Packages, store.CompilePackage{
-				Path:     p.Path,
-				Hash:     fmt.Sprintf("%x", p.Hash),
-				Standard: p.Standard,
-			})
-		}
-		return val
-	}
-
+func storeCompile(ctx context.Context, send func(messages.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
 	data := store.CompileData{
 		Path:    path,
 		Time:    time.Now(),
-		Success: true,
 		Min:     getCompileContents(output[true], true),
 		Max:     getCompileContents(output[false], false),
 		Ip:      req.Header.Get("X-Forwarded-For"),
+		Success: true,
 	}
-
-	if err := store.Save(ctx, path, data); err != nil {
+	if err := store.StoreCompile(ctx, path, data); err != nil {
 		// don't save this one to the datastore because it's an error from the datastore.
-		sendAndStoreError(ctx, send, path, err, req)
+		sendError(send, err)
 		return
 	}
+}
 
+func getCompileContents(c *compile.CompileOutput, min bool) store.CompileContents {
+	val := store.CompileContents{}
+	val.Main = fmt.Sprintf("%x", c.MainHash)
+	preludeHash := std.Prelude[min]
+	val.Packages = []store.CompilePackage{
+		{
+			Path:     "prelude",
+			Hash:     preludeHash,
+			Standard: true,
+		},
+	}
+	for _, p := range c.Packages {
+		val.Packages = append(val.Packages, store.CompilePackage{
+			Path:     p.Path,
+			Hash:     fmt.Sprintf("%x", p.Hash),
+			Standard: p.Standard,
+		})
+	}
+	return val
 }
 
 type compileWriter struct {
