@@ -2,7 +2,6 @@ package builderjs
 
 import (
 	"context"
-	"errors"
 	"go/token"
 	"go/types"
 	"sort"
@@ -21,7 +20,7 @@ import (
 	"golang.org/x/tools/go/gcimporter15"
 )
 
-func BuildPackage(source map[string]string, deps []*compiler.Archive, minify bool) (*compiler.Archive, error) {
+func BuildPackage(path string, source map[string]map[string]string, deps []*compiler.Archive, minify bool) (*compiler.Archive, error) {
 
 	archives := map[string]*compiler.Archive{}
 	packages := map[string]*types.Package{}
@@ -35,42 +34,29 @@ func BuildPackage(source map[string]string, deps []*compiler.Archive, minify boo
 		packages[a.ImportPath] = p
 	}
 
-	importPath := "main"
-
 	fset := token.NewFileSet()
-	var files []*ast.File
-	for name, contents := range source {
-		if !strings.HasSuffix(name, ".go") {
-			continue
-		}
-		f, err := parser.ParseFile(fset, name, contents, parser.ParseComments)
-		if err != nil {
-			return nil, err
-		}
-		files = append(files, f)
-	}
 
-	importContext := &compiler.ImportContext{
+	var importContext *compiler.ImportContext
+	importContext = &compiler.ImportContext{
 		Packages: packages,
-		Import: func(path string) (*compiler.Archive, error) {
-			if path == "main" {
-				return nil, errors.New("can't import main package")
+		Import: func(imp string) (*compiler.Archive, error) {
+			if sourceFiles, ok := source[imp]; ok {
+				// We have the source for this dep
+				archive, err := compileFiles(fset, imp, sourceFiles, importContext, minify)
+				if err != nil {
+					return nil, err
+				}
+				return archive, nil
 			}
-			a, ok := archives[path]
+			a, ok := archives[imp]
 			if !ok {
-				return nil, fmt.Errorf("%s not found", path)
+				return nil, fmt.Errorf("%s not found", imp)
 			}
 			return a, nil
 		},
 	}
 
-	// TODO: Remove this when https://github.com/gopherjs/gopherjs/pull/742 is merged
-	// Files must be in the same order to get reproducible JS
-	sort.Slice(files, func(i, j int) bool {
-		return fset.File(files[i].Pos()).Name() > fset.File(files[j].Pos()).Name()
-	})
-
-	archive, err := compiler.Compile(importPath, files, fset, importContext, minify)
+	archive, err := compileFiles(fset, path, source[path], importContext, minify)
 	if err != nil {
 		return nil, err
 	}
@@ -103,6 +89,32 @@ func BuildPackage(source map[string]string, deps []*compiler.Archive, minify boo
 		}
 	*/
 
+	return archive, nil
+}
+
+func compileFiles(fset *token.FileSet, path string, sourceFiles map[string]string, importContext *compiler.ImportContext, minify bool) (*compiler.Archive, error) {
+	var files []*ast.File
+	for name, contents := range sourceFiles {
+		if !strings.HasSuffix(name, ".go") {
+			continue
+		}
+		f, err := parser.ParseFile(fset, name, contents, parser.ParseComments)
+		if err != nil {
+			return nil, err
+		}
+		files = append(files, f)
+	}
+
+	// TODO: Remove this when https://github.com/gopherjs/gopherjs/pull/742 is merged
+	// Files must be in the same order to get reproducible JS
+	sort.Slice(files, func(i, j int) bool {
+		return fset.File(files[i].Pos()).Name() > fset.File(files[j].Pos()).Name()
+	})
+
+	archive, err := compiler.Compile(path, files, fset, importContext, minify)
+	if err != nil {
+		return nil, err
+	}
 	return archive, nil
 }
 

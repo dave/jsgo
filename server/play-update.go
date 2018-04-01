@@ -2,12 +2,13 @@ package server
 
 import (
 	"context"
-	"errors"
 	"go/ast"
 	"go/parser"
 	"go/token"
 	"net/http"
 	"strings"
+
+	"fmt"
 
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/getter"
@@ -18,15 +19,15 @@ import (
 
 func playUpdate(ctx context.Context, info messages.Update, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	if info.Source["main"] == nil {
-		return errors.New("can't find main package in source")
+	if info.Source[info.Main] == nil {
+		return fmt.Errorf("can't find main package %s in source", info.Main)
 	}
 
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
 	for path, source := range info.Source {
-		if err := storeTemporaryPackage(fs, path, source); err != nil {
+		if err := storeTemporaryPackage(fs, path, info.Main, source); err != nil {
 			return err
 		}
 	}

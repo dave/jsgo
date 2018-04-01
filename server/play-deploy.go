@@ -2,7 +2,6 @@ package server
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"path/filepath"
@@ -24,15 +23,15 @@ import (
 
 func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	if info.Source["main"] == nil {
-		return errors.New("can't find main package in source")
+	if info.Source[info.Main] == nil {
+		return fmt.Errorf("can't find main package %s in source", info.Main)
 	}
 
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
 	for path, source := range info.Source {
-		if err := storeTemporaryPackage(fs, path, source); err != nil {
+		if err := storeTemporaryPackage(fs, path, info.Main, source); err != nil {
 			return err
 		}
 	}
@@ -68,9 +67,14 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	return nil
 }
 
-func storeTemporaryPackage(fs billy.Filesystem, path string, source map[string]string) error {
+func storeTemporaryPackage(fs billy.Filesystem, path, mainPkg string, source map[string]string) error {
 	// Add a dummy package to the filesystem that we can build
-	dir := filepath.Join("gopath", "src", path)
+	var dir string
+	if path == mainPkg {
+		dir = filepath.Join("gopath", "src", "main")
+	} else {
+		dir = filepath.Join("gopath", "src", "main", "vendor", path)
+	}
 	if err := fs.MkdirAll(dir, 0777); err != nil {
 		return err
 	}
