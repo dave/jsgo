@@ -35,7 +35,7 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send}, false)
+	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send}, false, nil)
 	if err != nil {
 		return err
 	}

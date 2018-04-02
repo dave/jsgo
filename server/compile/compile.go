@@ -53,7 +53,14 @@ type CompileOutput struct {
 	MainHash, IndexHash []byte
 }
 
-func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play bool) (map[bool]*CompileOutput, error) {
+// Compile compiles path. If provided, source specifies the source packages. Including std lib packages
+// in source forces them to be compiled (if they are not included the pre-compiled Archives are used).
+func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play bool, source map[string]bool) (map[bool]*CompileOutput, error) {
+
+	if source == nil {
+		source = map[string]bool{}
+	}
+
 	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, err
@@ -79,7 +86,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play
 		var err error
 		var data *builder.PackageData
 
-		data, outputs[min], err = c.compileAndStore(ctx, path, storer, log, min)
+		data, outputs[min], err = c.compileAndStore(ctx, path, storer, log, min, source)
 		if err != nil {
 			outer = err
 			return
@@ -140,7 +147,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play
 
 }
 
-func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
+func (c *Compiler) defaultOptions(log io.Writer, min bool, source map[string]bool) *builder.Options {
 	return &builder.Options{
 		Root:        c.root,
 		Path:        c.path,
@@ -152,12 +159,13 @@ func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
 		Minify:      min,
 		Standard:    std.Index,
 		BuildTags:   []string{"jsgo"},
+		Source:      source,
 	}
 }
 
-func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, log io.Writer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, log io.Writer, min bool, source map[string]bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
-	session := builder.NewSession(c.defaultOptions(log, min))
+	session := builder.NewSession(c.defaultOptions(log, min, source))
 
 	data, archive, err := session.BuildImportPath(ctx, path)
 	if err != nil {
@@ -174,10 +182,10 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 	}
 
 	for _, po := range output.Packages {
-		if po.Standard {
+		if !po.Store {
 			continue
 		}
-		storer.AddJs(fmt.Sprintf("%s (minified)", po.Path), fmt.Sprintf("%s.%x.js", po.Path, po.Hash), po.Contents)
+		storer.AddJs(po.Path, fmt.Sprintf("%s.%x.js", po.Path, po.Hash), po.Contents)
 	}
 
 	return data, output, nil

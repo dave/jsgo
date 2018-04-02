@@ -453,6 +453,10 @@ type Options struct {
 	Color          bool
 	BuildTags      []string
 	Standard       map[string]map[bool]string
+
+	// Source: If provided, Source specifies the source packages. Including std lib packages in source
+	// forces them to be compiled (if they are not included, the pre-compiled archives are used).
+	Source map[string]bool
 }
 
 func (o *Options) PrintError(format string, a ...interface{}) {
@@ -519,6 +523,9 @@ func NewSession(options *Options) *Session {
 	}
 	if options.Temporary == nil {
 		options.Temporary = memfs.New()
+	}
+	if options.Source == nil {
+		options.Source = make(map[string]bool)
 	}
 
 	s := &Session{
@@ -664,11 +671,14 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 		return archive, nil
 	}
 
-	// If the archive exists in the std lib precompiled archives, load it...
-	if archive, err := s.ImportStandardArchive(ctx, importPath); err != nil {
-		return nil, err
-	} else if archive != nil {
-		return archive, nil
+	// If the path is not in the source collection, and the archive exists in the std lib precompiled
+	// archives, load it...
+	if !s.options.Source[importPath] {
+		if archive, err := s.ImportStandardArchive(ctx, importPath); err != nil {
+			return nil, err
+		} else if archive != nil {
+			return archive, nil
+		}
 	}
 
 	fileSet := token.NewFileSet()
@@ -687,7 +697,6 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 			_, archive, err := s.buildImportPathWithSrcDir(ctx, path, pkg.Dir)
 			if err != nil {
 				return nil, pathErr{error: err, path: path}
-
 			}
 			localImportPathCache[path] = archive
 			return archive, nil
@@ -824,6 +833,7 @@ type PackageOutput struct {
 	Hash     []byte
 	Contents []byte
 	Standard bool
+	Store    bool
 }
 
 func (s *Session) GetDependencies(ctx context.Context, archive *compiler.Archive) ([]*compiler.Archive, error) {
@@ -856,7 +866,7 @@ func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Arc
 		return nil, err
 	}
 
-	commandPath, packages, err := GetProgramCode(ctx, deps, s.options.Initializer, s.options.Standard)
+	commandPath, packages, err := GetProgramCode(ctx, deps, s.options.Initializer, s.options.Standard, s.options.Source)
 	if err != nil {
 		return nil, err
 	}
@@ -868,7 +878,7 @@ func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Arc
 	return c, nil
 }
 
-func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer bool, standard map[string]map[bool]string) (string, []*PackageOutput, error) {
+func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer bool, standard map[string]map[bool]string, source map[string]bool) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -876,15 +886,22 @@ func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer b
 	// write packages
 	var packageOutputs []*PackageOutput
 	for _, pkg := range pkgs {
-		if standard != nil {
-			if ph, ok := standard[pkg.ImportPath]; ok {
-				packageOutputs = append(packageOutputs, &PackageOutput{
-					Path:     pkg.ImportPath,
-					Hash:     Bytes(ph[minify]),
-					Standard: true,
-				})
-				continue
-			}
+
+		// look the path up in the list of pre-stored standard library packages, and use that instead of
+		// generating the package code... But only if the package doesn't exist in the source collection.
+		var std bool
+		var ph map[bool]string
+		ph, std = standard[pkg.ImportPath]
+
+		if std && !source[pkg.ImportPath] {
+			packageOutputs = append(packageOutputs, &PackageOutput{
+				Path:     pkg.ImportPath,
+				Hash:     Bytes(ph[minify]),
+				Contents: nil,
+				Standard: true,
+				Store:    false,
+			})
+			continue
 		}
 		contents, hash, err := GetPackageCode(ctx, pkg, minify, initializer)
 		if err != nil {
@@ -892,8 +909,10 @@ func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer b
 		}
 		packageOutputs = append(packageOutputs, &PackageOutput{
 			Path:     pkg.ImportPath,
-			Contents: contents,
 			Hash:     hash,
+			Contents: contents,
+			Standard: std,
+			Store:    true,
 		})
 	}
 	return mainPkg.ImportPath, packageOutputs, nil

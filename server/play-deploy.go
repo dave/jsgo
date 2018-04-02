@@ -30,8 +30,11 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
-	for path, source := range info.Source {
-		if err := storeTemporaryPackage(fs, path, info.Main, source); err != nil {
+	source := map[string]bool{}
+
+	for path, files := range info.Source {
+		source[path] = true
+		if err := storeTemporaryPackage(fs, path, info.Main, files); err != nil {
 			return err
 		}
 	}
@@ -48,7 +51,7 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, "main", compileWriter{send: send}, true)
+	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, "main", compileWriter{send: send}, true, source)
 	if err != nil {
 		return err
 	}

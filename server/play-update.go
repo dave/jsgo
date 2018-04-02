@@ -26,8 +26,11 @@ func playUpdate(ctx context.Context, info messages.Update, req *http.Request, se
 	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
 	fs := memfs.New()
 
-	for path, source := range info.Source {
-		if err := storeTemporaryPackage(fs, path, info.Main, source); err != nil {
+	source := map[string]bool{}
+
+	for path, files := range info.Source {
+		source[path] = true
+		if err := storeTemporaryPackage(fs, path, info.Main, files); err != nil {
 			return err
 		}
 	}
@@ -43,7 +46,7 @@ func playUpdate(ctx context.Context, info messages.Update, req *http.Request, se
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})
 
-	if err := compile.New(assets.Assets, fs, send).Update(ctx, info, updateWriter{send: send}); err != nil {
+	if err := compile.New(assets.Assets, fs, send).Update(ctx, info, updateWriter{send: send}, source); err != nil {
 		return err
 	}
 

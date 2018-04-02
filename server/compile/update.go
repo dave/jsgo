@@ -14,11 +14,11 @@ import (
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
-func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writer) error {
+func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writer, source map[string]bool) error {
 
 	c.send(messages.Updating{Starting: true})
 
-	session := builder.NewSession(c.defaultOptions(log, false))
+	session := builder.NewSession(c.defaultOptions(log, false, source))
 
 	index := messages.Index{}
 	done := map[string]bool{}
@@ -32,6 +32,11 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 		done[archive.ImportPath] = true
 
 		if archive.ImportPath == "main" {
+			return nil
+		}
+
+		if source[archive.ImportPath] {
+			// don't return anything if the package is in the source collection
 			return nil
 		}
 
