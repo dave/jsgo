@@ -20,18 +20,19 @@ import (
 	"golang.org/x/tools/go/gcimporter15"
 )
 
-func BuildPackage(path string, source map[string]map[string]string, deps []*compiler.Archive, minify bool) (*compiler.Archive, error) {
-
-	archives := map[string]*compiler.Archive{}
-	packages := map[string]*types.Package{}
+func BuildPackage(path string, source map[string]map[string]string, deps []*compiler.Archive, minify bool, archives map[string]*compiler.Archive, packages map[string]*types.Package) (*compiler.Archive, error) {
 
 	for _, a := range deps {
-		archives[a.ImportPath] = a
-		_, p, err := gcimporter.BImportData(token.NewFileSet(), packages, a.ExportData, a.ImportPath)
-		if err != nil {
-			return nil, err
+		if archives[a.ImportPath] == nil {
+			archives[a.ImportPath] = a
 		}
-		packages[a.ImportPath] = p
+		if packages[a.ImportPath] == nil {
+			_, p, err := gcimporter.BImportData(token.NewFileSet(), packages, a.ExportData, a.ImportPath)
+			if err != nil {
+				return nil, err
+			}
+			packages[a.ImportPath] = p
+		}
 	}
 
 	fset := token.NewFileSet()
@@ -40,7 +41,12 @@ func BuildPackage(path string, source map[string]map[string]string, deps []*comp
 	importContext = &compiler.ImportContext{
 		Packages: packages,
 		Import: func(imp string) (*compiler.Archive, error) {
-			if sourceFiles, ok := source[imp]; ok {
+			a, ok := archives[imp]
+			if ok {
+				return a, nil
+			}
+			sourceFiles, ok := source[imp]
+			if ok {
 				// We have the source for this dep
 				archive, err := compileFiles(fset, imp, sourceFiles, importContext, minify)
 				if err != nil {
@@ -48,11 +54,7 @@ func BuildPackage(path string, source map[string]map[string]string, deps []*comp
 				}
 				return archive, nil
 			}
-			a, ok := archives[imp]
-			if !ok {
-				return nil, fmt.Errorf("%s not found", imp)
-			}
-			return a, nil
+			return nil, fmt.Errorf("%s not found", imp)
 		},
 	}
 
