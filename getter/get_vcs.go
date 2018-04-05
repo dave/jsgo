@@ -80,7 +80,7 @@ type vcsPath struct {
 // version control system and code repository to use.
 // On return, root is the import path
 // corresponding to the root of the repository.
-func (s *Session) vcsFromDir(dir, srcRoot string) (root *repoRoot, err error) {
+func (g *Getter) vcsFromDir(dir, srcRoot string) (root *repoRoot, err error) {
 	// Clean and double-check that dir is in (a subdirectory of) srcRoot.
 	dir = filepath.Clean(dir)
 	srcRoot = filepath.Clean(srcRoot)
@@ -90,7 +90,7 @@ func (s *Session) vcsFromDir(dir, srcRoot string) (root *repoRoot, err error) {
 
 	origDir := dir
 	for len(dir) > len(srcRoot) {
-		if root, ok := s.downloadRootCache[dir]; ok {
+		if root, ok := g.downloadRootCache[dir]; ok {
 			return root, nil
 		}
 
@@ -133,10 +133,10 @@ var httpPrefixRE = regexp.MustCompile(`^https?:`)
 
 // repoRootForImportPath analyzes importPath to determine the
 // version control system, and code repository to use.
-func (s *Session) repoRootForImportPath(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
+func (g *Getter) repoRootForImportPath(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
 	rr, err := repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPaths)
 	if err == errUnknownSite {
-		rr, err = s.repoRootForImportDynamic(ctx, importPath, insecure)
+		rr, err = g.repoRootForImportDynamic(ctx, importPath, insecure)
 		if err != nil {
 			err = fmt.Errorf("unrecognized import path %q (%v)", importPath, err)
 		}
@@ -236,7 +236,7 @@ func repoRootFromVCSPaths(ctx context.Context, importPath, scheme string, insecu
 // statically known by repoRootForImportPathStatic.
 //
 // This handles custom import paths like "name.tld/pkg/foo" or just "name.tld".
-func (s *Session) repoRootForImportDynamic(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
+func (g *Getter) repoRootForImportDynamic(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
 	slash := strings.Index(importPath, "/")
 	if slash < 0 {
 		slash = len(importPath)
@@ -275,7 +275,7 @@ func (s *Session) repoRootForImportDynamic(ctx context.Context, importPath strin
 	if mmi.Prefix != importPath {
 		urlStr0 := urlStr
 		var imports []metaImport
-		urlStr, imports, err = s.metaImportsForPrefix(ctx, mmi.Prefix, insecure)
+		urlStr, imports, err = g.metaImportsForPrefix(ctx, mmi.Prefix, insecure)
 		if err != nil {
 			return nil, err
 		}
@@ -321,21 +321,21 @@ func validateRepoRoot(repoRoot string) error {
 // It is an error if no imports are found.
 // urlStr will still be valid if err != nil.
 // The returned urlStr will be of the form "https://golang.org/x/tools?go-get=1"
-func (s *Session) metaImportsForPrefix(ctx context.Context, importPrefix string, insecure bool) (urlStr string, imports []metaImport, err error) {
+func (g *Getter) metaImportsForPrefix(ctx context.Context, importPrefix string, insecure bool) (urlStr string, imports []metaImport, err error) {
 	setCache := func(res fetchResult) (fetchResult, error) {
-		s.fetchCacheMu.Lock()
-		defer s.fetchCacheMu.Unlock()
-		s.fetchCache[importPrefix] = res
+		g.fetchCacheMu.Lock()
+		defer g.fetchCacheMu.Unlock()
+		g.fetchCache[importPrefix] = res
 		return res, nil
 	}
 
-	resi, _, _ := s.fetchGroup.Do(importPrefix, func() (resi interface{}, err error) {
-		s.fetchCacheMu.Lock()
-		if res, ok := s.fetchCache[importPrefix]; ok {
-			s.fetchCacheMu.Unlock()
+	resi, _, _ := g.fetchGroup.Do(importPrefix, func() (resi interface{}, err error) {
+		g.fetchCacheMu.Lock()
+		if res, ok := g.fetchCache[importPrefix]; ok {
+			g.fetchCacheMu.Unlock()
 			return res, nil
 		}
-		s.fetchCacheMu.Unlock()
+		g.fetchCacheMu.Unlock()
 
 		urlStr, body, err := GetMaybeInsecure(ctx, importPrefix, insecure)
 		if err != nil {

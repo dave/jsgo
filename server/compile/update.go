@@ -5,7 +5,8 @@ import (
 	"compress/gzip"
 	"context"
 	"fmt"
-	"io"
+
+	"strings"
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
@@ -14,16 +15,16 @@ import (
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
-func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writer, source map[string]bool) error {
+func (c *Compiler) Update(ctx context.Context, info messages.Update) error {
 
 	c.send(messages.Updating{Starting: true})
 
-	session := builder.NewSession(c.defaultOptions(log, false, source))
+	b := builder.New(c.Session, c.defaultOptions(updateWriter{c.send}, false))
 
 	index := messages.Index{}
 	done := map[string]bool{}
 
-	session.Callback = func(archive *compiler.Archive) error {
+	b.Callback = func(archive *compiler.Archive) error {
 
 		if done[archive.ImportPath] {
 			return nil
@@ -31,11 +32,11 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 
 		done[archive.ImportPath] = true
 
-		if archive.ImportPath == "main" {
+		if archive.Name == "main" {
 			return nil
 		}
 
-		if source[archive.ImportPath] {
+		if c.HasSource(archive.ImportPath) {
 			// don't return anything if the package is in the source collection
 			return nil
 		}
@@ -99,11 +100,11 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 	}
 
 	// All programs need runtime and it's dependencies
-	if _, _, err := session.BuildImportPath(ctx, "runtime"); err != nil {
+	if _, _, err := b.BuildImportPath(ctx, "runtime"); err != nil {
 		return err
 	}
 
-	if _, _, err := session.BuildImportPath(ctx, "main"); err != nil {
+	if _, _, err := b.BuildImportPath(ctx, info.Main); err != nil {
 		return err
 	}
 
@@ -112,4 +113,13 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update, log io.Writ
 	c.send(messages.Updating{Done: true})
 
 	return nil
+}
+
+type updateWriter struct {
+	send func(messages.Message)
+}
+
+func (w updateWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Updating{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
 }

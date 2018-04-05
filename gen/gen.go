@@ -26,6 +26,7 @@ import (
 	"github.com/dave/jsgo/builder/fscopy"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
+	"github.com/dave/jsgo/session"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
@@ -78,15 +79,13 @@ func main() {
 func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 
+	s, err := session.New(nil, nil, root)
+	if err != nil {
+		return err
+	}
+
 	buildAndSend := func(min bool) error {
-		session := builder.NewSession(&builder.Options{
-			Root:        root,
-			Path:        memfs.New(),
-			Temporary:   memfs.New(),
-			Unvendor:    true,
-			Initializer: true,
-			Minify:      min,
-		})
+		b := builder.New(s, &builder.Options{Unvendor: true, Initializer: true, Minify: min})
 
 		var minified = " (un-minified)"
 		if min {
@@ -96,11 +95,11 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 		sent := map[string]bool{}
 		for _, p := range packages {
 			fmt.Println("Compiling:", p+minified)
-			if _, _, err := session.BuildImportPath(ctx, p); err != nil {
+			if _, _, err := b.BuildImportPath(ctx, p); err != nil {
 				return err
 			}
 
-			for _, archive := range session.Archives {
+			for _, archive := range b.Archives {
 				path := builder.UnvendorPath(archive.ImportPath)
 				if sent[path] {
 					continue

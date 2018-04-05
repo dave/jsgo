@@ -4,9 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"path/filepath"
-	"strings"
-
 	"fmt"
 
 	"time"
@@ -17,8 +14,7 @@ import (
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
-	"gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/memfs"
+	"github.com/dave/jsgo/session"
 )
 
 func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
@@ -27,23 +23,16 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 		return fmt.Errorf("can't find main package %s in source", info.Main)
 	}
 
-	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
-	fs := memfs.New()
-
-	source := map[string]bool{}
-
-	for path, files := range info.Source {
-		source[path] = true
-		if err := storeTemporaryPackage(fs, path, info.Main, files); err != nil {
-			return err
-		}
+	s, err := session.New(info.Source, nil, assets.Assets)
+	if err != nil {
+		return err
 	}
 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, "main", false, false, false); err != nil {
+	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, info.Main, false, false, false); err != nil {
 		return err
 	}
 
@@ -51,7 +40,7 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, "main", compileWriter{send: send}, true, source)
+	output, err := compile.New(s, send).Compile(ctx, info.Main, true)
 	if err != nil {
 		return err
 	}
@@ -67,39 +56,6 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 		Index: fmt.Sprintf("%x", output[true].IndexHash),
 	})
 
-	return nil
-}
-
-func storeTemporaryPackage(fs billy.Filesystem, path, mainPkg string, source map[string]string) error {
-	// Add a dummy package to the filesystem that we can build
-	var dir string
-	if path == mainPkg {
-		dir = filepath.Join("gopath", "src", "main")
-	} else {
-		dir = filepath.Join("gopath", "src", "main", "vendor", path)
-	}
-	if err := fs.MkdirAll(dir, 0777); err != nil {
-		return err
-	}
-	createFile := func(name, contents string) error {
-		file, err := fs.Create(filepath.Join(dir, name))
-		if err != nil {
-			return err
-		}
-		defer file.Close()
-		if _, err := file.Write([]byte(contents)); err != nil {
-			return err
-		}
-		return nil
-	}
-	for name, contents := range source {
-		if !strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, ".inc.js") && !strings.HasSuffix(name, ".jsgo.html") {
-			continue
-		}
-		if err := createFile(name, contents); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 

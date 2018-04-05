@@ -29,20 +29,21 @@ import (
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/session"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 type Compiler struct {
-	root, path, temp billy.Filesystem
-	send             func(messages.Message)
-	log              io.Writer
+	*session.Session
+	temp billy.Filesystem
+	send func(messages.Message)
+	log  io.Writer
 }
 
-func New(goroot, gopath billy.Filesystem, send func(messages.Message)) *Compiler {
+func New(session *session.Session, send func(messages.Message)) *Compiler {
 	c := &Compiler{}
-	c.root = goroot
-	c.path = gopath
+	c.Session = session
 	c.temp = memfs.New()
 	c.send = send
 	return c
@@ -55,11 +56,7 @@ type CompileOutput struct {
 
 // Compile compiles path. If provided, source specifies the source packages. Including std lib packages
 // in source forces them to be compiled (if they are not included the pre-compiled Archives are used).
-func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play bool, source map[string]bool) (map[bool]*CompileOutput, error) {
-
-	if source == nil {
-		source = map[string]bool{}
-	}
+func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[bool]*CompileOutput, error) {
 
 	client, err := storage.NewClient(ctx)
 	if err != nil {
@@ -86,7 +83,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play
 		var err error
 		var data *builder.PackageData
 
-		data, outputs[min], err = c.compileAndStore(ctx, path, storer, log, min, source)
+		data, outputs[min], err = c.compileAndStore(ctx, path, storer, min)
 		if err != nil {
 			outer = err
 			return
@@ -147,10 +144,17 @@ func (c *Compiler) Compile(ctx context.Context, path string, log io.Writer, play
 
 }
 
-func (c *Compiler) defaultOptions(log io.Writer, min bool, source map[string]bool) *builder.Options {
+type compileWriter struct {
+	send func(messages.Message)
+}
+
+func (w compileWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Compiling{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
+}
+
+func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
 	return &builder.Options{
-		Root:        c.root,
-		Path:        c.path,
 		Temporary:   c.temp,
 		Unvendor:    true,
 		Initializer: true,
@@ -158,16 +162,14 @@ func (c *Compiler) defaultOptions(log io.Writer, min bool, source map[string]boo
 		Verbose:     true,
 		Minify:      min,
 		Standard:    std.Index,
-		BuildTags:   []string{"jsgo"},
-		Source:      source,
 	}
 }
 
-func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, log io.Writer, min bool, source map[string]bool) (*builder.PackageData, *builder.CommandOutput, error) {
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
-	session := builder.NewSession(c.defaultOptions(log, min, source))
+	b := builder.New(c.Session, c.defaultOptions(compileWriter{c.send}, min))
 
-	data, archive, err := session.BuildImportPath(ctx, path)
+	data, archive, err := b.BuildImportPath(ctx, path)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -176,7 +178,7 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 		return nil, nil, fmt.Errorf("can't compile - %s is not a main package", path)
 	}
 
-	output, err := session.WriteCommandPackage(ctx, archive)
+	output, err := b.WriteCommandPackage(ctx, archive)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -192,15 +194,16 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 }
 
 func (c *Compiler) getIndexTpl(dir string) (*template.Template, error) {
+	fs := c.Filesystem(dir)
 	fname := filepath.Join(dir, "index.jsgo.html")
-	_, err := c.path.Stat(fname)
+	_, err := fs.Stat(fname)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return indexTemplate, nil
 		}
 		return nil, err
 	}
-	f, err := c.path.Open(fname)
+	f, err := fs.Open(fname)
 	if err != nil {
 		return nil, err
 	}

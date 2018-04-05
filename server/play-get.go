@@ -3,10 +3,8 @@ package server
 import (
 	"context"
 	"fmt"
-	"go/build"
 	"io/ioutil"
 	"net/http"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -14,12 +12,9 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/session"
 	"github.com/shurcooL/go/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/helper/chroot"
-	"gopkg.in/src-d/go-billy.v4/helper/mount"
-	"gopkg.in/src-d/go-billy.v4/memfs"
-	"gopkg.in/src-d/go-billy.v4/osfs"
 )
 
 func playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
@@ -72,34 +67,23 @@ func playGet(ctx context.Context, info messages.Get, req *http.Request, send fun
 		dir = dirRoot
 	} else {
 
-		// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
-		fs = memfs.New()
-
-		if config.UseLocal {
-			// KLUDGE JUST FOR TESTING IN LOCAL MODE: "main" dir will be created in gopath/src. Remove it
-			// before starting.
-			if err := os.RemoveAll(filepath.Join(build.Default.GOPATH, "src", "main")); err != nil {
-				return err
-			}
-
-			local := osfs.New(filepath.Join(build.Default.GOPATH, "src"))
-			mounted := mount.New(fs, filepath.Join("gopath", "src"), local)
-			fs = chroot.New(mounted, "/")
-		}
-
 		// Send a message to the client that downloading step has started.
 		send(messages.Downloading{Starting: true})
 
-		if !config.UseLocal {
-			// Start the download process - just like the "go get" command.
-			if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, info.Path, false, false, true); err != nil {
-				return err
-			}
+		s, err := session.New(nil, nil, assets.Assets)
+		if err != nil {
+			return err
+		}
+
+		// Start the download process - just like the "go get" command.
+		if err := getter.New(s, downloadWriter{send: send}).Get(ctx, info.Path, false, false, true); err != nil {
+			return err
 		}
 
 		// Send a message to the client that downloading step has finished.
 		send(messages.Downloading{Done: true})
 
+		fs = s.GoPath()
 		dir = filepath.Join("gopath", "src", info.Path)
 	}
 

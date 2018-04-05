@@ -1,5 +1,5 @@
 package jsgo
 
-//go:generate go run ./gen/gen.go
+//go:generate go run -tags="dev" ./gen/gen.go
 
 // -tags="dev"

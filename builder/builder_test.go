@@ -157,7 +157,7 @@ func testPackage(path, goroot, gopath string, goroot1 billy.Filesystem, masterLi
 	gopath1 := memfs.New()
 	temp := memfs.New()
 
-	s := NewSession(&Options{
+	s := New(&Options{
 		Root:      goroot1,
 		Path:      gopath1,
 		Temporary: temp,

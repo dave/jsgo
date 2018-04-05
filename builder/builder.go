@@ -28,6 +28,7 @@ import (
 	"context"
 
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/session"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"golang.org/x/tools/go/gcimporter15"
@@ -41,63 +42,6 @@ type ImportCError struct {
 
 func (e *ImportCError) Error() string {
 	return e.pkgPath + `: importing "C" is not supported by GopherJS`
-}
-
-func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *build.Context {
-	return &build.Context{
-		GOROOT:        "goroot",
-		GOPATH:        "gopath",
-		GOOS:          "darwin",
-		GOARCH:        "js",
-		InstallSuffix: installSuffix,
-		Compiler:      "gc",
-		BuildTags:     append(buildTags, "netgo"),
-		ReleaseTags:   build.Default.ReleaseTags,
-		CgoEnabled:    true, // detect `import "C"` to throw proper error
-
-		// IsDir reports whether the path names a directory.
-		// If IsDir is nil, Import calls os.Stat and uses the result's IsDir method.
-		IsDir: func(path string) bool {
-			fs := s.Filesystem(path)
-			fi, err := fs.Stat(path)
-			return err == nil && fi.IsDir()
-		},
-
-		// HasSubdir reports whether dir is lexically a subdirectory of
-		// root, perhaps multiple levels below. It does not try to check
-		// whether dir exists.
-		// If so, HasSubdir sets rel to a slash-separated path that
-		// can be joined to root to produce a path equivalent to dir.
-		// If HasSubdir is nil, Import uses an implementation built on
-		// filepath.EvalSymlinks.
-		HasSubdir: func(root, dir string) (rel string, ok bool) {
-			const sep = string(filepath.Separator)
-			root = filepath.Clean(root)
-			if !strings.HasSuffix(root, sep) {
-				root += sep
-			}
-			dir = filepath.Clean(dir)
-			if !strings.HasPrefix(dir, root) {
-				return "", false
-			}
-			return filepath.ToSlash(dir[len(root):]), true
-		},
-
-		// ReadDir returns a slice of os.FileInfo, sorted by Name,
-		// describing the content of the named directory.
-		// If ReadDir is nil, Import uses ioutil.ReadDir.
-		ReadDir: func(path string) ([]os.FileInfo, error) {
-			fs := s.Filesystem(path)
-			return fs.ReadDir(path)
-		},
-
-		// OpenFile opens a file (not a directory) for reading.
-		// If OpenFile is nil, Import uses os.Open.
-		OpenFile: func(path string) (io.ReadCloser, error) {
-			fs := s.Filesystem(path)
-			return fs.Open(path)
-		},
-	}
 }
 
 // Import returns details about the Go package named by the import path. If the
@@ -114,12 +58,12 @@ func (s *Session) NewBuildContext(installSuffix string, buildTags []string) *bui
 //
 // If an error occurs, Import returns a non-nil error and a nil
 // *PackageData.
-func (s *Session) Import(ctx context.Context, path string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	return s.importWithSrcDir(ctx, path, "", mode, installSuffix, buildTags)
+func (b *Builder) Import(ctx context.Context, path string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
+	return b.importWithSrcDir(ctx, path, "", mode, installSuffix)
 }
 
-func (s *Session) importWithSrcDir(ctx context.Context, path string, srcDir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
-	bctx := s.NewBuildContext(installSuffix, buildTags)
+func (b *Builder) importWithSrcDir(ctx context.Context, path string, srcDir string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
+	bctx := b.BuildContext(true, installSuffix)
 	switch path {
 	case "syscall":
 		// syscall needs to use a typical GOARCH like amd64 to pick up definitions for _Socklen, BpfInsn, IFNAMSIZ, Timeval, BpfStat, SYS_FCNTL, Flock_t, etc.
@@ -184,7 +128,7 @@ func (s *Session) importWithSrcDir(ctx context.Context, path string, srcDir stri
 		}
 	*/
 
-	jsFiles, err := s.jsFilesFromDir(pkg.Dir)
+	jsFiles, err := b.jsFilesFromDir(pkg.Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -222,12 +166,12 @@ Outer:
 
 // ImportDir is like Import but processes the Go package found in the named
 // directory.
-func (s *Session) ImportDir(ctx context.Context, dir string, mode build.ImportMode, installSuffix string, buildTags []string) (*PackageData, error) {
+func (b *Builder) ImportDir(ctx context.Context, dir string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
 
 	var pkg *build.Package
 	var err error
 	if WithCancel(ctx, func() {
-		pkg, err = s.NewBuildContext(installSuffix, buildTags).ImportDir(dir, mode)
+		pkg, err = b.BuildContext(true, installSuffix).ImportDir(dir, mode)
 	}) {
 		return nil, ctx.Err()
 	}
@@ -235,7 +179,7 @@ func (s *Session) ImportDir(ctx context.Context, dir string, mode build.ImportMo
 		return nil, err
 	}
 
-	jsFiles, err := s.jsFilesFromDir(pkg.Dir)
+	jsFiles, err := b.jsFilesFromDir(pkg.Dir)
 	if err != nil {
 		return nil, err
 	}
@@ -254,7 +198,7 @@ func (s *Session) ImportDir(ctx context.Context, dir string, mode build.ImportMo
 // as an existing file from the standard library). For all identifiers that exist
 // in the original AND the overrides, the original identifier in the AST gets
 // replaced by `_`. New identifiers that don't exist in original package get added.
-func (s *Session) parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([]*ast.File, error) {
+func (b *Builder) parseAndAugment(pkg *build.Package, isTest bool, fileSet *token.FileSet) ([]*ast.File, error) {
 	var files []*ast.File
 	replacedDeclNames := make(map[string]bool)
 	funcName := func(d *ast.FuncDecl) string {
@@ -362,7 +306,8 @@ func (s *Session) parseAndAugment(pkg *build.Package, isTest bool, fileSet *toke
 		if !filepath.IsAbs(name) {
 			name = filepath.Join(pkg.Dir, name)
 		}
-		fs := s.Filesystem(name)
+		fdir, _ := filepath.Split(name)
+		fs := b.Filesystem(fdir)
 		r, err := fs.Open(name)
 		if err != nil {
 			return nil, err
@@ -432,18 +377,9 @@ func (s *Session) parseAndAugment(pkg *build.Package, isTest bool, fileSet *toke
 }
 
 type Options struct {
-
-	// Filesystem for GOROOT - should contain all Standard Library source
-	Root billy.Filesystem
-
-	// Filesystem for GOPATH (optional)
-	Path billy.Filesystem
-
-	// Filesystem for temporary Archive storage (optional)
-	Temporary billy.Filesystem
-
-	Unvendor       bool // Render JS with unvendored paths
-	Initializer    bool // Render JS with deferred initialization
+	Temporary      billy.Filesystem // Filesystem for temporary Archive storage (optional)
+	Unvendor       bool             // Render JS with unvendored paths
+	Initializer    bool             // Render JS with deferred initialization
 	Log            io.Writer
 	Verbose        bool
 	Quiet          bool
@@ -451,12 +387,7 @@ type Options struct {
 	MapToLocalDisk bool
 	Minify         bool
 	Color          bool
-	BuildTags      []string
 	Standard       map[string]map[bool]string
-
-	// Source: If provided, Source specifies the source packages. Including std lib packages in source
-	// forces them to be compiled (if they are not included, the pre-compiled archives are used).
-	Source map[string]bool
 }
 
 func (o *Options) PrintError(format string, a ...interface{}) {
@@ -492,43 +423,20 @@ type PackageData struct {
 	UpToDate   bool
 }
 
-type Session struct {
+type Builder struct {
+	*session.Session
 	options  *Options
 	Archives map[string]*compiler.Archive
 	Types    map[string]*types.Package
 	Callback func(*compiler.Archive) error
 }
 
-// Gets either the Gopath or Goroot filesystems depending on the path
-func (s *Session) Filesystem(fpath string) billy.Filesystem {
-	p := filepath.Clean(fpath)
-	p = strings.TrimPrefix(p, string(filepath.Separator))
-	parts := strings.Split(p, string(filepath.Separator))
-	dir := parts[0]
-	switch dir {
-	case "gopath":
-		return s.options.Path
-	case "goroot":
-		return s.options.Root
-	}
-	panic(fmt.Sprintf("Top dir should be goroot or gopath, got %s", fpath))
-}
-
-func NewSession(options *Options) *Session {
-	if options.Root == nil {
-		panic("Need to specify Goroot in options (should contain full standard library source)")
-	}
-	if options.Path == nil {
-		options.Path = memfs.New()
-	}
+func New(session *session.Session, options *Options) *Builder {
 	if options.Temporary == nil {
 		options.Temporary = memfs.New()
 	}
-	if options.Source == nil {
-		options.Source = make(map[string]bool)
-	}
-
-	s := &Session{
+	s := &Builder{
+		Session:  session,
 		options:  options,
 		Archives: make(map[string]*compiler.Archive),
 	}
@@ -536,19 +444,19 @@ func NewSession(options *Options) *Session {
 	return s
 }
 
-func (s *Session) InstallSuffix() string {
-	if s.options.Minify {
+func (b *Builder) InstallSuffix() string {
+	if b.options.Minify {
 		return "min"
 	}
 	return ""
 }
 
-func (s *Session) BuildDir(ctx context.Context, packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
+func (b *Builder) BuildDir(ctx context.Context, packagePath string, importPath string, pkgObj string) (*CommandOutput, error) {
 
 	var buildPkg *build.Package
 	var err error
 	if WithCancel(ctx, func() {
-		buildPkg, err = s.NewBuildContext(s.InstallSuffix(), s.options.BuildTags).ImportDir(packagePath, 0)
+		buildPkg, err = b.BuildContext(true, b.InstallSuffix()).ImportDir(packagePath, 0)
 	}) {
 		return nil, ctx.Err()
 	}
@@ -556,26 +464,26 @@ func (s *Session) BuildDir(ctx context.Context, packagePath string, importPath s
 		return nil, err
 	}
 	pkg := &PackageData{Package: buildPkg}
-	jsFiles, err := s.jsFilesFromDir(pkg.Dir)
+	jsFiles, err := b.jsFilesFromDir(pkg.Dir)
 	if err != nil {
 		return nil, err
 	}
 	pkg.JSFiles = jsFiles
-	archive, err := s.BuildPackage(ctx, pkg)
+	archive, err := b.BuildPackage(ctx, pkg)
 	if err != nil {
 		return nil, err
 	}
 	if !pkg.IsCommand() {
 		return nil, nil
 	}
-	cp, err := s.WriteCommandPackage(ctx, archive)
+	cp, err := b.WriteCommandPackage(ctx, archive)
 	if err != nil {
 		return nil, err
 	}
 	return cp, nil
 }
 
-func (s *Session) BuildFiles(ctx context.Context, filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
+func (b *Builder) BuildFiles(ctx context.Context, filenames []string, pkgObj string, packagePath string) (*CommandOutput, error) {
 	pkg := &PackageData{
 		Package: &build.Package{
 			Name:       "main",
@@ -592,27 +500,27 @@ func (s *Session) BuildFiles(ctx context.Context, filenames []string, pkgObj str
 		pkg.GoFiles = append(pkg.GoFiles, file)
 	}
 
-	archive, err := s.BuildPackage(ctx, pkg)
+	archive, err := b.BuildPackage(ctx, pkg)
 	if err != nil {
 		return nil, err
 	}
-	if s.Types["main"].Name() != "main" {
+	if b.Types["main"].Name() != "main" {
 		return nil, fmt.Errorf("cannot build/run non-main package")
 	}
-	return s.WriteCommandPackage(ctx, archive)
+	return b.WriteCommandPackage(ctx, archive)
 }
 
-func (s *Session) BuildImportPath(ctx context.Context, path string) (*PackageData, *compiler.Archive, error) {
-	return s.buildImportPathWithSrcDir(ctx, path, "")
+func (b *Builder) BuildImportPath(ctx context.Context, path string) (*PackageData, *compiler.Archive, error) {
+	return b.buildImportPathWithSrcDir(ctx, path, "")
 }
 
-func (s *Session) buildImportPathWithSrcDir(ctx context.Context, path string, srcDir string) (*PackageData, *compiler.Archive, error) {
-	pkg, err := s.importWithSrcDir(ctx, path, srcDir, 0, s.InstallSuffix(), s.options.BuildTags)
+func (b *Builder) buildImportPathWithSrcDir(ctx context.Context, path string, srcDir string) (*PackageData, *compiler.Archive, error) {
+	pkg, err := b.importWithSrcDir(ctx, path, srcDir, 0, b.InstallSuffix())
 	if err != nil {
 		return nil, nil, err
 	}
 
-	archive, err := s.BuildPackage(ctx, pkg)
+	archive, err := b.BuildPackage(ctx, pkg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -620,7 +528,7 @@ func (s *Session) buildImportPathWithSrcDir(ctx context.Context, path string, sr
 	return pkg, archive, nil
 }
 
-func (s *Session) ImportStandardArchive(ctx context.Context, importPath string) (*compiler.Archive, error) {
+func (b *Builder) ImportStandardArchive(ctx context.Context, importPath string) (*compiler.Archive, error) {
 
 	if assets.Archives == nil {
 		// assets.Archives may be nil if we don't initialise the assets (for bootstrapping we need to
@@ -633,25 +541,25 @@ func (s *Session) ImportStandardArchive(ctx context.Context, importPath string) 
 		return nil, nil
 	}
 
-	archive := archivePair[s.options.Minify]
-	_, p, err := gcimporter.BImportData(token.NewFileSet(), s.Types, archive.ExportData, importPath)
+	archive := archivePair[b.options.Minify]
+	_, p, err := gcimporter.BImportData(token.NewFileSet(), b.Types, archive.ExportData, importPath)
 	if err != nil {
 		return nil, err
 	}
-	s.Types[importPath] = p
-	s.Archives[importPath] = archive
+	b.Types[importPath] = p
+	b.Archives[importPath] = archive
 
-	if s.Callback != nil {
-		if err := s.Callback(archive); err != nil {
+	if b.Callback != nil {
+		if err := b.Callback(archive); err != nil {
 			return nil, err
 		}
 	}
 
 	for _, p := range archive.Imports {
-		if s.Archives[p] != nil {
+		if b.Archives[p] != nil {
 			continue
 		}
-		if _, err := s.ImportStandardArchive(ctx, p); err != nil {
+		if _, err := b.ImportStandardArchive(ctx, p); err != nil {
 			return nil, err
 		}
 	}
@@ -660,41 +568,43 @@ func (s *Session) ImportStandardArchive(ctx context.Context, importPath string) 
 
 }
 
-func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler.Archive, error) {
+func (b *Builder) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler.Archive, error) {
 
 	importPath := pkg.ImportPath
-	if s.options.Unvendor {
+	if b.options.Unvendor {
 		importPath = UnvendorPath(pkg.ImportPath)
 	}
 
-	if archive, ok := s.Archives[importPath]; ok {
+	if archive, ok := b.Archives[importPath]; ok {
 		return archive, nil
 	}
 
 	// If the path is not in the source collection, and the archive exists in the std lib precompiled
 	// archives, load it...
-	if !s.options.Source[importPath] {
-		if archive, err := s.ImportStandardArchive(ctx, importPath); err != nil {
+	if !b.HasSource(importPath) {
+		archive, err := b.ImportStandardArchive(ctx, importPath)
+		if err != nil {
 			return nil, err
-		} else if archive != nil {
+		}
+		if archive != nil {
 			return archive, nil
 		}
 	}
 
 	fileSet := token.NewFileSet()
-	files, err := s.parseAndAugment(pkg.Package, pkg.IsTest, fileSet)
+	files, err := b.parseAndAugment(pkg.Package, pkg.IsTest, fileSet)
 	if err != nil {
 		return nil, err
 	}
 
 	localImportPathCache := make(map[string]*compiler.Archive)
 	importContext := &compiler.ImportContext{
-		Packages: s.Types,
+		Packages: b.Types,
 		Import: func(path string) (*compiler.Archive, error) {
 			if archive, ok := localImportPathCache[path]; ok {
 				return archive, nil
 			}
-			_, archive, err := s.buildImportPathWithSrcDir(ctx, path, pkg.Dir)
+			_, archive, err := b.buildImportPathWithSrcDir(ctx, path, pkg.Dir)
 			if err != nil {
 				return nil, pathErr{error: err, path: path}
 			}
@@ -711,7 +621,7 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 
 	var archive *compiler.Archive
 	if WithCancel(ctx, func() {
-		archive, err = compiler.Compile(importPath, files, fileSet, importContext, s.options.Minify)
+		archive, err = compiler.Compile(importPath, files, fileSet, importContext, b.options.Minify)
 	}) {
 		return nil, ctx.Err()
 	}
@@ -721,7 +631,7 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 
 	for _, jsFile := range pkg.JSFiles {
 		fname := filepath.Join(pkg.Dir, jsFile)
-		fs := s.Filesystem(fname)
+		fs := b.Filesystem(pkg.Dir)
 		code, err := readFile(fs, fname)
 		if err != nil {
 			return nil, err
@@ -731,22 +641,22 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 		archive.IncJSCode = append(archive.IncJSCode, []byte("\n\t}).call($global);\n")...)
 	}
 
-	if s.options.Verbose {
+	if b.options.Verbose {
 		show := true
-		if s.options.Standard != nil {
-			if _, ok := s.options.Standard[importPath]; ok {
+		if b.options.Standard != nil {
+			if _, ok := b.options.Standard[importPath]; ok {
 				show = false
 			}
 		}
 		if show {
-			fmt.Fprintln(s.options.Log, importPath)
+			fmt.Fprintln(b.options.Log, importPath)
 		}
 	}
 
-	s.Archives[importPath] = archive
+	b.Archives[importPath] = archive
 
-	if s.Callback != nil {
-		if err := s.Callback(archive); err != nil {
+	if b.Callback != nil {
+		if err := b.Callback(archive); err != nil {
 			return nil, err
 		}
 	}
@@ -756,7 +666,7 @@ func (s *Session) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 		return archive, nil
 	}
 
-	if err := s.writeLibraryPackage(ctx, archive, pkg.PkgObj); err != nil {
+	if err := b.writeLibraryPackage(ctx, archive, pkg.PkgObj); err != nil {
 		return nil, err
 	}
 
@@ -804,12 +714,12 @@ func readFile(fs billy.Filesystem, path string) ([]byte, error) {
 	return buf.Bytes(), nil
 }
 
-func (s *Session) writeLibraryPackage(ctx context.Context, archive *compiler.Archive, pkgObj string) error {
-	if err := s.options.Temporary.MkdirAll(filepath.Dir(pkgObj), 0777); err != nil {
+func (b *Builder) writeLibraryPackage(ctx context.Context, archive *compiler.Archive, pkgObj string) error {
+	if err := b.options.Temporary.MkdirAll(filepath.Dir(pkgObj), 0777); err != nil {
 		return err
 	}
 
-	objFile, err := s.options.Temporary.Create(pkgObj)
+	objFile, err := b.options.Temporary.Create(pkgObj)
 	if err != nil {
 		return err
 	}
@@ -836,13 +746,13 @@ type PackageOutput struct {
 	Store    bool
 }
 
-func (s *Session) GetDependencies(ctx context.Context, archive *compiler.Archive) ([]*compiler.Archive, error) {
+func (b *Builder) GetDependencies(ctx context.Context, archive *compiler.Archive) ([]*compiler.Archive, error) {
 
 	importer := func(path string) (*compiler.Archive, error) {
-		if archive, ok := s.Archives[path]; ok {
+		if archive, ok := b.Archives[path]; ok {
 			return archive, nil
 		}
-		_, archive, err := s.buildImportPathWithSrcDir(ctx, path, "")
+		_, archive, err := b.buildImportPathWithSrcDir(ctx, path, "")
 		return archive, err
 	}
 
@@ -859,14 +769,14 @@ func (s *Session) GetDependencies(ctx context.Context, archive *compiler.Archive
 	return deps, nil
 }
 
-func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Archive) (*CommandOutput, error) {
+func (b *Builder) WriteCommandPackage(ctx context.Context, archive *compiler.Archive) (*CommandOutput, error) {
 
-	deps, err := s.GetDependencies(ctx, archive)
+	deps, err := b.GetDependencies(ctx, archive)
 	if err != nil {
 		return nil, err
 	}
 
-	commandPath, packages, err := GetProgramCode(ctx, deps, s.options.Initializer, s.options.Standard, s.options.Source)
+	commandPath, packages, err := b.GetProgramCode(ctx, deps)
 	if err != nil {
 		return nil, err
 	}
@@ -878,7 +788,7 @@ func (s *Session) WriteCommandPackage(ctx context.Context, archive *compiler.Arc
 	return c, nil
 }
 
-func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer bool, standard map[string]map[bool]string, source map[string]bool) (string, []*PackageOutput, error) {
+func (b *Builder) GetProgramCode(ctx context.Context, pkgs []*compiler.Archive) (string, []*PackageOutput, error) {
 
 	mainPkg := pkgs[len(pkgs)-1]
 	minify := mainPkg.Minified
@@ -891,9 +801,9 @@ func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer b
 		// generating the package code... But only if the package doesn't exist in the source collection.
 		var std bool
 		var ph map[bool]string
-		ph, std = standard[pkg.ImportPath]
+		ph, std = b.options.Standard[pkg.ImportPath]
 
-		if std && !source[pkg.ImportPath] {
+		if std && !b.HasSource(pkg.ImportPath) {
 			packageOutputs = append(packageOutputs, &PackageOutput{
 				Path:     pkg.ImportPath,
 				Hash:     Bytes(ph[minify]),
@@ -903,7 +813,7 @@ func GetProgramCode(ctx context.Context, pkgs []*compiler.Archive, initializer b
 			})
 			continue
 		}
-		contents, hash, err := GetPackageCode(ctx, pkg, minify, initializer)
+		contents, hash, err := GetPackageCode(ctx, pkg, minify, b.options.Initializer)
 		if err != nil {
 			return "", nil, err
 		}
@@ -963,8 +873,8 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 	return buf.Bytes(), sha.Sum(nil), nil
 }
 
-func (s *Session) jsFilesFromDir(dir string) ([]string, error) {
-	fs := s.Filesystem(dir)
+func (b *Builder) jsFilesFromDir(dir string) ([]string, error) {
+	fs := b.Filesystem(dir)
 	files, err := fs.ReadDir(dir)
 	if err != nil {
 		return nil, err

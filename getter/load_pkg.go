@@ -3,15 +3,12 @@ package getter
 import (
 	"fmt"
 	"go/build"
-	"os"
 	pathpkg "path"
 	"path/filepath"
 	"sort"
 	"strings"
 	"unicode"
 	"unicode/utf8"
-
-	"github.com/dave/jsgo/assets"
 
 	"context"
 )
@@ -23,7 +20,7 @@ type Package struct {
 }
 
 type PackagePublic struct {
-	cache *Session
+	cache *Getter
 	// Note: These fields are part of the go command's public API.
 	// See list.go. It is okay to add fields, but not to change or
 	// remove existing ones. Keep in sync with list.go
@@ -185,12 +182,12 @@ func (sp *ImportStack) shorterThan(t []string) bool {
 	return false // they are equal
 }
 
-func (s *Session) ClearPackageCachePartial(args []string) {
+func (g *Getter) ClearPackageCachePartial(args []string) {
 	for _, arg := range args {
-		p := s.packageCache[arg]
+		p := g.packageCache[arg]
 		if p != nil {
-			delete(s.packageCache, p.Dir)
-			delete(s.packageCache, p.ImportPath)
+			delete(g.packageCache, p.Dir)
+			delete(g.packageCache, p.ImportPath)
 		}
 	}
 }
@@ -219,7 +216,7 @@ func makeImportValid(r rune) rune {
 // but possibly a local import path (an absolute file system path or one beginning
 // with ./ or ../). A local relative path is interpreted relative to srcDir.
 // It returns a *Package describing the package found in that directory.
-func (s *Session) LoadImport(ctx context.Context, path, srcDir string, parent *Package, stk *ImportStack, useVendor bool) *Package {
+func (g *Getter) LoadImport(ctx context.Context, path, srcDir string, parent *Package, stk *ImportStack, useVendor bool) *Package {
 	stk.Push(path)
 	defer stk.Pop()
 
@@ -238,19 +235,19 @@ func (s *Session) LoadImport(ctx context.Context, path, srcDir string, parent *P
 		// find out the key to use in packageCache without the
 		// overhead of repeated calls to buildContext.Import.
 		// The code is also needed in a few other places anyway.
-		path = s.VendoredImportPath(parent, path)
+		path = g.VendoredImportPath(parent, path)
 		importPath = path
 	}
 
-	p := s.packageCache[importPath]
+	p := g.packageCache[importPath]
 	if p != nil {
 		p = reusePackage(p, stk)
 	} else {
 		p = new(Package)
-		p.cache = s
+		p.cache = g
 		p.Internal.Local = isLocal
 		p.ImportPath = importPath
-		s.packageCache[importPath] = p
+		g.packageCache[importPath] = p
 
 		// Load package.
 		// Import always returns bp != nil, even if an error occurs,
@@ -264,7 +261,7 @@ func (s *Session) LoadImport(ctx context.Context, path, srcDir string, parent *P
 		}
 
 		if WithCancel(ctx, func() {
-			bp, err = s.buildContext.Import(path, srcDir, buildMode)
+			bp, err = g.buildContext.Import(path, srcDir, buildMode)
 		}) {
 			err = ctx.Err()
 		}
@@ -325,17 +322,9 @@ func cleanImport(path string) string {
 	return path
 }
 
-func (s *Session) isDir(fpath string) bool {
-
-	if strings.HasPrefix(fpath, "/goroot/") {
-		fi, err := assets.Assets.Stat(fpath)
-		if err != nil {
-			return false
-		}
-		return fi.IsDir()
-	}
-
-	fi, err := s.fs.Stat(fpath)
+func (g *Getter) isDir(fpath string) bool {
+	fs := g.Filesystem(fpath)
+	fi, err := fs.Stat(fpath)
 	result := err == nil && fi.IsDir()
 	return result
 }
@@ -344,7 +333,7 @@ func (s *Session) isDir(fpath string) bool {
 // If parent is x/y/z, then path might expand to x/y/z/vendor/path, x/y/vendor/path,
 // x/vendor/path, vendor/path, or else stay path if none of those exist.
 // VendoredImportPath returns the expanded path or, if no expansion is found, the original.
-func (s *Session) VendoredImportPath(parent *Package, path string) (found string) {
+func (g *Getter) VendoredImportPath(parent *Package, path string) (found string) {
 	if parent == nil || parent.Root == "" {
 		return path
 	}
@@ -377,11 +366,11 @@ func (s *Session) VendoredImportPath(parent *Package, path string) (found string
 		// for the vendor/path directory helps us hit the
 		// isDir cache more often. It also helps us prepare a more useful
 		// list of places we looked, to report when an import is not found.
-		if !s.isDir(filepath.Join(dir[:i], "vendor")) {
+		if !g.isDir(filepath.Join(dir[:i], "vendor")) {
 			continue
 		}
 		targ := filepath.Join(dir[:i], vpath)
-		if s.isDir(targ) && s.hasGoFiles(targ) {
+		if g.isDir(targ) && g.hasGoFiles(targ) {
 			importPath := parent.ImportPath
 			if importPath == "command-line-arguments" {
 				// If parent.ImportPath is 'command-line-arguments'.
@@ -414,15 +403,9 @@ func (s *Session) VendoredImportPath(parent *Package, path string) (found string
 // For a vendor check we must exclude directories that contain no .go files.
 // Otherwise it is not possible to vendor just a/b/c and still import the
 // non-vendored a/b. See golang.org/issue/13832.
-func (s *Session) hasGoFiles(dir string) bool {
-
-	var fis []os.FileInfo
-	if strings.HasPrefix(dir, "/goroot/") {
-		fis, _ = assets.Assets.ReadDir(dir)
-	} else {
-		fis, _ = s.fs.ReadDir(dir)
-	}
-
+func (g *Getter) hasGoFiles(dir string) bool {
+	fs := g.Filesystem(dir)
+	fis, _ := fs.ReadDir(dir)
 	for _, fi := range fis {
 		if !fi.IsDir() && strings.HasSuffix(fi.Name(), ".go") {
 			return true
@@ -808,12 +791,12 @@ func SafeArg(name string) bool {
 }
 
 // LinkerDeps returns the list of linker-induced dependencies for main package p.
-func (s *Session) LinkerDeps(p *Package) []string {
+func (g *Getter) LinkerDeps(p *Package) []string {
 	// Everything links runtime.
 	deps := []string{"runtime"}
 
 	// On ARM with GOARM=5, it forces an import of math, for soft floating point.
-	if s.buildContext.GOARCH == "arm" {
+	if g.buildContext.GOARCH == "arm" {
 		deps = append(deps, "math")
 	}
 

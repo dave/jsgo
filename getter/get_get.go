@@ -8,12 +8,12 @@ import (
 	"context"
 )
 
-func (s *Session) download(ctx context.Context, path string, parent *Package, stk *ImportStack, update bool, insecure, single bool) error {
+func (g *Getter) download(ctx context.Context, path string, parent *Package, stk *ImportStack, update bool, insecure, single bool) error {
 	load1 := func(path string, useVendor bool) *Package {
 		if parent == nil {
-			return s.LoadImport(ctx, path, "/", nil, stk, false)
+			return g.LoadImport(ctx, path, "/", nil, stk, false)
 		}
-		return s.LoadImport(ctx, path, parent.Dir, parent, stk, useVendor)
+		return g.LoadImport(ctx, path, parent.Dir, parent, stk, useVendor)
 	}
 	p := load1(path, false)
 	if p.Error != nil && p.Error.Hard {
@@ -38,10 +38,10 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 	// Only process each package once.
 	// (Unless we're fetching test dependencies for this package,
 	// in which case we want to process it again.)
-	if s.downloadCache[path] {
+	if g.downloadCache[path] {
 		return nil
 	}
-	s.downloadCache[path] = true
+	g.downloadCache[path] = true
 
 	pkgs := []*Package{p}
 
@@ -49,7 +49,7 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 	if p.Dir == "" || update {
 		// The actual download.
 		stk.Push(path)
-		err := s.downloadPackage(ctx, p, update, insecure)
+		err := g.downloadPackage(ctx, p, update, insecure)
 		if err != nil {
 			perr := &PackageError{ImportStack: stk.Copy(), Err: err.Error()}
 			stk.Pop()
@@ -59,7 +59,7 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 
 		// Clear all relevant package cache entries before
 		// doing any new loads.
-		s.ClearPackageCachePartial([]string{path})
+		g.ClearPackageCachePartial([]string{path})
 
 		pkgs = pkgs[:0]
 
@@ -109,9 +109,9 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 			// download does caching based on the value of path,
 			// so it must be the fully qualified path already.
 			if i >= len(p.Imports) {
-				path = s.VendoredImportPath(p, path)
+				path = g.VendoredImportPath(p, path)
 			}
-			if err := s.download(ctx, path, p, stk, update, insecure, false); err != nil {
+			if err := g.download(ctx, path, p, stk, update, insecure, false); err != nil {
 				return err
 			}
 		}
@@ -122,7 +122,7 @@ func (s *Session) download(ctx context.Context, path string, parent *Package, st
 
 // downloadPackage runs the create or download command
 // to make the first copy of or update a copy of the given package.
-func (s *Session) downloadPackage(ctx context.Context, p *Package, update bool, insecure bool) error {
+func (g *Getter) downloadPackage(ctx context.Context, p *Package, update bool, insecure bool) error {
 
 	var (
 		root *repoRoot
@@ -131,14 +131,14 @@ func (s *Session) downloadPackage(ctx context.Context, p *Package, update bool, 
 
 	if p.Internal.Build.SrcRoot != "" {
 		// Directory exists. Look for checkout along path to src.
-		root, err = s.vcsFromDir(p.Dir, p.Internal.Build.SrcRoot)
+		root, err = g.vcsFromDir(p.Dir, p.Internal.Build.SrcRoot)
 		if err != nil {
 			return err
 		}
 	} else {
 		// Analyze the import path to determine the version control system,
 		// repository, and the import path for the root of the repository.
-		root, err = s.repoRootForImportPath(ctx, p.ImportPath, insecure)
+		root, err = g.repoRootForImportPath(ctx, p.ImportPath, insecure)
 		if err != nil {
 			return err
 		}
@@ -149,15 +149,15 @@ func (s *Session) downloadPackage(ctx context.Context, p *Package, update bool, 
 
 	if p.Internal.Build.SrcRoot == "" {
 		// Package not found. Put in first directory of $GOPATH.
-		list := filepath.SplitList(s.buildContext.GOPATH)
+		list := filepath.SplitList(g.buildContext.GOPATH)
 		if len(list) == 0 {
 			return fmt.Errorf("cannot download, $GOPATH not set. For more details see: 'go help gopath'")
 		}
 		// Guard against people setting GOPATH=$GOROOT.
-		if filepath.Clean(list[0]) == filepath.Clean(s.buildContext.GOROOT) {
+		if filepath.Clean(list[0]) == filepath.Clean(g.buildContext.GOROOT) {
 			return fmt.Errorf("cannot download, $GOPATH must not be set to $GOROOT. For more details see: 'go help gopath'")
 		}
-		if _, err := s.fs.Stat(filepath.Join(list[0], "src/cmd/go/alldocs.go")); err == nil {
+		if _, err := g.GoPath().Stat(filepath.Join(list[0], "src/cmd/go/alldocs.go")); err == nil {
 			return fmt.Errorf("cannot download, %s is a GOROOT, not a GOPATH. For more details see: 'go help gopath'", list[0])
 		}
 		p.Internal.Build.Root = list[0]
@@ -171,39 +171,41 @@ func (s *Session) downloadPackage(ctx context.Context, p *Package, update bool, 
 		return fmt.Errorf("path disagreement, calculated %s, expected %s", dir, root.dir)
 	}
 
-	s.repoPackages[p.ImportPath] = root
+	g.repoPackages[p.ImportPath] = root
 
 	// If we've considered this repository already, don't do it again.
-	if _, ok := s.downloadRootCache[root.dir]; ok {
+	if _, ok := g.downloadRootCache[root.dir]; ok {
 		return nil
 	}
-	s.downloadRootCache[root.dir] = root
+	g.downloadRootCache[root.dir] = root
 
 	if !root.exists {
+		fs := g.GoPath()
+
 		// Root does not exist. Prepare to checkout new copy.
 		// Some version control tools require the target directory not to exist.
 		// We require that too, just to avoid stepping on existing work.
-		if _, err := s.fs.Stat(root.dir); err == nil {
+		if _, err := fs.Stat(root.dir); err == nil {
 			return fmt.Errorf("%s exists but repo does not", root.dir)
 		}
 
 		// Some version control tools require the parent of the target to exist.
 		parent, _ := filepath.Split(root.dir)
-		if err = s.fs.MkdirAll(parent, 0777); err != nil {
+		if err = fs.MkdirAll(parent, 0777); err != nil {
 			return err
 		}
-		if s.log != nil {
-			fmt.Fprintln(s.log, root.root)
+		if g.log != nil {
+			fmt.Fprintln(g.log, root.root)
 		}
 
-		if err = root.create(ctx, s.fs); err != nil {
+		if err = root.create(ctx, fs); err != nil {
 			return err
 		}
 	} else {
 		// Root does exist; download incremental updates.
 
-		if s.log != nil {
-			fmt.Fprintln(s.log, root.root)
+		if g.log != nil {
+			fmt.Fprintln(g.log, root.root)
 		}
 
 		if err = root.download(ctx); err != nil {

@@ -13,21 +13,23 @@ import (
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
-	"gopkg.in/src-d/go-billy.v4/memfs"
+	"github.com/dave/jsgo/session"
 )
 
 func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message) error {
 
 	path := info.Path
 
-	// Create a memory filesystem for the getter to store downloaded files (e.g. GOPATH).
-	fs := memfs.New()
+	s, err := session.New(nil, nil, assets.Assets)
+	if err != nil {
+		return err
+	}
 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(fs, downloadWriter{send: send}, []string{"jsgo"}).Get(ctx, path, false, false, false); err != nil {
+	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, path, false, false, false); err != nil {
 		return err
 	}
 
@@ -35,7 +37,7 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(assets.Assets, fs, send).Compile(ctx, path, compileWriter{send: send}, false, nil)
+	output, err := compile.New(s, send).Compile(ctx, path, false)
 	if err != nil {
 		return err
 	}
@@ -88,13 +90,4 @@ func getCompileContents(c *compile.CompileOutput, min bool) store.CompileContent
 		})
 	}
 	return val
-}
-
-type compileWriter struct {
-	send func(messages.Message)
-}
-
-func (w compileWriter) Write(b []byte) (n int, err error) {
-	w.send(messages.Compiling{Message: strings.TrimSuffix(string(b), "\n")})
-	return len(b), nil
 }
