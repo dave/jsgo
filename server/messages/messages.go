@@ -32,6 +32,7 @@ var payloads = []interface{}{
 	Share{},
 	Get{},
 	Deploy{},
+	Initialise{},
 }
 
 type Queueing struct {
@@ -102,6 +103,11 @@ type Deploy struct {
 }
 
 type Compile struct {
+	Path string
+}
+
+// Initialise is sent by the client to get the source at Path, and update.
+type Initialise struct {
 	Path string
 }
 

@@ -18,78 +18,63 @@ import (
 )
 
 func playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
-
-	if strings.HasPrefix(info.Path, "p/") {
-		// play link
-		var httpClient = &http.Client{
-			Timeout: config.HttpTimeout,
-		}
-
-		send(messages.Downloading{Message: info.Path})
-
-		resp, err := ctxhttp.Get(ctx, httpClient, fmt.Sprintf("https://play.golang.org/%s.go", info.Path))
-		if err != nil {
-			return err
-		}
-		defer resp.Body.Close()
-		if resp.StatusCode != 200 {
-			return fmt.Errorf("error %d", resp.StatusCode)
-		}
-		b, err := ioutil.ReadAll(resp.Body)
-		if err != nil {
-			return err
-		}
-
-		send(messages.Downloading{Done: true})
-
-		files := map[string]map[string]string{
-			info.Path: {
-				"main.go": string(b),
-			},
-		}
-
-		send(messages.GetComplete{Source: files})
-
-		return nil
-	}
-
-	source := map[string]map[string]string{
-		info.Path: {},
-	}
-
-	var fs billy.Filesystem
-	var dir string
-
-	// Look in the goroot for standard lib packages
-	dirRoot := filepath.Join("goroot", "src", info.Path)
-	if _, err := assets.Assets.Stat(dirRoot); err == nil {
-		fs = assets.Assets
-		dir = dirRoot
-	} else {
-
-		// Send a message to the client that downloading step has started.
-		send(messages.Downloading{Starting: true})
-
-		s, err := session.New(nil, nil, assets.Assets)
-		if err != nil {
-			return err
-		}
-
-		// Start the download process - just like the "go get" command.
-		if err := getter.New(s, downloadWriter{send: send}).Get(ctx, info.Path, false, false, true); err != nil {
-			return err
-		}
-
-		// Send a message to the client that downloading step has finished.
-		send(messages.Downloading{Done: true})
-
-		fs = s.GoPath()
-		dir = filepath.Join("gopath", "src", info.Path)
-	}
-
-	fis, err := fs.ReadDir(dir)
+	s := session.New(nil, assets.Assets)
+	_, err := getSource(ctx, s, info.Path, send)
 	if err != nil {
 		return err
+	}
+	return nil
+}
+
+func getSource(ctx context.Context, s *session.Session, path string, send func(message messages.Message)) (map[string]map[string]string, error) {
+
+	if strings.HasPrefix(path, "p/") {
+		send(messages.Downloading{Message: path})
+		source, err := getGolangPlaygroundSource(ctx, path)
+		if err != nil {
+			return nil, err
+		}
+		send(messages.Downloading{Done: true})
+		send(messages.GetComplete{Source: source})
+		return source, nil
+	}
+
+	root := filepath.Join("goroot", "src", path)
+	if _, err := assets.Assets.Stat(root); err == nil {
+		// Look in the goroot for standard lib packages
+		source, err := getSourceFiles(assets.Assets, path, root)
+		if err != nil {
+			return nil, err
+		}
+		send(messages.GetComplete{Source: source})
+		return source, nil
+	}
+
+	// Send a message to the client that downloading step has started.
+	send(messages.Downloading{Starting: true})
+
+	// Start the download process - just like the "go get" command.
+	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, path, false, false, true); err != nil {
+		return nil, err
+	}
+
+	source, err := getSourceFiles(s.GoPath(), path, filepath.Join("gopath", "src", path))
+	if err != nil {
+		return nil, err
+	}
+
+	// Send a message to the client that downloading step has finished.
+	send(messages.Downloading{Done: true})
+	send(messages.GetComplete{Source: source})
+
+	return source, nil
+}
+
+func getSourceFiles(fs billy.Filesystem, path, dir string) (map[string]map[string]string, error) {
+	source := map[string]map[string]string{}
+	fis, err := fs.ReadDir(dir)
+	if err != nil {
+		return nil, err
 	}
 	for _, fi := range fis {
 		if !strings.HasSuffix(fi.Name(), ".go") && !strings.HasSuffix(fi.Name(), ".html") {
@@ -100,18 +85,42 @@ func playGet(ctx context.Context, info messages.Get, req *http.Request, send fun
 		}
 		f, err := fs.Open(filepath.Join(dir, fi.Name()))
 		if err != nil {
-			return err
+			return nil, err
 		}
 		b, err := ioutil.ReadAll(f)
 		if err != nil {
 			f.Close()
-			return err
+			return nil, err
 		}
 		f.Close()
-		source[info.Path][fi.Name()] = string(b)
+		if source[path] == nil {
+			source[path] = map[string]string{}
+		}
+		source[path][fi.Name()] = string(b)
 	}
+	return source, nil
+}
 
-	send(messages.GetComplete{Source: source})
-
-	return nil
+func getGolangPlaygroundSource(ctx context.Context, path string) (map[string]map[string]string, error) {
+	var httpClient = &http.Client{
+		Timeout: config.HttpTimeout,
+	}
+	resp, err := ctxhttp.Get(ctx, httpClient, fmt.Sprintf("https://play.golang.org/%s.go", path))
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("error %d", resp.StatusCode)
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	source := map[string]map[string]string{
+		path: {
+			"main.go": string(b),
+		},
+	}
+	return source, nil
 }

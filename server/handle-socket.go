@@ -27,6 +27,8 @@ func handleSocketCommand(ctx context.Context, req *http.Request, send func(messa
 			return playGet(ctx, m, req, send, receive)
 		case messages.Deploy:
 			return playDeploy(ctx, m, req, send, receive)
+		case messages.Initialise:
+			return playInitialise(ctx, m, req, send, receive)
 		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}

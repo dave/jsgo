@@ -20,10 +20,7 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 
 	path := info.Path
 
-	s, err := session.New(nil, nil, assets.Assets)
-	if err != nil {
-		return err
-	}
+	s := session.New(nil, assets.Assets)
 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})

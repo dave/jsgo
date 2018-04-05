@@ -15,7 +15,7 @@ import (
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
-func (c *Compiler) Update(ctx context.Context, info messages.Update) error {
+func (c *Compiler) Update(ctx context.Context, source map[string]map[string]string, cache map[string]string) error {
 
 	c.send(messages.Updating{Starting: true})
 
@@ -50,7 +50,7 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update) error {
 		hash := fmt.Sprintf("%x", hashBytes)
 
 		var unchanged bool
-		if cached, exists := info.Cache[archive.ImportPath]; exists && cached == hash {
+		if cached, exists := cache[archive.ImportPath]; exists && cached == hash {
 			unchanged = true
 		}
 
@@ -104,7 +104,7 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update) error {
 		return err
 	}
 
-	for path := range info.Source {
+	for path := range source {
 		if _, _, err := b.BuildImportPath(ctx, path); err != nil {
 			return err
 		}

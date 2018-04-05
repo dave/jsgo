@@ -15,23 +15,14 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
-func New(source map[string]map[string]string, tags []string, root billy.Filesystem) (*Session, error) {
+func New(tags []string, root billy.Filesystem) *Session {
 	s := &Session{}
 	s.tags = append([]string{"js", "netgo", "jsgo"}, tags...)
 	s.pathfs = memfs.New()
 	s.rootfs = root
-	if source == nil {
-		source = map[string]map[string]string{}
-	}
-	s.source = source
+	s.source = map[string]map[string]string{}
 	s.sourcefs = memfs.New()
-	for path, files := range source {
-		if err := createPackage(s.sourcefs, filepath.Join("gopath", "src", path), files); err != nil {
-			return nil, err
-		}
-	}
-
-	return s, nil
+	return s
 }
 
 type Session struct {
@@ -49,6 +40,17 @@ type Session struct {
 
 	// Map of uploaded source files: package path => filename => contents
 	source map[string]map[string]string
+}
+
+func (s *Session) SetSource(source map[string]map[string]string) error {
+	s.source = source
+	s.sourcefs = memfs.New()
+	for path, files := range source {
+		if err := createPackage(s.sourcefs, filepath.Join("gopath", "src", path), files); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (s *Session) BuildContext(builder bool, suffix string) *build.Context {
