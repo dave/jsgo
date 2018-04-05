@@ -104,8 +104,10 @@ func (c *Compiler) Update(ctx context.Context, info messages.Update) error {
 		return err
 	}
 
-	if _, _, err := b.BuildImportPath(ctx, info.Main); err != nil {
-		return err
+	for path := range info.Source {
+		if _, _, err := b.BuildImportPath(ctx, path); err != nil {
+			return err
+		}
 	}
 
 	c.send(index)

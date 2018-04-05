@@ -4,8 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"fmt"
-
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/getter"
 	"github.com/dave/jsgo/server/compile"
@@ -14,10 +12,6 @@ import (
 )
 
 func playUpdate(ctx context.Context, info messages.Update, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
-
-	if info.Source[info.Main] == nil {
-		return fmt.Errorf("can't find main package %s in source", info.Main)
-	}
 
 	s, err := session.New(info.Source, nil, assets.Assets)
 	if err != nil {
@@ -28,8 +22,11 @@ func playUpdate(ctx context.Context, info messages.Update, req *http.Request, se
 	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, info.Main, false, false, false); err != nil {
-		return err
+	g := getter.New(s, downloadWriter{send: send})
+	for path := range info.Source {
+		if err := g.Get(ctx, path, false, false, false); err != nil {
+			return err
+		}
 	}
 
 	// Send a message to the client that downloading step has finished.

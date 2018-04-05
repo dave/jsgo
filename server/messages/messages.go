@@ -84,7 +84,6 @@ type Error struct {
 // Update is sent by the client to the server asking it to compile the source and return the archive
 // files for all dependencies that are not found in the client cache.
 type Update struct {
-	Main   string                       // Main package path
 	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
 	Tags   []string                     // Build tags
 	Cache  map[string]string            // Map of path->hash of previously compiled dependencies to use if still in the cache
