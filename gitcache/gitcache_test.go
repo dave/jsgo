@@ -6,10 +6,40 @@ import (
 	"io"
 	"io/ioutil"
 	"testing"
+
+	"time"
+
+	"gopkg.in/src-d/go-billy.v4"
+	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 func TestAll(t *testing.T) {
-	c := New()
+	ctx := context.Background()
+	res := &resolver{
+		hints: map[string][]string{
+			"github.com/dave/jstest": {"https://github.com/dave/jstest.git"},
+		},
+	}
+	c := NewCache(res, &gitfetcher{})
+	r, err := c.NewRequest(ctx, []string{"github.com/dave/jstest"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer r.Close(ctx)
+	f := r.NewPackage("github.com/dave/jstest")
+	if _, err := f.Fetch(ctx, "https://github.com/dave/jstest.git"); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := f.Fetch(ctx, "https://github.com/dave/foo.git"); err != nil {
+		t.Fatal(err)
+	}
+	<-time.After(time.Second)
+}
+
+type gitfetcher struct{}
+
+func (g *gitfetcher) GitFetch(ctx context.Context, url string) (billy.Filesystem, error) {
+	return memfs.New(), nil
 }
 
 type resolver struct {

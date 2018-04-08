@@ -8,6 +8,7 @@ const (
 	SrcBucket   = "dev-src.jsgo.io"
 	PkgBucket   = "dev-pkg.jsgo.io"
 	IndexBucket = "dev-index.jsgo.io"
+	GitBucket   = "dev-git.jsgo.io"
 
 	SrcHost   = "dev-src.jsgo.io"
 	PkgHost   = "dev-pkg.jsgo.io"
@@ -18,4 +19,5 @@ const (
 	PackageKind = "PackageDev"
 	DeployKind  = "DeployDev"
 	ShareKind   = "ShareDev"
+	HintsKind   = "HintsDev"
 )
