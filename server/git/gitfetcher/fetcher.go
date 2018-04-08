@@ -3,7 +3,6 @@ package gitfetcher
 import (
 	"context"
 	"errors"
-	"os"
 
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/gitcache"
@@ -96,8 +95,7 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, erro
 
 			// Do a full Fetch. Can this be made faster with options?
 			if err := repo.Fetch(&git.FetchOptions{
-				Force:    true,
-				Progress: os.Stdout,
+				Force: true,
 			}); err != nil && err != git.NoErrAlreadyUpToDate {
 				return nil, err
 			}
@@ -125,7 +123,6 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, erro
 			URL:          url,
 			Tags:         git.NoTags,
 			SingleBranch: true,
-			Progress:     os.Stdout,
 		}); err != nil {
 			return nil, err
 		}
