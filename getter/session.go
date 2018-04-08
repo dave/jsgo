@@ -14,7 +14,7 @@ import (
 type Getter struct {
 	*session.Session
 	gitcache          *gitcache.Request
-	gitpackage        *gitcache.Package
+	gitpackage        *gitcache.HintGroup
 	log               io.Writer
 	packageCache      map[string]*Package
 	buildContext      *build.Context
@@ -44,7 +44,7 @@ func New(session *session.Session, log io.Writer, cache *gitcache.Request) *Gett
 
 func (g *Getter) Get(ctx context.Context, path string, update bool, insecure, single bool) error {
 	var stk ImportStack
-	g.gitpackage = g.gitcache.NewPackage(path)
+	g.gitpackage = g.gitcache.NewHintGroup(path)
 	return g.download(ctx, path, nil, &stk, update, insecure, single)
 }
 

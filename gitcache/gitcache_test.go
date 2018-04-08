@@ -26,7 +26,7 @@ func TestAll(t *testing.T) {
 		t.Fatal(err)
 	}
 	defer r.Close(ctx)
-	f := r.NewPackage("github.com/dave/jstest")
+	f := r.NewHintGroup("github.com/dave/jstest")
 	if _, err := f.Fetch(ctx, "https://github.com/dave/jstest.git"); err != nil {
 		t.Fatal(err)
 	}

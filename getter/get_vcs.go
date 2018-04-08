@@ -39,10 +39,10 @@ var vcsList = []string{
 	"git",
 }
 
-func vcsByCmd(cmd string, p *gitcache.Package) vcsProvider {
+func vcsByCmd(cmd string, git *gitcache.HintGroup) vcsProvider {
 	switch cmd {
 	case "git":
-		return &gitProvider{cache: p}
+		return &gitProvider{git: git}
 	}
 	return nil
 }
@@ -67,12 +67,12 @@ func (r *repoRoot) download(ctx context.Context) error {
 // A vcsPath describes how to convert an import path into a
 // version control system and repository name.
 type vcsPath struct {
-	prefix string                                                                            // prefix this description applies to
-	re     string                                                                            // pattern for import path
-	repo   string                                                                            // repository to use (expand with match of re)
-	vcs    string                                                                            // version control system to use (expand with match of re)
-	check  func(ctx context.Context, match map[string]string, cache *gitcache.Package) error // additional checks
-	ping   bool                                                                              // ping for scheme to use to download repo
+	prefix string                                                                              // prefix this description applies to
+	re     string                                                                              // pattern for import path
+	repo   string                                                                              // repository to use (expand with match of re)
+	vcs    string                                                                              // version control system to use (expand with match of re)
+	check  func(ctx context.Context, match map[string]string, cache *gitcache.HintGroup) error // additional checks
+	ping   bool                                                                                // ping for scheme to use to download repo
 
 	regexp *regexp.Regexp // cached compiled form of re
 }
@@ -532,7 +532,7 @@ func init() {
 // noVCSSuffix checks that the repository name does not
 // end in .foo for any version control system foo.
 // The usual culprit is ".git".
-func noVCSSuffix(ctx context.Context, match map[string]string, cache *gitcache.Package) error {
+func noVCSSuffix(ctx context.Context, match map[string]string, cache *gitcache.HintGroup) error {
 	repo := match["repo"]
 	for _, vcs := range vcsList {
 		if strings.HasSuffix(repo, "."+vcs) {
@@ -544,7 +544,7 @@ func noVCSSuffix(ctx context.Context, match map[string]string, cache *gitcache.P
 
 // bitbucketVCS determines the version control system for a
 // Bitbucket repository, by using the Bitbucket API.
-func bitbucketVCS(ctx context.Context, match map[string]string, cache *gitcache.Package) error {
+func bitbucketVCS(ctx context.Context, match map[string]string, cache *gitcache.HintGroup) error {
 	if err := noVCSSuffix(ctx, match, cache); err != nil {
 		return err
 	}
@@ -592,7 +592,7 @@ func bitbucketVCS(ctx context.Context, match map[string]string, cache *gitcache.
 // "foo" could be a series name registered in Launchpad with its own branch,
 // and it could also be the name of a directory within the main project
 // branch one level up.
-func launchpadVCS(ctx context.Context, match map[string]string, cache *gitcache.Package) error {
+func launchpadVCS(ctx context.Context, match map[string]string, cache *gitcache.HintGroup) error {
 	if match["project"] == "" || match["series"] == "" {
 		return nil
 	}

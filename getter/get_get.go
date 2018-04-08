@@ -72,6 +72,17 @@ func (g *Getter) download(ctx context.Context, path string, parent *Package, stk
 		}
 		pkgs = append(pkgs, p)
 
+	} else {
+		// if we're not downloading the repo, then work out what the repo is and pass this as a hint
+		// to the gitcache
+		dir := p.Dir
+		for dir != "." && dir != string(filepath.Separator) {
+			if r, ok := g.downloadRootCache[dir]; ok {
+				g.gitpackage.Hint(r.repo)
+				break
+			}
+			dir = filepath.Dir(dir)
+		}
 	}
 
 	// single mode - don't process dependencies

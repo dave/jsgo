@@ -5,8 +5,6 @@ import (
 	"errors"
 	"os"
 
-	"fmt"
-
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/gitcache"
 	"gopkg.in/src-d/go-billy-siva.v4"
@@ -26,8 +24,6 @@ type Fetcher struct {
 }
 
 func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, error) {
-
-	fmt.Println("fetching", url)
 
 	persisted := memfs.New()
 
@@ -149,21 +145,17 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, erro
 }
 
 func save(ctx context.Context, saver gitcache.Persister, url string, fs billy.Filesystem) error {
-	fmt.Println("Starting save", url)
 	s, err := fs.Stat(FNAME)
 	if err != nil {
-		fmt.Println("Error saving 1", url, err)
 		return err
 	}
 	// open the persisted git file for reading
 	persisted, err := fs.Open(FNAME)
 	if err != nil {
-		fmt.Println("Error saving 2", url, err)
 		return err
 	}
 	defer persisted.Close()
 	if err := saver.Save(ctx, url, uint64(s.Size()), persisted); err != nil {
-		fmt.Println("Error saving 3", url, err)
 		return err
 	}
 	return nil

@@ -3,7 +3,6 @@ package compile
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"io"
 	"sync"
 	"sync/atomic"
@@ -65,8 +64,6 @@ func (s *Storer) Worker(ctx context.Context) {
 						remain := atomic.LoadInt32(&s.total) - unchanged - done
 						if s.send != nil {
 							s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-						} else {
-							fmt.Printf("Unchanged: %s\n", item.Message)
 						}
 					}
 					return
@@ -86,8 +83,6 @@ func (s *Storer) Worker(ctx context.Context) {
 				remain := atomic.LoadInt32(&s.total) - unchanged - done
 				if s.send != nil {
 					s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-				} else {
-					fmt.Printf("Finished: %s\n", item.Message)
 				}
 			}
 		}()

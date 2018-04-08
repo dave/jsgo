@@ -3,8 +3,6 @@ package gcsresolver
 import (
 	"context"
 
-	"fmt"
-
 	"cloud.google.com/go/datastore"
 )
 
@@ -24,11 +22,13 @@ func (r *Resolver) Resolve(ctx context.Context, hints []string) (resolved []stri
 		if me, ok := err.(datastore.MultiError); ok {
 			for _, merr := range me {
 				if merr != datastore.ErrNoSuchEntity {
-					return nil, err
+					return nil, merr
 				}
 			}
 		} else {
-			return nil, err
+			if err != datastore.ErrNoSuchEntity {
+				return nil, err
+			}
 		}
 	}
 	for _, r := range response {
@@ -44,7 +44,6 @@ func (r *Resolver) Resolve(ctx context.Context, hints []string) (resolved []stri
 }
 
 func (r *Resolver) Save(ctx context.Context, resolved map[string][]string) error {
-	fmt.Println("*** saving", resolved)
 	var keys []*datastore.Key
 	var vals []Hints
 	for path, hints := range resolved {
@@ -52,7 +51,6 @@ func (r *Resolver) Save(ctx context.Context, resolved map[string][]string) error
 		vals = append(vals, Hints{Path: path, Hints: hints})
 	}
 	if _, err := r.Client.PutMulti(ctx, keys, vals); err != nil {
-		fmt.Println("*** error", err)
 		return err
 	}
 	return nil
