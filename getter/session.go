@@ -6,12 +6,15 @@ import (
 	"io"
 	"sync"
 
+	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/session"
 	"golang.org/x/sync/singleflight"
 )
 
 type Getter struct {
 	*session.Session
+	gitcache          *gitcache.Request
+	gitpackage        *gitcache.Package
 	log               io.Writer
 	packageCache      map[string]*Package
 	buildContext      *build.Context
@@ -24,8 +27,9 @@ type Getter struct {
 	fetchCache        map[string]fetchResult // key is metaImportsForPrefix's importPrefix
 }
 
-func New(session *session.Session, log io.Writer) *Getter {
+func New(session *session.Session, log io.Writer, cache *gitcache.Request) *Getter {
 	g := &Getter{}
+	g.gitcache = cache
 	g.Session = session
 	g.log = log
 	g.packageCache = make(map[string]*Package)
@@ -36,11 +40,11 @@ func New(session *session.Session, log io.Writer) *Getter {
 	g.fetchCache = make(map[string]fetchResult)
 	g.buildContext = g.BuildContext(false, "")
 	return g
-
 }
 
 func (g *Getter) Get(ctx context.Context, path string, update bool, insecure, single bool) error {
 	var stk ImportStack
+	g.gitpackage = g.gitcache.NewPackage(path)
 	return g.download(ctx, path, nil, &stk, update, insecure, single)
 }
 

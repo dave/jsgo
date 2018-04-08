@@ -5,6 +5,9 @@ import (
 	"errors"
 	"os"
 
+	"fmt"
+
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/gitcache"
 	"gopkg.in/src-d/go-billy-siva.v4"
 	"gopkg.in/src-d/go-billy.v4"
@@ -23,6 +26,8 @@ type Fetcher struct {
 }
 
 func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, error) {
+
+	fmt.Println("fetching", url)
 
 	persisted := memfs.New()
 
@@ -130,29 +135,38 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, erro
 		}
 	}
 
-	if changed {
-		if err := sfs.Sync(); err != nil {
-			return nil, err
-		}
-		go save(ctx, f.Gcs, url, persisted)
-		go save(ctx, f.Cache, url, persisted)
+	if err := sfs.Sync(); err != nil {
+		return nil, err
 	}
+	// we don't want the context to be cancelled half way through saving, so let's create a new one:
+	gitctx, _ := context.WithTimeout(context.Background(), config.GitSaveTimeout)
+	if changed {
+		go save(gitctx, f.Gcs, url, persisted)
+	}
+	go save(gitctx, f.Cache, url, persisted)
 
 	return worktree, nil
 }
 
 func save(ctx context.Context, saver gitcache.Persister, url string, fs billy.Filesystem) error {
+	fmt.Println("Starting save", url)
 	s, err := fs.Stat(FNAME)
 	if err != nil {
+		fmt.Println("Error saving 1", url, err)
 		return err
 	}
 	// open the persisted git file for reading
 	persisted, err := fs.Open(FNAME)
 	if err != nil {
+		fmt.Println("Error saving 2", url, err)
 		return err
 	}
 	defer persisted.Close()
-	return saver.Save(ctx, url, uint64(s.Size()), persisted)
+	if err := saver.Save(ctx, url, uint64(s.Size()), persisted); err != nil {
+		fmt.Println("Error saving 3", url, err)
+		return err
+	}
+	return nil
 }
 
 func load(ctx context.Context, loader gitcache.Persister, url string, fs billy.Filesystem) (found bool, err error) {

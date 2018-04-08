@@ -50,7 +50,7 @@ func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient 
 		Git: gitcache.NewCache(
 			&gcsresolver.Resolver{Client: datastoreClient, Kind: config.HintsKind},
 			&gitfetcher.Fetcher{
-				Cache: &cachepersister.Persister{MaxTotal: 512 * 1024 * 1042, MaxItem: 5 * 1024 * 1024},
+				Cache: &cachepersister.Persister{MaxTotal: 512 * 1024 * 1042, MaxItem: 50 * 1024 * 1024},
 				Gcs:   &gcspersister.Persister{Client: storageClient, Bucket: storageClient.Bucket(config.GitBucket)},
 			},
 		),

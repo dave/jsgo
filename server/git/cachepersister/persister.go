@@ -3,6 +3,7 @@ package cachepersister
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"io/ioutil"
 	"sync"
@@ -27,8 +28,18 @@ type item struct {
 
 func (p *Persister) Save(ctx context.Context, url string, size uint64, reader io.Reader) error {
 
+	fmt.Println("caching", url)
+
+	if p.keys == nil {
+		p.keys = map[string]*item{}
+	}
+	if p.ids == nil {
+		p.ids = map[uint64]*item{}
+	}
+
 	if size > p.MaxItem {
 		// don't cache anything over MaxItem
+		fmt.Println(url, "skipped. too big", size, p.MaxItem)
 		return nil
 	}
 
@@ -40,6 +51,7 @@ func (p *Persister) Save(ctx context.Context, url string, size uint64, reader io
 	var length = uint64(len(b))
 
 	if length > p.MaxItem {
+		fmt.Println(url, "skipped. too big", length, p.MaxItem)
 		// double check the actual size of the bytes
 		return nil
 	}
@@ -58,6 +70,8 @@ func (p *Persister) Save(ctx context.Context, url string, size uint64, reader io
 			p.evictOldest()
 		}
 
+		fmt.Println("cache updated", url)
+
 		delete(p.ids, i.id)
 		i.id = newid
 		i.data = b
@@ -69,6 +83,8 @@ func (p *Persister) Save(ctx context.Context, url string, size uint64, reader io
 		for p.total+length > p.MaxTotal {
 			p.evictOldest()
 		}
+
+		fmt.Println("cache added", url)
 
 		i := &item{key: url, id: newid, data: b}
 		p.keys[url] = i
@@ -94,6 +110,7 @@ func (p *Persister) evictOldest() {
 }
 
 func (p *Persister) Load(ctx context.Context, url string, writer io.Writer) (found bool, err error) {
+	fmt.Println("loading", url)
 	p.m.Lock()
 	defer p.m.Unlock()
 	if i, ok := p.keys[url]; ok {
@@ -106,7 +123,9 @@ func (p *Persister) Load(ctx context.Context, url string, writer io.Writer) (fou
 		if _, err := io.Copy(writer, bytes.NewBuffer(i.data)); err != nil {
 			return false, err
 		}
+		fmt.Println("Cache hit", url)
 		return true, nil
 	}
+	fmt.Println("can't find", url)
 	return false, nil
 }

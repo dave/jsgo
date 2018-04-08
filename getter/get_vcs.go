@@ -13,6 +13,7 @@ import (
 
 	"context"
 
+	"github.com/dave/jsgo/gitcache"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
@@ -38,10 +39,10 @@ var vcsList = []string{
 	"git",
 }
 
-func vcsByCmd(cmd string) vcsProvider {
+func vcsByCmd(cmd string, p *gitcache.Package) vcsProvider {
 	switch cmd {
 	case "git":
-		return new(gitProvider)
+		return &gitProvider{cache: p}
 	}
 	return nil
 }
@@ -66,12 +67,12 @@ func (r *repoRoot) download(ctx context.Context) error {
 // A vcsPath describes how to convert an import path into a
 // version control system and repository name.
 type vcsPath struct {
-	prefix string                                                   // prefix this description applies to
-	re     string                                                   // pattern for import path
-	repo   string                                                   // repository to use (expand with match of re)
-	vcs    string                                                   // version control system to use (expand with match of re)
-	check  func(ctx context.Context, match map[string]string) error // additional checks
-	ping   bool                                                     // ping for scheme to use to download repo
+	prefix string                                                                            // prefix this description applies to
+	re     string                                                                            // pattern for import path
+	repo   string                                                                            // repository to use (expand with match of re)
+	vcs    string                                                                            // version control system to use (expand with match of re)
+	check  func(ctx context.Context, match map[string]string, cache *gitcache.Package) error // additional checks
+	ping   bool                                                                              // ping for scheme to use to download repo
 
 	regexp *regexp.Regexp // cached compiled form of re
 }
@@ -134,7 +135,7 @@ var httpPrefixRE = regexp.MustCompile(`^https?:`)
 // repoRootForImportPath analyzes importPath to determine the
 // version control system, and code repository to use.
 func (g *Getter) repoRootForImportPath(ctx context.Context, importPath string, insecure bool) (*repoRoot, error) {
-	rr, err := repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPaths)
+	rr, err := g.repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPaths)
 	if err == errUnknownSite {
 		rr, err = g.repoRootForImportDynamic(ctx, importPath, insecure)
 		if err != nil {
@@ -142,7 +143,7 @@ func (g *Getter) repoRootForImportPath(ctx context.Context, importPath string, i
 		}
 	}
 	if err != nil {
-		rr1, err1 := repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPathsAfterDynamic)
+		rr1, err1 := g.repoRootFromVCSPaths(ctx, importPath, "", insecure, vcsPathsAfterDynamic)
 		if err1 == nil {
 			rr = rr1
 			err = nil
@@ -162,7 +163,7 @@ var errUnknownSite = errors.New("dynamic lookup required to find mapping")
 // repoRootFromVCSPaths attempts to map importPath to a repoRoot
 // using the mappings defined in vcsPaths.
 // If scheme is non-empty, that scheme is forced.
-func repoRootFromVCSPaths(ctx context.Context, importPath, scheme string, insecure bool, vcsPaths []*vcsPath) (*repoRoot, error) {
+func (g *Getter) repoRootFromVCSPaths(ctx context.Context, importPath, scheme string, insecure bool, vcsPaths []*vcsPath) (*repoRoot, error) {
 	// A common error is to use https://packagepath because that's what
 	// hg and git require. Diagnose this helpfully.
 	if loc := httpPrefixRE.FindStringIndex(importPath); loc != nil {
@@ -199,11 +200,11 @@ func repoRootFromVCSPaths(ctx context.Context, importPath, scheme string, insecu
 			match["repo"] = expand(match, srv.repo)
 		}
 		if srv.check != nil {
-			if err := srv.check(ctx, match); err != nil {
+			if err := srv.check(ctx, match, g.gitpackage); err != nil {
 				return nil, err
 			}
 		}
-		vcs := vcsByCmd(match["vcs"])
+		vcs := vcsByCmd(match["vcs"], g.gitpackage)
 		if vcs == nil {
 			return nil, fmt.Errorf("unknown version control system %q", match["vcs"])
 		}
@@ -289,7 +290,7 @@ func (g *Getter) repoRootForImportDynamic(ctx context.Context, importPath string
 		return nil, fmt.Errorf("%s: invalid repo root %q: %v", urlStr, mmi.RepoRoot, err)
 	}
 	rr := &repoRoot{
-		vcs:      vcsByCmd(mmi.VCS),
+		vcs:      vcsByCmd(mmi.VCS, g.gitpackage),
 		repo:     mmi.RepoRoot,
 		root:     mmi.Prefix,
 		isCustom: true,
@@ -531,7 +532,7 @@ func init() {
 // noVCSSuffix checks that the repository name does not
 // end in .foo for any version control system foo.
 // The usual culprit is ".git".
-func noVCSSuffix(ctx context.Context, match map[string]string) error {
+func noVCSSuffix(ctx context.Context, match map[string]string, cache *gitcache.Package) error {
 	repo := match["repo"]
 	for _, vcs := range vcsList {
 		if strings.HasSuffix(repo, "."+vcs) {
@@ -543,8 +544,8 @@ func noVCSSuffix(ctx context.Context, match map[string]string) error {
 
 // bitbucketVCS determines the version control system for a
 // Bitbucket repository, by using the Bitbucket API.
-func bitbucketVCS(ctx context.Context, match map[string]string) error {
-	if err := noVCSSuffix(ctx, match); err != nil {
+func bitbucketVCS(ctx context.Context, match map[string]string, cache *gitcache.Package) error {
+	if err := noVCSSuffix(ctx, match, cache); err != nil {
 		return err
 	}
 
@@ -559,7 +560,7 @@ func bitbucketVCS(ctx context.Context, match map[string]string) error {
 			// VCS it uses. See issue 5375.
 			root := match["root"]
 			for _, vcs := range []string{"git", "hg"} {
-				provider := vcsByCmd(vcs)
+				provider := vcsByCmd(vcs, cache)
 				if provider != nil && provider.ping(ctx, "https", root) == nil {
 					resp.SCM = vcs
 					break
@@ -576,7 +577,7 @@ func bitbucketVCS(ctx context.Context, match map[string]string) error {
 		}
 	}
 
-	if vcsByCmd(resp.SCM) != nil {
+	if vcsByCmd(resp.SCM, cache) != nil {
 		match["vcs"] = resp.SCM
 		if resp.SCM == "git" {
 			match["repo"] += ".git"
@@ -591,7 +592,7 @@ func bitbucketVCS(ctx context.Context, match map[string]string) error {
 // "foo" could be a series name registered in Launchpad with its own branch,
 // and it could also be the name of a directory within the main project
 // branch one level up.
-func launchpadVCS(ctx context.Context, match map[string]string) error {
+func launchpadVCS(ctx context.Context, match map[string]string, cache *gitcache.Package) error {
 	if match["project"] == "" || match["series"] == "" {
 		return nil
 	}

@@ -11,22 +11,23 @@ import (
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter"
+	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/session"
 	"github.com/shurcooL/go/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
 	s := session.New(nil, assets.Assets)
-	_, err := getSource(ctx, s, info.Path, send)
+	_, err := getSource(ctx, s, info.Path, send, cache.NewRequest())
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getSource(ctx context.Context, s *session.Session, path string, send func(message messages.Message)) (map[string]map[string]string, error) {
+func getSource(ctx context.Context, s *session.Session, path string, send func(message messages.Message), gitreq *gitcache.Request) (map[string]map[string]string, error) {
 
 	if strings.HasPrefix(path, "p/") {
 		send(messages.Downloading{Message: path})
@@ -54,7 +55,8 @@ func getSource(ctx context.Context, s *session.Session, path string, send func(m
 	send(messages.Downloading{Starting: true})
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, path, false, false, true); err != nil {
+	// Don't need to give git hints here because only one package will be downloaded
+	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, false, true); err != nil {
 		return nil, err
 	}
 

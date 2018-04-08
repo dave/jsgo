@@ -19,6 +19,8 @@ import (
 
 	"strings"
 
+	"github.com/dave/jsgo/builder/fscopy"
+	"github.com/dave/jsgo/gitcache"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
@@ -37,6 +39,7 @@ type vcsProvider interface {
 }
 
 type gitProvider struct {
+	cache      *gitcache.Package
 	repo       *git.Repository
 	worktree   *git.Worktree
 	hashString string
@@ -126,6 +129,18 @@ func (p *progressWatcher) Write(b []byte) (n int, err error) {
 }
 
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
+	worktree, err := g.cache.Fetch(ctx, url)
+	if err != nil {
+		return err
+	}
+	if err := fscopy.Copy("/", dir, worktree, fs); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (g *gitProvider) createOld(ctx context.Context, url, dir string, fs billy.Filesystem) error {
+
 	// git clone {repo} {dir}
 	// git -go-internal-cd {dir} submodule update --init --recursive
 

@@ -3,6 +3,8 @@ package gcsresolver
 import (
 	"context"
 
+	"fmt"
+
 	"cloud.google.com/go/datastore"
 )
 
@@ -17,9 +19,17 @@ func (r *Resolver) Resolve(ctx context.Context, hints []string) (resolved []stri
 		keys = append(keys, r.hintsKey(path))
 	}
 	urls := map[string]bool{}
-	var response []Hints
-	if err := r.Client.GetMulti(ctx, keys, &response); err != nil {
-		return nil, err
+	response := make([]Hints, len(keys))
+	if err := r.Client.GetMulti(ctx, keys, response); err != nil {
+		if me, ok := err.(datastore.MultiError); ok {
+			for _, merr := range me {
+				if merr != datastore.ErrNoSuchEntity {
+					return nil, err
+				}
+			}
+		} else {
+			return nil, err
+		}
 	}
 	for _, r := range response {
 		for _, url := range r.Hints {
@@ -34,6 +44,7 @@ func (r *Resolver) Resolve(ctx context.Context, hints []string) (resolved []stri
 }
 
 func (r *Resolver) Save(ctx context.Context, resolved map[string][]string) error {
+	fmt.Println("*** saving", resolved)
 	var keys []*datastore.Key
 	var vals []Hints
 	for path, hints := range resolved {
@@ -41,6 +52,7 @@ func (r *Resolver) Save(ctx context.Context, resolved map[string][]string) error
 		vals = append(vals, Hints{Path: path, Hints: hints})
 	}
 	if _, err := r.Client.PutMulti(ctx, keys, vals); err != nil {
+		fmt.Println("*** error", err)
 		return err
 	}
 	return nil

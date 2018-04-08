@@ -5,6 +5,8 @@ import (
 
 	"io"
 
+	"fmt"
+
 	"gopkg.in/src-d/go-billy.v4"
 )
 
@@ -45,7 +47,6 @@ type Cache struct {
 // all "git fetch" operations that happen in one request are current for the entire request.
 type Request struct {
 	cache    *Cache
-	hints    []string
 	fetchers map[*Package]bool
 	calls    *CallGroup
 }
@@ -55,25 +56,22 @@ type Request struct {
 // request (using a database of previously encountered package->dependencies). If the dependencies have
 // recently changed this will be picked up during the "go get" execution and the correct dependencies
 // will be requested (this will ensure correct execution).
-func (c *Cache) NewRequest(ctx context.Context, hints []string) (*Request, error) {
+func (c *Cache) NewRequest() *Request {
 	r := &Request{}
 	r.cache = c
-	r.hints = hints
 	r.calls = new(CallGroup)
 	r.fetchers = map[*Package]bool{}
-	if err := r.init(ctx); err != nil {
-		return nil, err
-	}
-	return r, nil
+	return r
 }
 
-// init looks up hints in the database to get a best guess list of repos, then starts to fetch all of
+// Hint looks up hints in the database to get a best guess list of repos, then starts to fetch all of
 // them in parallel (with a limited pool of workers?)
-func (r *Request) init(ctx context.Context) error {
-	urls, err := r.cache.resolver.Resolve(ctx, r.hints)
+func (r *Request) Hint(ctx context.Context, hints ...string) error {
+	urls, err := r.cache.resolver.Resolve(ctx, hints)
 	if err != nil {
 		return err
 	}
+	fmt.Println("******* got hints: ", urls)
 	for _, url := range urls {
 		url := url
 		go r.calls.Do(ctx, url, r.fetch)
@@ -83,7 +81,12 @@ func (r *Request) init(ctx context.Context) error {
 
 // fetch is called by Request.init and Fetcher.Fetch.
 func (r *Request) fetch(ctx context.Context, url string) (billy.Filesystem, error) {
-	return r.cache.git.Fetch(ctx, url)
+	fs, err := r.cache.git.Fetch(ctx, url)
+	if err != nil {
+		fmt.Println("error fetching", url, err)
+		return nil, err
+	}
+	return fs, nil
 }
 
 // Close should be called once all getters have finished, and saves the hints back to the HintResolver.
@@ -105,6 +108,7 @@ func (r *Request) NewPackage(path string) *Package {
 	f.request = r
 	f.path = path
 	f.repos = map[string]bool{}
+	r.fetchers[f] = true
 	return f
 }
 
@@ -120,6 +124,7 @@ type Package struct {
 // returns the work tree. If a request for this repo is already in flight (e.g. from the init method),
 // we wait for that one to finish instead of starting a new one.
 func (p *Package) Fetch(ctx context.Context, url string) (billy.Filesystem, error) {
+	fmt.Println("=== adding repo", p.path, url)
 	p.repos[url] = true
 	return p.request.calls.Do(ctx, url, p.request.fetch)
 }
