@@ -33,15 +33,15 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
-	gitreq := cache.NewRequest()
+	gitreq := cache.NewRequest(false)
 	if info.Main == "main" {
 		// Using package path "main" as a hint isn't useful... Instead use the imports.
 		// TODO: ignore standard library packages in this list.
-		if err := gitreq.Hint(ctx, info.Imports...); err != nil {
+		if err := gitreq.InitialiseFromHints(ctx, info.Imports...); err != nil {
 			return err
 		}
 	} else {
-		if err := gitreq.Hint(ctx, info.Main); err != nil {
+		if err := gitreq.InitialiseFromHints(ctx, info.Main); err != nil {
 			return err
 		}
 	}

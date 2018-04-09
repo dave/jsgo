@@ -13,8 +13,7 @@ import (
 
 type Getter struct {
 	*session.Session
-	gitcache          *gitcache.Request
-	gitpackage        *gitcache.HintGroup
+	gitreq            *gitcache.Request
 	log               io.Writer
 	packageCache      map[string]*Package
 	buildContext      *build.Context
@@ -29,7 +28,7 @@ type Getter struct {
 
 func New(session *session.Session, log io.Writer, cache *gitcache.Request) *Getter {
 	g := &Getter{}
-	g.gitcache = cache
+	g.gitreq = cache
 	g.Session = session
 	g.log = log
 	g.packageCache = make(map[string]*Package)
@@ -44,8 +43,55 @@ func New(session *session.Session, log io.Writer, cache *gitcache.Request) *Gett
 
 func (g *Getter) Get(ctx context.Context, path string, update bool, insecure, single bool) error {
 	var stk ImportStack
-	g.gitpackage = g.gitcache.NewHintGroup(path)
-	return g.download(ctx, path, nil, &stk, update, insecure, single)
+	if err := g.download(ctx, path, nil, &stk, update, insecure, single); err != nil {
+		return err
+	}
+	if single {
+		// don't build hints in single mode
+		return nil
+	}
+	// after download, build a list of package path => dependency repo URLs for the gitcache hints
+	hints := map[string][]string{}
+	var processPath func(path string) []string
+	processPath = func(path string) []string {
+		urls := map[string]bool{}
+
+		p := g.packageCache[path]
+
+		if p.Standard {
+			return nil
+		}
+
+		if p != nil {
+			for _, imp := range p.Imports {
+				urlsForImport := processPath(imp)
+				for _, url := range urlsForImport {
+					urls[url] = true
+				}
+			}
+		}
+
+		repoForThisPath, ok := g.repoPackages[path]
+		if ok {
+			urls[repoForThisPath.repo] = true
+		} else if p != nil {
+			root, _ := g.vcsFromDir(p.Dir, p.Internal.Build.SrcRoot)
+			// ignore error
+			if root != nil {
+				urls[root.repo] = true
+			}
+		}
+
+		var urlsArray []string
+		for url := range urls {
+			urlsArray = append(urlsArray, url)
+		}
+		hints[path] = urlsArray
+		return urlsArray
+	}
+	processPath(path)
+	g.gitreq.SetHints(hints)
+	return nil
 }
 
 // WithCancel executes the provided function, but returns early with true if the context cancellation

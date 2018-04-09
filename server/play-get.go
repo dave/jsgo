@@ -20,14 +20,15 @@ import (
 
 func playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
 	s := session.New(nil, assets.Assets)
-	_, err := getSource(ctx, s, info.Path, send, cache.NewRequest())
+	g := getter.New(s, downloadWriter{send: send}, cache.NewRequest(false))
+	_, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func getSource(ctx context.Context, s *session.Session, path string, send func(message messages.Message), gitreq *gitcache.Request) (map[string]map[string]string, error) {
+func getSource(ctx context.Context, g *getter.Getter, s *session.Session, path string, send func(message messages.Message)) (map[string]map[string]string, error) {
 
 	if strings.HasPrefix(path, "p/") {
 		send(messages.Downloading{Message: path})
@@ -56,7 +57,7 @@ func getSource(ctx context.Context, s *session.Session, path string, send func(m
 
 	// Start the download process - just like the "go get" command.
 	// Don't need to give git hints here because only one package will be downloaded
-	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, false, true); err != nil {
+	if err := g.Get(ctx, path, false, false, true); err != nil {
 		return nil, err
 	}
 

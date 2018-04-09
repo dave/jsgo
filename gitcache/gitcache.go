@@ -44,9 +44,10 @@ type Cache struct {
 // Request represents a single request, possibly with several "go get" operations. It is assumed that
 // all "git fetch" operations that happen in one request are current for the entire request.
 type Request struct {
-	cache  *Cache
-	groups map[*HintGroup]bool
-	calls  *CallGroup
+	cache *Cache
+	hints map[string][]string
+	calls *CallGroup
+	save  bool // should we save hints?
 }
 
 // New returns a new request. Any packages that we know will be requested during the request can be specified
@@ -54,18 +55,19 @@ type Request struct {
 // request (using a database of previously encountered package->dependencies). If the dependencies have
 // recently changed this will be picked up during the "go get" execution and the correct dependencies
 // will be requested (this will ensure correct execution).
-func (c *Cache) NewRequest() *Request {
+func (c *Cache) NewRequest(save bool) *Request {
 	r := &Request{}
 	r.cache = c
 	r.calls = new(CallGroup)
-	r.groups = map[*HintGroup]bool{}
+	r.hints = map[string][]string{}
+	r.save = save
 	return r
 }
 
 // Hint looks up hints in the database to get a best guess list of repos, then starts to fetch all of
 // them in parallel
 // TODO: use a worker pool
-func (r *Request) Hint(ctx context.Context, paths ...string) error {
+func (r *Request) InitialiseFromHints(ctx context.Context, paths ...string) error {
 	urls, err := r.cache.resolver.Resolve(ctx, paths)
 	if err != nil {
 		return err
@@ -86,45 +88,24 @@ func (r *Request) fetch(ctx context.Context, url string) (billy.Filesystem, erro
 	return fs, nil
 }
 
-// Close should be called once all getters have finished, and saves the hints back to the HintResolver.
-func (r *Request) Close(ctx context.Context) error {
-	hints := map[string][]string{}
-	for g := range r.groups {
-		var repos []string
-		for url := range g.repos {
-			repos = append(repos, url)
-		}
-		hints[g.path] = repos
-	}
-	return r.cache.resolver.Save(ctx, hints)
-}
-
-// NewHintGroup returns a HintGroup
-func (r *Request) NewHintGroup(path string) *HintGroup {
-	h := &HintGroup{}
-	h.request = r
-	h.path = path
-	h.repos = map[string]bool{}
-	r.groups[h] = true
-	return h
-}
-
-// HintGroup represents a single "go get" command, and records the repos that were actually requested.
-// These are then passed back to the HintResolver to be saved in the database.
-type HintGroup struct {
-	path    string
-	repos   map[string]bool
-	request *Request
-}
-
 // Fetch does either a git clone or a git fetch to ensure we have the latest version of the repo and
 // returns the work tree. If a request for this repo is already in flight (e.g. from the init method),
 // we wait for that one to finish instead of starting a new one.
-func (h *HintGroup) Fetch(ctx context.Context, url string) (billy.Filesystem, error) {
-	h.repos[url] = true
-	return h.request.calls.Do(ctx, url, h.request.fetch)
+func (r *Request) Fetch(ctx context.Context, url string) (billy.Filesystem, error) {
+	return r.calls.Do(ctx, url, r.fetch)
 }
 
-func (h *HintGroup) Hint(url string) {
-	h.repos[url] = true
+// Stores hints
+func (r *Request) SetHints(hints map[string][]string) {
+	for path, urls := range hints {
+		r.hints[path] = urls
+	}
+}
+
+// Close should be called once all getters have finished, and saves the hints back to the HintResolver.
+func (r *Request) Close(ctx context.Context) error {
+	if !r.save {
+		return nil
+	}
+	return r.cache.resolver.Save(ctx, r.hints)
 }

@@ -23,12 +23,12 @@ func playUpdate(ctx context.Context, info messages.Update, req *http.Request, se
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
-	gitreq := cache.NewRequest()
+	gitreq := cache.NewRequest(false)
 	var paths []string
 	for path := range info.Source {
 		paths = append(paths, path)
 	}
-	if err := gitreq.Hint(ctx, paths...); err != nil {
+	if err := gitreq.InitialiseFromHints(ctx, paths...); err != nil {
 		return err
 	}
 

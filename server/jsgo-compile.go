@@ -26,8 +26,8 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
-	gitreq := cache.NewRequest()
-	if err := gitreq.Hint(ctx, path); err != nil {
+	gitreq := cache.NewRequest(true)
+	if err := gitreq.InitialiseFromHints(ctx, path); err != nil {
 		return err
 	}
 

@@ -16,12 +16,13 @@ func playInitialise(ctx context.Context, info messages.Initialise, req *http.Req
 
 	s := session.New(nil, assets.Assets)
 
-	gitreq := cache.NewRequest()
-	if err := gitreq.Hint(ctx, info.Path); err != nil {
+	gitreq := cache.NewRequest(true)
+	if err := gitreq.InitialiseFromHints(ctx, info.Path); err != nil {
 		return err
 	}
+	g := getter.New(s, downloadWriter{send: send}, gitreq)
 
-	source, err := getSource(ctx, s, info.Path, send, gitreq)
+	source, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {
 		return err
 	}
@@ -31,7 +32,7 @@ func playInitialise(ctx context.Context, info messages.Initialise, req *http.Req
 	}
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Path, false, false, false); err != nil {
+	if err := g.Get(ctx, info.Path, false, false, false); err != nil {
 		return err
 	}
 

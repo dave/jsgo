@@ -39,7 +39,7 @@ type vcsProvider interface {
 }
 
 type gitProvider struct {
-	git        *gitcache.HintGroup
+	gitreq     *gitcache.Request
 	repo       *git.Repository
 	worktree   *git.Worktree
 	hashString string
@@ -129,7 +129,7 @@ func (p *progressWatcher) Write(b []byte) (n int, err error) {
 }
 
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
-	worktree, err := g.git.Fetch(ctx, url)
+	worktree, err := g.gitreq.Fetch(ctx, url)
 	if err != nil {
 		return err
 	}
