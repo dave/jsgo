@@ -19,6 +19,9 @@ func Copy(src, dest string, srcFs, dstFs billy.Filesystem) error {
 
 // "info" must be given here, NOT nil.
 func copyInternal(src, dest string, info os.FileInfo, srcFs, dstFs billy.Filesystem) error {
+	if info.Mode()&os.ModeSymlink != 0 {
+		return nil
+	}
 	if info.IsDir() {
 		return dcopy(src, dest, info, srcFs, dstFs)
 	}

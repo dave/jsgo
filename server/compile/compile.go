@@ -30,13 +30,11 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/session"
-	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 type Compiler struct {
 	*session.Session
-	temp billy.Filesystem
 	send func(messages.Message)
 	log  io.Writer
 }
@@ -44,7 +42,6 @@ type Compiler struct {
 func New(session *session.Session, send func(messages.Message)) *Compiler {
 	c := &Compiler{}
 	c.Session = session
-	c.temp = memfs.New()
 	c.send = send
 	return c
 }
@@ -155,7 +152,7 @@ func (w compileWriter) Write(b []byte) (n int, err error) {
 
 func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
 	return &builder.Options{
-		Temporary:   c.temp,
+		Temporary:   memfs.New(),
 		Unvendor:    true,
 		Initializer: true,
 		Log:         log,

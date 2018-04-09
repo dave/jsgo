@@ -19,6 +19,8 @@ import (
 
 	"strings"
 
+	"github.com/dave/jsgo/builder/fscopy"
+	"github.com/dave/jsgo/gitcache"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
@@ -37,6 +39,7 @@ type vcsProvider interface {
 }
 
 type gitProvider struct {
+	gitreq     *gitcache.Request
 	repo       *git.Repository
 	worktree   *git.Worktree
 	hashString string
@@ -126,80 +129,17 @@ func (p *progressWatcher) Write(b []byte) (n int, err error) {
 }
 
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
-	// git clone {repo} {dir}
-	// git -go-internal-cd {dir} submodule update --init --recursive
-
-	//if err := g.checkSize(ctx, url); err != nil {
-	//	return err
-	//}
-
-	store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), configpkg.GitMaxBytes))
+	worktree, err := g.gitreq.Fetch(ctx, url)
 	if err != nil {
 		return err
 	}
-	dirfs, err := fs.Chroot(dir)
-	if err != nil {
+	if err := fscopy.Copy("/", dir, worktree, fs); err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithTimeout(ctx, configpkg.GitCloneTimeout)
-	defer cancel()
-
-	pw, errchan := newProgressWatcher()
-	var errFromWatcher error
-	go func() {
-		if err := <-errchan; err != nil {
-			errFromWatcher = err
-			cancel()
-		}
-	}()
-
-	repo, err := git.CloneContext(ctx, store, dirfs, &git.CloneOptions{
-		URL:               url,
-		SingleBranch:      true,
-		Depth:             1,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		Progress:          pw,
-	})
-	if err != nil {
-		if errFromWatcher != nil {
-			return errFromWatcher
-		}
-		if err == OutOfSpace {
-			return errors.New("out of space cloning repo")
-		}
-		return err
-	}
-	g.repo = repo
-
-	worktree, err := g.repo.Worktree()
-	if err != nil {
-		return err
-	}
-	g.worktree = worktree
-
-	// ... retrieves the branch pointed by HEAD
-	ref, err := repo.Head()
-	if err != nil {
-		return err
-	}
-
-	// ... retrieves the commit history
-	iter, err := repo.Log(&git.LogOptions{From: ref.Hash()})
-	if err != nil {
-		return err
-	}
-
-	c, err := iter.Next()
-	if err != nil {
-		return err
-	}
-
-	g.hashString = c.Hash.String()
-
 	return nil
 }
 
+// TODO: Do something about this (it's unused right now)
 func (g *gitProvider) download(ctx context.Context) error {
 	// git pull --ff-only
 	// git submodule update --init --recursive

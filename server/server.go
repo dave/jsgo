@@ -20,8 +20,15 @@ import (
 
 	"sync"
 
+	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/gitcache"
+	"github.com/dave/jsgo/server/git/cachepersister"
+	"github.com/dave/jsgo/server/git/gcspersister"
+	"github.com/dave/jsgo/server/git/gcsresolver"
+	"github.com/dave/jsgo/server/git/gitfetcher"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/queue"
 	"github.com/dave/jsgo/server/store"
@@ -34,12 +41,19 @@ func init() {
 	assets.Init()
 }
 
-func New(shutdown chan struct{}) *Handler {
+func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient *datastore.Client) *Handler {
 	h := &Handler{
 		mux:       http.NewServeMux(),
 		shutdown:  shutdown,
 		Queue:     queue.New(config.MaxConcurrentCompiles, config.MaxQueue),
 		Waitgroup: &sync.WaitGroup{},
+		Git: gitcache.NewCache(
+			&gcsresolver.Resolver{Client: datastoreClient, Kind: config.HintsKind},
+			&gitfetcher.Fetcher{
+				Cache: &cachepersister.Persister{MaxTotal: 512 * 1024 * 1042, MaxItem: 50 * 1024 * 1024},
+				Gcs:   &gcspersister.Persister{Client: storageClient, Bucket: storageClient.Bucket(config.GitBucket)},
+			},
+		),
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
 	h.mux.HandleFunc("/_ws/", h.SocketHandler)
@@ -51,6 +65,7 @@ func New(shutdown chan struct{}) *Handler {
 }
 
 type Handler struct {
+	Git       *gitcache.Cache
 	Waitgroup *sync.WaitGroup
 	Queue     *queue.Queue
 	mux       *http.ServeMux

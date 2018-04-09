@@ -11,13 +11,14 @@ import (
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/getter"
+	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/jsgo/session"
 )
 
-func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
 
 	if info.Source[info.Main] == nil {
 		return fmt.Errorf("can't find main package %s in source", info.Main)
@@ -32,8 +33,25 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
+	gitreq := cache.NewRequest(false)
+	if info.Main == "main" {
+		// Using package path "main" as a hint isn't useful... Instead use the imports.
+		// TODO: ignore standard library packages in this list.
+		if err := gitreq.InitialiseFromHints(ctx, info.Imports...); err != nil {
+			return err
+		}
+	} else {
+		if err := gitreq.InitialiseFromHints(ctx, info.Main); err != nil {
+			return err
+		}
+	}
+
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, info.Main, false, false, false); err != nil {
+	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Main, false, false, false); err != nil {
+		return err
+	}
+
+	if err := gitreq.Close(ctx); err != nil {
 		return err
 	}
 

@@ -10,13 +10,14 @@ import (
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/getter"
+	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/jsgo/session"
 )
 
-func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message) error {
+func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
 
 	path := info.Path
 
@@ -25,8 +26,17 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
+	gitreq := cache.NewRequest(true)
+	if err := gitreq.InitialiseFromHints(ctx, path); err != nil {
+		return err
+	}
+
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}).Get(ctx, path, false, false, false); err != nil {
+	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, false, false); err != nil {
+		return err
+	}
+
+	if err := gitreq.Close(ctx); err != nil {
 		return err
 	}
 

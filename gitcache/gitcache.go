@@ -1,259 +1,111 @@
-package main
+package gitcache
 
 import (
-	"path/filepath"
-
-	"os"
+	"context"
 
 	"io"
 
-	"fmt"
-
-	"gopkg.in/src-d/go-billy-siva.v4"
 	"gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/memfs"
-	"gopkg.in/src-d/go-git.v4"
-	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 )
 
-const REPO = "https://github.com/dave/jstest.git"
-const FNAME = "repo.bin"
-
-// Output:
-/*
-	First run - should do git clone:
-	creating siva fs
-	creating storage from siva fs
-	loading local file into persisted fs
-
-	Before git operation...
-	files in persisted fs:
-	files in siva fs:
-
-	Local file doesn't exist... (git clone)
-	* git.Clone
-	Counting objects: 11, done.
-	Total 11 (delta 0), reused 0 (delta 0), pack-reused 11
-
-	After git operation...
-	files in persisted fs:
-	/repo.bin
-	files in siva fs:
-	/objects
-	/objects/pack
-	/objects/pack/pack-900cc2c139ecccc51a6c0f2bd65ea4af44861bae.idx
-	/objects/pack/pack-900cc2c139ecccc51a6c0f2bd65ea4af44861bae.pack
-	/refs
-	/refs/remotes
-	/refs/remotes/origin
-	/refs/remotes/origin/master
-	/refs/heads
-	/refs/heads/master
-	/HEAD
-	/config
-	/index
-	files in worktree fs:
-	/.git
-	/main.go
-
-	Saving persisted file to local disk...
-	saved 3745 bytes
-
-	Second run - should do git pull:
-	creating siva fs
-	creating storage from siva fs
-	loading local file into persisted fs
-	loaded 3745 bytes
-
-	Before git operation...
-	files in persisted fs:
-	/repo.bin
-	files in siva fs:
-	panic: runtime error: slice bounds out of range
-*/
-
-func main() {
-	defer func() {
-		os.Remove(FNAME)
-	}()
-	fmt.Println("")
-	fmt.Println("First run - should do git clone:")
-	if err := Get(REPO); err != nil {
-		fmt.Println(err)
-	}
-	fmt.Println("")
-	fmt.Println("Second run - should do git pull:")
-	if err := Get(REPO); err != nil {
-		fmt.Println(err)
-	}
+// Resolver provides the functionality to load and save hints to and from a database (e.g. Google
+// Datastore).
+type Resolver interface {
+	Resolve(ctx context.Context, hints []string) (resolved []string, err error)
+	Save(ctx context.Context, resolved map[string][]string) error
 }
 
-func Get(url string) error {
-	persisted := memfs.New()
+// Persister provides the functionality to load and save repos to and from a persistence medium (e.g.
+// Google Storage) or a local cache.
+type Persister interface {
+	Save(ctx context.Context, url string, size uint64, reader io.Reader) error
+	Load(ctx context.Context, url string, writer io.Writer) (found bool, err error)
+}
 
-	fmt.Println("creating siva fs")
-	sfs, err := sivafs.NewFilesystem(persisted, FNAME, memfs.New())
+type Fetcher interface {
+	Fetch(ctx context.Context, url string) (billy.Filesystem, error)
+}
+
+// New returns a new cache.
+func NewCache(resolver Resolver, git Fetcher) *Cache {
+	c := &Cache{}
+	c.resolver = resolver
+	c.git = git
+	return c
+}
+
+// Cache stores a local cache of marshaled repos (only small repos will be cached because we're limited
+// on memory). There should be one Cache per server. All methods should be safe for concurrent execution.
+type Cache struct {
+	resolver Resolver
+	git      Fetcher
+}
+
+// Request represents a single request, possibly with several "go get" operations. It is assumed that
+// all "git fetch" operations that happen in one request are current for the entire request.
+type Request struct {
+	cache *Cache
+	hints map[string][]string
+	calls *CallGroup
+	save  bool // should we save hints?
+}
+
+// New returns a new request. Any packages that we know will be requested during the request can be specified
+// with hints, and the request will try pre-fetch in parallel all the repos that we need to fulfill this
+// request (using a database of previously encountered package->dependencies). If the dependencies have
+// recently changed this will be picked up during the "go get" execution and the correct dependencies
+// will be requested (this will ensure correct execution).
+func (c *Cache) NewRequest(save bool) *Request {
+	r := &Request{}
+	r.cache = c
+	r.calls = new(CallGroup)
+	r.hints = map[string][]string{}
+	r.save = save
+	return r
+}
+
+// Hint looks up hints in the database to get a best guess list of repos, then starts to fetch all of
+// them in parallel
+// TODO: use a worker pool
+func (r *Request) InitialiseFromHints(ctx context.Context, paths ...string) error {
+	urls, err := r.cache.resolver.Resolve(ctx, paths)
 	if err != nil {
-		fmt.Println("error creating siva fs")
 		return err
 	}
-
-	fmt.Println("creating storage from siva fs")
-	store, err := filesystem.NewStorage(sfs)
-	if err != nil {
-		fmt.Println("error creating storage")
-		return err
+	for _, url := range urls {
+		url := url
+		go r.calls.Do(ctx, url, r.fetch)
 	}
-	worktree := memfs.New()
-
-	fmt.Println("loading local file into persisted fs")
-	exists, err := load(persisted)
-	if err != nil {
-		fmt.Println("error loading local file")
-		return err
-	}
-
-	fmt.Println("")
-	fmt.Println("Before git operation...")
-
-	fmt.Println("files in persisted fs:")
-	printFs(persisted)
-
-	fmt.Println("files in siva fs:")
-	printFs(sfs)
-
-	if exists {
-		fmt.Println("")
-		fmt.Println("Local file exists... (git pull)")
-		fmt.Println("* git.Open")
-		repo, err := git.Open(store, worktree)
-		if err != nil {
-			fmt.Println("error during git.Open")
-			return err
-		}
-		fmt.Println("* repo.Worktree")
-		w, err := repo.Worktree()
-		if err != nil {
-			fmt.Println("error during repo.Worktree")
-			return err
-		}
-		fmt.Println("* w.Pull")
-		if err := w.Pull(&git.PullOptions{Force: true, Progress: os.Stdout}); err != nil {
-			fmt.Println("error during w.Pull")
-			return err
-		}
-	} else {
-		fmt.Println("")
-		fmt.Println("Local file doesn't exist... (git clone)")
-		fmt.Println("* git.Clone")
-		if _, err := git.Clone(store, worktree, &git.CloneOptions{URL: url, Progress: os.Stdout}); err != nil {
-			fmt.Println("error during git.Clone")
-			return err
-		}
-	}
-
-	fmt.Println("")
-	fmt.Println("After git operation...")
-
-	fmt.Println("files in persisted fs:")
-	printFs(persisted)
-
-	fmt.Println("files in siva fs:")
-	printFs(sfs)
-
-	fmt.Println("files in worktree fs:")
-	printFs(worktree)
-
-	fmt.Println("")
-	fmt.Println("Saving persisted file to local disk...")
-	if err := save(persisted); err != nil {
-		fmt.Println("error saving persisted file")
-		return err
-	}
-
 	return nil
 }
 
-func save(fs billy.Filesystem) error {
-
-	// open / create the local file for writing
-	local, err := os.Create(FNAME)
+// fetch is called by Request.init and HintGroup.Fetch.
+func (r *Request) fetch(ctx context.Context, url string) (billy.Filesystem, error) {
+	fs, err := r.cache.git.Fetch(ctx, url)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	defer local.Close()
-
-	// open the persisted git file for reading
-	persisted, err := fs.Open(FNAME)
-	if err != nil {
-		return err
-	}
-	defer persisted.Close()
-
-	// copy from the persisted git file to the local file
-	count, err := io.Copy(local, persisted)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("saved %d bytes\n", count)
-
-	return nil
+	return fs, nil
 }
 
-func load(fs billy.Filesystem) (found bool, err error) {
-	if _, err = os.Stat(FNAME); err != nil {
-		if os.IsNotExist(err) {
-			return false, nil
-		}
-		return false, err
-	}
-
-	// open / create the persisted git file for writing
-	persisted, err := fs.Create(FNAME)
-	if err != nil {
-		return false, err
-	}
-	defer persisted.Close()
-
-	// open the local file for reading
-	local, err := os.Open(FNAME)
-	if err != nil {
-		return false, err
-	}
-	defer local.Close()
-
-	// copy from the local file to the persisted git file
-	count, err := io.Copy(persisted, local)
-	if err != nil {
-		return false, err
-	}
-
-	fmt.Printf("loaded %d bytes\n", count)
-
-	return true, nil
+// Fetch does either a git clone or a git fetch to ensure we have the latest version of the repo and
+// returns the work tree. If a request for this repo is already in flight (e.g. from the init method),
+// we wait for that one to finish instead of starting a new one.
+func (r *Request) Fetch(ctx context.Context, url string) (billy.Filesystem, error) {
+	return r.calls.Do(ctx, url, r.fetch)
 }
 
-func printFs(fs billy.Filesystem) {
-	err := printDir(fs, "/")
-	if err != nil {
-		fmt.Println(err)
+// Stores hints
+func (r *Request) SetHints(hints map[string][]string) {
+	for path, urls := range hints {
+		r.hints[path] = urls
 	}
 }
 
-func printDir(fs billy.Filesystem, dir string) error {
-	fis, err := fs.ReadDir(dir)
-	if err != nil {
-		return err
+// Close should be called once all getters have finished, and saves the hints back to the HintResolver.
+func (r *Request) Close(ctx context.Context) error {
+	if !r.save {
+		return nil
 	}
-	for _, fi := range fis {
-		fpath := filepath.Join(dir, fi.Name())
-		fmt.Println(fpath)
-		if fi.IsDir() {
-			if err := printDir(fs, fpath); err != nil {
-				return err
-			}
-		}
-	}
-	return nil
+	return r.cache.resolver.Save(ctx, r.hints)
 }

@@ -5,6 +5,9 @@ import (
 	"net/http"
 	"os"
 
+	"cloud.google.com/go/datastore"
+	"cloud.google.com/go/storage"
+
 	"github.com/dave/jsgo/config"
 
 	"context"
@@ -20,8 +23,18 @@ func main() {
 		port = fromEnv
 	}
 
+	storageClient, err := storage.NewClient(context.Background())
+	if err != nil {
+		panic(err)
+	}
+
+	datastoreClient, err := datastore.NewClient(context.Background(), config.ProjectID)
+	if err != nil {
+		panic(err)
+	}
+
 	shutdown := make(chan struct{})
-	handler := server.New(shutdown)
+	handler := server.New(shutdown, storageClient, datastoreClient)
 	s := &http.Server{
 		Addr:    ":" + port,
 		Handler: handler,

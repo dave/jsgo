@@ -41,7 +41,11 @@ func (g *Getter) download(ctx context.Context, path string, parent *Package, stk
 	if g.downloadCache[path] {
 		return nil
 	}
-	g.downloadCache[path] = true
+	if !single {
+		// don't set the download cache in single mode, because we want to continue processing imports
+		// if we download this package again e.g. in Initialise mode
+		g.downloadCache[path] = true
+	}
 
 	pkgs := []*Package{p}
 
@@ -72,6 +76,13 @@ func (g *Getter) download(ctx context.Context, path string, parent *Package, stk
 		}
 		pkgs = append(pkgs, p)
 
+	} else {
+		// if we're not downloading the repo, then work out what the repo is and store this in repoPackages
+		// so it can be stored as a hint by gitcache
+		if root, _ := g.vcsFromDir(p.Dir, p.Internal.Build.SrcRoot); root != nil {
+			// ignore the error
+			g.repoPackages[p.ImportPath] = root
+		}
 	}
 
 	// single mode - don't process dependencies

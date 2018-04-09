@@ -23,6 +23,9 @@ const (
 	// CompileTimeout is the timeout when compiling a package.
 	CompileTimeout = time.Second * 300
 
+	// GitSaveTimeout is the timeout when saving git repos to GCS
+	GitSaveTimeout = time.Second * 300
+
 	// PageTimeout is the timeout when generating the compile page
 	PageTimeout = time.Second * 5
 

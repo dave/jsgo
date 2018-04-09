@@ -13,12 +13,13 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
 )
 
-func playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
 
 	send(messages.Storing{Starting: true})
 

@@ -98,8 +98,9 @@ type Share struct {
 }
 
 type Deploy struct {
-	Main   string
-	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
+	Main    string
+	Imports []string
+	Source  map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
 }
 
 type Compile struct {
