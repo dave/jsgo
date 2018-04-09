@@ -2,7 +2,7 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v119
+VER=v121
 CLUSTER=compile
 PROJECT=jsgo-192815
 IMAGE=back-image
@@ -28,7 +28,7 @@ setup:
 # Build dockerfile, push to Google Container Registry:
 build:
 	mkdir -p out
-	CGO_ENABLED=0 GOOS=linux go build -o out/server-bin -a -tags netgo -ldflags '-w' .
+	CGO_ENABLED=0 GOOS=linux go build -o out/server-bin -a -tags="netgo norwfs" -ldflags '-w' .
 	docker build -t gcr.io/${PROJECT}/${IMAGE}:${VER} .
 	rm -rf out
 	gcloud docker -- push gcr.io/${PROJECT}/${IMAGE}:${VER}
