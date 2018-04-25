@@ -180,7 +180,7 @@ func ServeStatic(name string, w http.ResponseWriter, req *http.Request, mimeType
 	}
 	defer file.Close()
 
-	w.Header().Set("Cache-Control", "max-age=31536000")
+	w.Header().Set("Cache-Control", "public,max-age=31536000,immutable")
 	if mimeType == "" {
 		w.Header().Set("Content-Type", mime.TypeByExtension(pathpkg.Ext(req.URL.Path)))
 	} else {

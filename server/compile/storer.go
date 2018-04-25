@@ -84,7 +84,7 @@ func (s *Storer) add(message, name string, contents []byte, bucket, mime string,
 
 	cacheHeader := "no-cache"
 	if cache {
-		cacheHeader = "public, max-age=31536000"
+		cacheHeader = "public,max-age=31536000,immutable"
 	}
 
 	s.queue <- StorageItem{
