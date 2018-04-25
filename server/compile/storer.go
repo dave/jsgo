@@ -6,7 +6,6 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/services"
 )
@@ -47,7 +46,16 @@ func (s *Storer) Worker(ctx context.Context) {
 	for item := range s.queue {
 		func() {
 			defer s.wait.Done()
-			saved, err := s.fileserver.Write(ctx, item.Bucket, item.Name, bytes.NewReader(item.Contents), item.Overwrite, item.ContentType, item.CacheControl)
+			if item.Wait != nil {
+				defer item.Wait.Done()
+			}
+			overwrite := true
+			cacheControl := "no-cache"
+			if item.Immutable {
+				overwrite = false
+				cacheControl = "public,max-age=31536000,immutable"
+			}
+			saved, err := s.fileserver.Write(ctx, item.Bucket, item.Name, bytes.NewReader(item.Contents), overwrite, item.Mime, cacheControl)
 			if err != nil {
 				s.Err = err
 				return
@@ -70,10 +78,10 @@ func (s *Storer) Worker(ctx context.Context) {
 	}
 }
 
-func (s *Storer) add(message, name string, contents []byte, bucket, mime string, count, cache, overwrite bool) {
+func (s *Storer) Add(item StorageItem) {
 	s.wait.Add(1)
 
-	if count {
+	if item.Count {
 		unchanged := atomic.LoadInt32(&s.unchanged)
 		done := atomic.LoadInt32(&s.done)
 		remain := atomic.AddInt32(&s.total, 1) - unchanged - done
@@ -82,55 +90,25 @@ func (s *Storer) add(message, name string, contents []byte, bucket, mime string,
 		}
 	}
 
-	cacheHeader := "no-cache"
-	if cache {
-		cacheHeader = "public,max-age=31536000,immutable"
-	}
-
-	s.queue <- StorageItem{
-		Message:      message,
-		Bucket:       bucket,
-		Name:         name,
-		Contents:     contents,
-		ContentType:  mime,
-		CacheControl: cacheHeader,
-		Overwrite:    overwrite,
-		Count:        count,
-	}
+	s.queue <- item
 
 }
 
-func (s *Storer) AddSrc(message, name string, contents []byte) {
-	s.add(message, name, contents, config.SrcBucket, "application/json", true, true, false)
-}
-
-func (s *Storer) AddJs(message, name string, contents []byte) {
-	s.add(message, name, contents, config.PkgBucket, "application/javascript", true, true, false)
-}
-
-func (s *Storer) AddArchive(message, name string, contents []byte) {
-	s.add(message, name, contents, config.PkgBucket, "application/octet-stream", true, true, false)
-}
-
-func (s *Storer) AddHtml(message, name string, contents []byte) {
-	s.add(message, name, contents, config.IndexBucket, "text/html", false, false, true)
-}
-
-func (s *Storer) AddHtmlCached(message, name string, contents []byte) {
-	s.add(message, name, contents, config.IndexBucket, "text/html", true, true, false)
-}
-
-func (s *Storer) AddZip(message, name string, contents []byte) {
-	s.add(message, name, contents, config.PkgBucket, "application/zip", false, false, true)
-}
+const (
+	MimeJson = "application/json"
+	MimeJs   = "application/javascript"
+	MimeBin  = "application/octet-stream"
+	MimeHtml = "text/html"
+	MimeZip  = "application/zip"
+)
 
 type StorageItem struct {
-	Message      string
-	Bucket       string
-	Name         string
-	Contents     []byte
-	ContentType  string
-	CacheControl string
-	Overwrite    bool
-	Count        bool
+	Message   string
+	Bucket    string
+	Name      string
+	Contents  []byte
+	Mime      string
+	Immutable bool
+	Count     bool
+	Wait      *sync.WaitGroup
 }

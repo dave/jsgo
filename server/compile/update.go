@@ -2,19 +2,24 @@ package compile
 
 import (
 	"bytes"
-	"compress/gzip"
 	"context"
 	"fmt"
 
 	"strings"
 
+	"sync"
+
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
 func (c *Compiler) Update(ctx context.Context, source map[string]map[string]string, cache map[string]string, min bool) error {
+
+	storer := NewStorer(ctx, c.fileserver, c.send, config.ConcurrentStorageUploads)
+	defer storer.Close()
 
 	c.send(messages.Updating{Starting: true})
 
@@ -40,13 +45,20 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			return nil
 		}
 
-		// The archive files aren't binary identical across compiles, so we have to render them to JS
-		// in order to get the hash for the cache. Not ideal, but it should work.
-		_, hashBytes, err := builder.GetPackageCode(ctx, archive, min, true)
-		if err != nil {
-			return err
+		hashPair, standard := std.Index[archive.ImportPath]
+		var hash string
+		var js []byte
+		if standard {
+			hash = hashPair[min]
+		} else {
+			var b []byte
+			var err error
+			js, b, err = builder.GetPackageCode(ctx, archive, min, true)
+			if err != nil {
+				return err
+			}
+			hash = fmt.Sprintf("%x", b)
 		}
-		hash := fmt.Sprintf("%x", hashBytes)
 
 		var unchanged bool
 		if cached, exists := cache[archive.ImportPath]; exists && cached == hash {
@@ -64,35 +76,41 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			return nil
 		}
 
-		if hashPair := std.Index[archive.ImportPath]; hashPair != nil {
-			// All standard library archives are in the CDN, so we instruct the client to get them from
-			// there. This way we can benefit from browser caching.
-			c.send(messages.Archive{
-				Path:     archive.ImportPath,
-				Hash:     hashPair[min],
-				Contents: nil,
-				Standard: true,
+		if !standard {
+			var wait sync.WaitGroup
+			wait.Add(2)
+			storer.Add(StorageItem{
+				Message:   archive.Name,
+				Name:      fmt.Sprintf("%s.%s.js", archive.ImportPath, hash), // Note: hash is a string
+				Contents:  js,
+				Bucket:    config.PkgBucket,
+				Mime:      MimeJs,
+				Count:     true,
+				Immutable: true,
+				Wait:      &wait,
 			})
-			return nil
+			buf := &bytes.Buffer{}
+			if err := compiler.WriteArchive(StripArchive(archive), buf); err != nil {
+				return err
+			}
+			storer.Add(StorageItem{
+				Message:   "",
+				Name:      fmt.Sprintf("%s.%s.x", archive.ImportPath, hash), // Note: hash is a string
+				Contents:  buf.Bytes(),
+				Bucket:    config.PkgBucket,
+				Mime:      MimeBin,
+				Count:     true,
+				Immutable: true,
+				Wait:      &wait,
+			})
+			wait.Wait()
 		}
-
-		buf := &bytes.Buffer{}
-
-		zw := gzip.NewWriter(buf)
-
-		if err := compiler.WriteArchive(archive, zw); err != nil {
-			return err
-		}
-
-		zw.Close()
 
 		c.send(messages.Archive{
 			Path:     archive.ImportPath,
 			Hash:     hash,
-			Contents: buf.Bytes(),
-			Standard: false,
+			Standard: standard,
 		})
-
 		return nil
 	}
 
@@ -112,6 +130,21 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 	c.send(messages.Updating{Done: true})
 
 	return nil
+}
+
+func StripArchive(a *compiler.Archive) *compiler.Archive {
+	out := &compiler.Archive{
+		ImportPath: a.ImportPath,
+		Name:       a.Name,
+		Imports:    a.Imports,
+		ExportData: a.ExportData,
+		Minified:   a.Minified,
+	}
+	for _, d := range a.Declarations {
+		// All that's needed in Declarations is FullName (https://github.com/gopherjs/gopherjs/blob/423bf76ba1888a53d4fe3c1a82991cdb019a52ad/compiler/package.go#L187-L191)
+		out.Declarations = append(out.Declarations, &compiler.Decl{FullName: d.FullName})
+	}
+	return out
 }
 
 type updateWriter struct {

@@ -118,7 +118,15 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 				if err != nil {
 					return err
 				}
-				storer.AddJs(path+minified, fmt.Sprintf("%s.%x.js", path, hash), contents)
+				storer.Add(compile.StorageItem{
+					Message:   path + minified,
+					Name:      fmt.Sprintf("%s.%x.js", path, hash),
+					Contents:  contents,
+					Bucket:    config.PkgBucket,
+					Mime:      compile.MimeJs,
+					Count:     true,
+					Immutable: true,
+				})
 
 				// NOTE: Archive binaries can change across compiles, so we can't take the hash of the
 				// archive file. We use the hash of the JS instead. Could this cause a subtle bug when
@@ -132,30 +140,19 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 				// files in the compile process, and we use the JS files stored on the CDN. Thus we
 				// benefit from browser caching.
 
-				// Note: we need the complete archive object later, so we save the bits we remove and
-				// add them back after writing the archive to a []byte.
-
-				tmpFileSet := archive.FileSet
-				tmpDeclarations := archive.Declarations
-				tmpIncJSCode := archive.IncJSCode
-
-				archive.FileSet = nil
-				archive.Declarations = nil
-				for _, d := range tmpDeclarations {
-					// All that's needed in Declarations is FullName (https://github.com/gopherjs/gopherjs/blob/423bf76ba1888a53d4fe3c1a82991cdb019a52ad/compiler/package.go#L187-L191)
-					archive.Declarations = append(archive.Declarations, &compiler.Decl{FullName: d.FullName})
-				}
-				archive.IncJSCode = nil
-
 				buf := &bytes.Buffer{}
-				if err := compiler.WriteArchive(archive, buf); err != nil {
+				if err := compiler.WriteArchive(compile.StripArchive(archive), buf); err != nil {
 					return err
 				}
-				storer.AddArchive(path+" archive"+minified, fmt.Sprintf("%s.%x.x", path, hash), buf.Bytes())
-
-				archive.FileSet = tmpFileSet
-				archive.Declarations = tmpDeclarations
-				archive.IncJSCode = tmpIncJSCode
+				storer.Add(compile.StorageItem{
+					Message:   path + " archive" + minified,
+					Name:      fmt.Sprintf("%s.%x.x", path, hash),
+					Contents:  buf.Bytes(),
+					Bucket:    config.PkgBucket,
+					Mime:      compile.MimeBin,
+					Count:     true,
+					Immutable: true,
+				})
 
 				if index[path] == nil {
 					index[path] = make(map[bool]string, 2)
@@ -282,7 +279,15 @@ func CreateAssetsZip(storer *compile.Storer, root billy.Filesystem, archives map
 		return err
 	}
 
-	storer.AddZip("assets", config.AssetsFilename, buf.Bytes())
+	storer.Add(compile.StorageItem{
+		Message:   "assets",
+		Name:      config.AssetsFilename,
+		Contents:  buf.Bytes(),
+		Bucket:    config.PkgBucket,
+		Mime:      compile.MimeZip,
+		Count:     false,
+		Immutable: false,
+	})
 
 	return nil
 }
@@ -295,7 +300,15 @@ func Prelude(storer *compile.Storer) error {
 			return nil, err
 		}
 		hash := s.Sum(nil)
-		storer.AddJs("prelude"+suffix, fmt.Sprintf("prelude.%x.js", hash), b)
+		storer.Add(compile.StorageItem{
+			Message:   "prelude" + suffix,
+			Name:      fmt.Sprintf("prelude.%x.js", hash),
+			Contents:  b,
+			Bucket:    config.PkgBucket,
+			Mime:      compile.MimeJs,
+			Count:     true,
+			Immutable: true,
+		})
 		return hash, nil
 	}
 	hashMin, err := store(" (minified)", prelude.Minified+jsGoPrelude)

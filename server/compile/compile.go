@@ -5,8 +5,6 @@ import (
 	"io"
 	"text/template"
 
-	"cloud.google.com/go/storage"
-
 	"fmt"
 
 	"bytes"
@@ -57,12 +55,6 @@ type CompileOutput struct {
 // Compile compiles path. If provided, source specifies the source packages. Including std lib packages
 // in source forces them to be compiled (if they are not included the pre-compiled Archives are used).
 func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[bool]*CompileOutput, error) {
-
-	client, err := storage.NewClient(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer client.Close()
 
 	storer := NewStorer(ctx, c.fileserver, c.send, config.ConcurrentStorageUploads)
 	defer storer.Close()
@@ -187,7 +179,15 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 		if !po.Store {
 			continue
 		}
-		storer.AddJs(po.Path, fmt.Sprintf("%s.%x.js", po.Path, po.Hash), po.Contents)
+		storer.Add(StorageItem{
+			Message:   po.Path,
+			Name:      fmt.Sprintf("%s.%x.js", po.Path, po.Hash),
+			Contents:  po.Contents,
+			Bucket:    config.PkgBucket,
+			Mime:      MimeJs,
+			Count:     true,
+			Immutable: true,
+		})
 	}
 
 	return data, output, nil
@@ -264,8 +264,24 @@ func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []
 	indexHash := sha.Sum(nil)
 
 	if play {
-		storer.AddHtmlCached("Index", fmt.Sprintf("%x", indexHash), buf.Bytes())
-		storer.AddHtmlCached("", fmt.Sprintf("%s/index.html", fmt.Sprintf("%x", indexHash)), buf.Bytes())
+		storer.Add(StorageItem{
+			Message:   "Index",
+			Name:      fmt.Sprintf("%x", indexHash),
+			Contents:  buf.Bytes(),
+			Bucket:    config.IndexBucket,
+			Mime:      MimeHtml,
+			Count:     true,
+			Immutable: true,
+		})
+		storer.Add(StorageItem{
+			Message:   "",
+			Name:      fmt.Sprintf("%x/index.html", indexHash),
+			Contents:  buf.Bytes(),
+			Bucket:    config.IndexBucket,
+			Mime:      MimeHtml,
+			Count:     true,
+			Immutable: true,
+		})
 	} else {
 		fullpath := path
 		if !min {
@@ -273,12 +289,44 @@ func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []
 		}
 		shortpath := strings.TrimPrefix(fullpath, "github.com/")
 
-		storer.AddHtml("Index", shortpath, buf.Bytes())
-		storer.AddHtml("", fmt.Sprintf("%s/index.html", shortpath), buf.Bytes())
+		storer.Add(StorageItem{
+			Message:   "Index",
+			Name:      shortpath,
+			Contents:  buf.Bytes(),
+			Bucket:    config.IndexBucket,
+			Mime:      MimeHtml,
+			Count:     false,
+			Immutable: false,
+		})
+		storer.Add(StorageItem{
+			Message:   "",
+			Name:      fmt.Sprintf("%s/index.html", shortpath),
+			Contents:  buf.Bytes(),
+			Bucket:    config.IndexBucket,
+			Mime:      MimeHtml,
+			Count:     false,
+			Immutable: false,
+		})
 
 		if shortpath != fullpath {
-			storer.AddHtml("", fullpath, buf.Bytes())
-			storer.AddHtml("", fmt.Sprintf("%s/index.html", fullpath), buf.Bytes())
+			storer.Add(StorageItem{
+				Message:   "",
+				Name:      fullpath,
+				Contents:  buf.Bytes(),
+				Bucket:    config.IndexBucket,
+				Mime:      MimeHtml,
+				Count:     false,
+				Immutable: false,
+			})
+			storer.Add(StorageItem{
+				Message:   "",
+				Name:      fmt.Sprintf("%s/index.html", fullpath),
+				Contents:  buf.Bytes(),
+				Bucket:    config.IndexBucket,
+				Mime:      MimeHtml,
+				Count:     false,
+				Immutable: false,
+			})
 		}
 	}
 
@@ -339,7 +387,15 @@ func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput,
 	} else {
 		message = "Loader (un-minified)"
 	}
-	storer.AddJs(message, fmt.Sprintf("%s.%x.js", output.Path, hash), buf.Bytes())
+	storer.Add(StorageItem{
+		Message:   message,
+		Name:      fmt.Sprintf("%s.%x.js", output.Path, hash),
+		Contents:  buf.Bytes(),
+		Bucket:    config.PkgBucket,
+		Mime:      MimeJs,
+		Count:     true,
+		Immutable: true,
+	})
 
 	return hash, nil
 }

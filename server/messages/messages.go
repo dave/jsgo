@@ -141,8 +141,7 @@ type IndexItem struct {
 type Archive struct {
 	Path     string
 	Hash     string // Hash of the resultant js
-	Contents []byte // Contents of the file (gzipped)
-	Standard bool   // Standard library archives should be downloaded from the CDN (hash of js in filename)
+	Standard bool
 }
 
 func Marshal(in Message) ([]byte, error) {

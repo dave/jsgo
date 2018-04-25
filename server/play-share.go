@@ -37,7 +37,15 @@ func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.
 	defer client.Close()
 
 	storer := compile.NewStorer(ctx, h.Fileserver, send, config.ConcurrentStorageUploads)
-	storer.AddSrc("source", fmt.Sprintf("%x.json", hash), buf.Bytes())
+	storer.Add(compile.StorageItem{
+		Message:   "source",
+		Name:      fmt.Sprintf("%x.json", hash),
+		Contents:  buf.Bytes(),
+		Bucket:    config.SrcBucket,
+		Mime:      compile.MimeJson,
+		Count:     true,
+		Immutable: true,
+	})
 	storer.Wait()
 
 	send(messages.Storing{Done: true})
