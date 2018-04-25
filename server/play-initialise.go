@@ -42,7 +42,7 @@ func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, 
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})
 
-	if err := compile.New(s, h.Fileserver, send).Update(ctx, source, map[string]string{}); err != nil {
+	if err := compile.New(s, h.Fileserver, send).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
 		return err
 	}
 

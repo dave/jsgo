@@ -46,7 +46,7 @@ func (h *Handler) playUpdate(ctx context.Context, info messages.Update, req *htt
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})
 
-	if err := compile.New(s, h.Fileserver, send).Update(ctx, info.Source, info.Cache); err != nil {
+	if err := compile.New(s, h.Fileserver, send).Update(ctx, info.Source, info.Cache, info.Minify); err != nil {
 		return err
 	}
 

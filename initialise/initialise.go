@@ -126,11 +126,36 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 				// exactly the same. Clients would get the old archive. If this is the case, we may have
 				// to include a version in the hash. This would mean the the entire cache is invalidated
 				// on every version increment instead of just the changed files.
+
+				// We strip most of the contents of the standard library archive files because we don't
+				// need to recreate the full JS from these files. Instead we use the stripped archive
+				// files in the compile process, and we use the JS files stored on the CDN. Thus we
+				// benefit from browser caching.
+
+				// Note: we need the complete archive object later, so we save the bits we remove and
+				// add them back after writing the archive to a []byte.
+
+				tmpFileSet := archive.FileSet
+				tmpDeclarations := archive.Declarations
+				tmpIncJSCode := archive.IncJSCode
+
+				archive.FileSet = nil
+				archive.Declarations = nil
+				for _, d := range tmpDeclarations {
+					// All that's needed in Declarations is FullName (https://github.com/gopherjs/gopherjs/blob/423bf76ba1888a53d4fe3c1a82991cdb019a52ad/compiler/package.go#L187-L191)
+					archive.Declarations = append(archive.Declarations, &compiler.Decl{FullName: d.FullName})
+				}
+				archive.IncJSCode = nil
+
 				buf := &bytes.Buffer{}
 				if err := compiler.WriteArchive(archive, buf); err != nil {
 					return err
 				}
-				storer.AddArchive(path+" archive"+minified, fmt.Sprintf("%s.%x.a", path, hash), buf.Bytes())
+				storer.AddArchive(path+" archive"+minified, fmt.Sprintf("%s.%x.x", path, hash), buf.Bytes())
+
+				archive.FileSet = tmpFileSet
+				archive.Declarations = tmpDeclarations
+				archive.IncJSCode = tmpIncJSCode
 
 				if index[path] == nil {
 					index[path] = make(map[bool]string, 2)

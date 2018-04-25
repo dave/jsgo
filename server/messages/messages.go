@@ -88,6 +88,7 @@ type Update struct {
 	Source map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
 	Tags   []string                     // Build tags
 	Cache  map[string]string            // Map of path->hash of previously compiled dependencies to use if still in the cache
+	Minify bool
 }
 
 // Share is sent by the client to persist the setup on the server. This will be persisted publicly as
@@ -109,7 +110,8 @@ type Compile struct {
 
 // Initialise is sent by the client to get the source at Path, and update.
 type Initialise struct {
-	Path string
+	Path   string
+	Minify bool
 }
 
 // Get is sent by the client to the server asking it to download a package and return the source.

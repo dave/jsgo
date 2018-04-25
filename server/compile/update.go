@@ -14,11 +14,11 @@ import (
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
-func (c *Compiler) Update(ctx context.Context, source map[string]map[string]string, cache map[string]string) error {
+func (c *Compiler) Update(ctx context.Context, source map[string]map[string]string, cache map[string]string, min bool) error {
 
 	c.send(messages.Updating{Starting: true})
 
-	b := builder.New(c.Session, c.defaultOptions(updateWriter{c.send}, false))
+	b := builder.New(c.Session, c.defaultOptions(updateWriter{c.send}, min))
 
 	index := messages.Index{}
 	done := map[string]bool{}
@@ -42,7 +42,7 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 
 		// The archive files aren't binary identical across compiles, so we have to render them to JS
 		// in order to get the hash for the cache. Not ideal, but it should work.
-		_, hashBytes, err := builder.GetPackageCode(ctx, archive, false, true)
+		_, hashBytes, err := builder.GetPackageCode(ctx, archive, min, true)
 		if err != nil {
 			return err
 		}
@@ -69,7 +69,7 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			// there. This way we can benefit from browser caching.
 			c.send(messages.Archive{
 				Path:     archive.ImportPath,
-				Hash:     hashPair[false],
+				Hash:     hashPair[min],
 				Contents: nil,
 				Standard: true,
 			})
