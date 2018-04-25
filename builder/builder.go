@@ -31,7 +31,7 @@ import (
 	"github.com/dave/jsgo/builder/session"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
-	"golang.org/x/tools/go/gcimporter15"
+	"golang.org/x/tools/go/gcexportdata"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
@@ -542,7 +542,7 @@ func (b *Builder) ImportStandardArchive(ctx context.Context, importPath string) 
 	}
 
 	archive := archivePair[b.options.Minify]
-	_, p, err := gcimporter.BImportData(token.NewFileSet(), b.Types, archive.ExportData, importPath)
+	p, err := gcexportdata.Read(bytes.NewReader(archive.ExportData), token.NewFileSet(), b.Types, importPath)
 	if err != nil {
 		return nil, err
 	}
