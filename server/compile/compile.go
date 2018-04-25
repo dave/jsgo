@@ -26,22 +26,25 @@ import (
 	"sync"
 
 	"github.com/dave/jsgo/builder"
+	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
-	"github.com/dave/jsgo/session"
+	"github.com/dave/jsgo/services"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
 type Compiler struct {
 	*session.Session
-	send func(messages.Message)
-	log  io.Writer
+	fileserver services.Fileserver
+	send       func(messages.Message)
+	log        io.Writer
 }
 
-func New(session *session.Session, send func(messages.Message)) *Compiler {
+func New(session *session.Session, fileserver services.Fileserver, send func(messages.Message)) *Compiler {
 	c := &Compiler{}
 	c.Session = session
+	c.fileserver = fileserver
 	c.send = send
 	return c
 }
@@ -61,7 +64,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[boo
 	}
 	defer client.Close()
 
-	storer := NewStorer(ctx, client, c.send, config.ConcurrentStorageUploads)
+	storer := NewStorer(ctx, c.fileserver, c.send, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
 	c.send(messages.Compiling{Starting: true})
@@ -248,7 +251,7 @@ func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []
 	v := IndexVars{
 		Path:   path,
 		Hash:   fmt.Sprintf("%x", loaderHash),
-		Script: fmt.Sprintf("https://%s/%s.%x.js", config.PkgHost, path, loaderHash),
+		Script: fmt.Sprintf("%s://%s/%s.%x.js", config.Protocol, config.PkgHost, path, loaderHash),
 	}
 
 	buf := &bytes.Buffer{}
@@ -306,9 +309,10 @@ func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput,
 	}
 
 	m := MainVars{
-		PkgHost: config.PkgHost,
-		Path:    output.Path,
-		Json:    string(pkgJson),
+		Protocol: config.Protocol,
+		PkgHost:  config.PkgHost,
+		Path:     output.Path,
+		Json:     string(pkgJson),
 	}
 
 	buf := &bytes.Buffer{}
@@ -341,9 +345,10 @@ func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput,
 }
 
 type MainVars struct {
-	Path    string
-	Json    string
-	PkgHost string
+	Path     string
+	Json     string
+	PkgHost  string
+	Protocol string
 }
 
 type PkgJson struct {
@@ -354,7 +359,7 @@ type PkgJson struct {
 // minify with https://skalman.github.io/UglifyJS-online/
 
 var mainTemplateMinified = template.Must(template.New("main").Parse(
-	`"use strict";var $mainPkg,$load={};!function(){for(var n=0,t=0,e={{ .Json }},o=(document.getElementById("log"),function(){n++,window.jsgoProgress&&window.jsgoProgress(n,t),n==t&&function(){for(var n=0;n<e.length;n++)$load[e[n].path]();$mainPkg=$packages["{{ .Path }}"],$synthesizeMethods(),$packages.runtime.$init(),$go($mainPkg.$init,[]),$flushConsole()}()}),a=function(n){t++;var e=document.createElement("script");e.src=n,e.onload=o,e.onreadystatechange=o,document.head.appendChild(e)},s=0;s<e.length;s++)a("https://{{ .PkgHost }}/"+e[s].path+"."+e[s].hash+".js")}();`,
+	`"use strict";var $mainPkg,$load={};!function(){for(var n=0,t=0,e={{ .Json }},o=(document.getElementById("log"),function(){n++,window.jsgoProgress&&window.jsgoProgress(n,t),n==t&&function(){for(var n=0;n<e.length;n++)$load[e[n].path]();$mainPkg=$packages["{{ .Path }}"],$synthesizeMethods(),$packages.runtime.$init(),$go($mainPkg.$init,[]),$flushConsole()}()}),a=function(n){t++;var e=document.createElement("script");e.src=n,e.onload=o,e.onreadystatechange=o,document.head.appendChild(e)},s=0;s<e.length;s++)a("{{ .Protocol }}://{{ .PkgHost }}/"+e[s].path+"."+e[s].hash+".js")}();`,
 ))
 var mainTemplate = template.Must(template.New("main").Parse(`"use strict";
 var $mainPkg;
@@ -389,6 +394,6 @@ var $load = {};
 		document.head.appendChild(tag);
 	}
 	for (var i = 0; i < info.length; i++) {
-		get("https://{{ .PkgHost }}/" + info[i].path + "." + info[i].hash + ".js");
+		get("{{ .Protocol }}://{{ .PkgHost }}/" + info[i].path + "." + info[i].hash + ".js");
 	}
 })();`))

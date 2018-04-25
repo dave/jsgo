@@ -9,27 +9,26 @@ import (
 	"time"
 
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/gorilla/websocket"
 )
 
-func handleSocketCommand(ctx context.Context, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
+func (h *Handler) handleSocketCommand(ctx context.Context, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 	select {
 	case m := <-receive:
 		switch m := m.(type) {
 		case messages.Compile:
-			return jsgoCompile(ctx, m, req, send, receive, cache)
+			return h.jsgoCompile(ctx, m, req, send, receive)
 		case messages.Update:
-			return playUpdate(ctx, m, req, send, receive, cache)
+			return h.playUpdate(ctx, m, req, send, receive)
 		case messages.Share:
-			return playShare(ctx, m, req, send, receive, cache)
+			return h.playShare(ctx, m, req, send, receive)
 		case messages.Get:
-			return playGet(ctx, m, req, send, receive, cache)
+			return h.playGet(ctx, m, req, send, receive)
 		case messages.Deploy:
-			return playDeploy(ctx, m, req, send, receive, cache)
+			return h.playDeploy(ctx, m, req, send, receive)
 		case messages.Initialise:
-			return playInitialise(ctx, m, req, send, receive, cache)
+			return h.playInitialise(ctx, m, req, send, receive)
 		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}
@@ -179,7 +178,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	// Send a message to the client that queue step has finished.
 	send(messages.Queueing{Done: true})
 
-	if err := handleSocketCommand(ctx, req, send, receive, h.Git); err != nil {
+	if err := h.handleSocketCommand(ctx, req, send, receive); err != nil {
 		sendAndStoreError(ctx, send, "", err, req)
 		return
 	}

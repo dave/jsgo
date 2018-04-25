@@ -10,10 +10,6 @@ const (
 	IndexBucket = "dev-index.jsgo.io"
 	GitBucket   = "dev-git.jsgo.io"
 
-	SrcHost   = "dev-src.jsgo.io"
-	PkgHost   = "dev-pkg.jsgo.io"
-	IndexHost = "dev-index.jsgo.io"
-
 	ErrorKind   = "ErrorDev"
 	CompileKind = "CompileDev"
 	PackageKind = "PackageDev"

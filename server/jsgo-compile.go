@@ -8,16 +8,15 @@ import (
 	"time"
 
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
-	"github.com/dave/jsgo/getter"
-	"github.com/dave/jsgo/gitcache"
+	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
-	"github.com/dave/jsgo/session"
 )
 
-func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
+func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message) error {
 
 	path := info.Path
 
@@ -26,13 +25,13 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
-	gitreq := cache.NewRequest(true)
+	gitreq := h.Cache.NewRequest(true)
 	if err := gitreq.InitialiseFromHints(ctx, path); err != nil {
 		return err
 	}
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, false, false); err != nil {
+	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, false, false); err != nil {
 		return err
 	}
 
@@ -44,7 +43,7 @@ func jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, 
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(s, send).Compile(ctx, path, false)
+	output, err := compile.New(s, h.Fileserver, send).Compile(ctx, path, false)
 	if err != nil {
 		return err
 	}

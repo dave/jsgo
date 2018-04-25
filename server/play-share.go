@@ -13,21 +13,14 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/gitcache"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
 )
 
-func playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
+func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
 	send(messages.Storing{Starting: true})
-
-	if config.UseLocal {
-		// dummy for local dev
-		send(messages.ShareComplete{Hash: "56f9ea337c5f39631fa095e789e44957344e498f"})
-		return nil
-	}
 
 	buf := &bytes.Buffer{}
 	sha := sha1.New()
@@ -43,7 +36,7 @@ func playShare(ctx context.Context, info messages.Share, req *http.Request, send
 	}
 	defer client.Close()
 
-	storer := compile.NewStorer(ctx, client, send, config.ConcurrentStorageUploads)
+	storer := compile.NewStorer(ctx, h.Fileserver, send, config.ConcurrentStorageUploads)
 	storer.AddSrc("source", fmt.Sprintf("%x.json", hash), buf.Bytes())
 	storer.Wait()
 

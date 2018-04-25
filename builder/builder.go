@@ -28,7 +28,7 @@ import (
 	"context"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/session"
+	"github.com/dave/jsgo/builder/session"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
 	"golang.org/x/tools/go/gcimporter15"

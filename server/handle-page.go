@@ -57,11 +57,13 @@ func (h *Handler) handleCompilePage(w http.ResponseWriter, req *http.Request) {
 		Scheme    string
 		PkgHost   string
 		IndexHost string
+		Protocol  string
 	}
 
 	v := vars{}
 	v.PkgHost = config.PkgHost
 	v.IndexHost = config.IndexHost
+	v.Protocol = config.Protocol
 	v.Host = req.Host
 	v.Path = path
 	if req.Host == config.CompileHost {
@@ -183,9 +185,9 @@ var compilePageTemplate = template.Must(template.New("main").Parse(`
 			var shortUrlCheckboxHolder = document.getElementById("short-url-checkbox-holder");
 			
 			shortUrlCheckboxHolder.style.display = (final.Short == final.Path) ? "none" : "";
-			completeLink.href = "https://{{ .IndexHost }}/" + (short ? final.Short : final.Path) + (minify ? "" : "$max");
+			completeLink.href = "{{ .Protocol }}://{{ .IndexHost }}/" + (short ? final.Short : final.Path) + (minify ? "" : "$max");
 			completeLink.innerHTML = "{{ .IndexHost }}/" + (short ? final.Short : final.Path) + (minify ? "" : "$max");
-			completeScript.value = "https://{{ .PkgHost }}/" + final.Path + "." + (minify ? final.HashMin : final.HashMax) + ".js"
+			completeScript.value = "{{ .Protocol }}://{{ .PkgHost }}/" + final.Path + "." + (minify ? final.HashMin : final.HashMax) + ".js"
 		}
 		document.getElementById("minify-checkbox").onchange = refresh;
 		document.getElementById("short-url-checkbox").onchange = refresh;

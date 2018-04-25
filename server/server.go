@@ -24,14 +24,18 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/gitcache"
-	"github.com/dave/jsgo/server/git/cachepersister"
-	"github.com/dave/jsgo/server/git/gcspersister"
-	"github.com/dave/jsgo/server/git/gcsresolver"
-	"github.com/dave/jsgo/server/git/gitfetcher"
+	"github.com/dave/jsgo/getter/cache"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/queue"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/jsgo/services"
+	"github.com/dave/jsgo/services/cachefileserver"
+	"github.com/dave/jsgo/services/gcsfileserver"
+	"github.com/dave/jsgo/services/gcshinter"
+	"github.com/dave/jsgo/services/gitfetcher"
+	"github.com/dave/jsgo/services/localfileserver"
+	"github.com/dave/jsgo/services/localhinter"
+	"github.com/dave/jsgo/services/localresolverfetcher"
 	"github.com/gorilla/websocket"
 	"github.com/shurcooL/httpgzip"
 	"gopkg.in/src-d/go-billy.v4"
@@ -42,18 +46,31 @@ func init() {
 }
 
 func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient *datastore.Client) *Handler {
+	var c *cache.Cache
+	var fileserver services.Fileserver
+	if config.LOCAL {
+		fileserver = localfileserver.New(config.LocalFileserverTempDir)
+		fetcherResolver := localfetcher.New()
+		c = cache.New(
+			localhinter.New(),
+			fetcherResolver,
+			fetcherResolver,
+		)
+	} else {
+		fileserver = gcsfileserver.New(storageClient)
+		c = cache.New(
+			gcshinter.New(datastoreClient, config.HintsKind),
+			gitfetcher.New(cachefileserver.New(512*1024*1042, 50*1024*1024), fileserver),
+			nil,
+		)
+	}
 	h := &Handler{
-		mux:       http.NewServeMux(),
-		shutdown:  shutdown,
-		Queue:     queue.New(config.MaxConcurrentCompiles, config.MaxQueue),
-		Waitgroup: &sync.WaitGroup{},
-		Git: gitcache.NewCache(
-			&gcsresolver.Resolver{Client: datastoreClient, Kind: config.HintsKind},
-			&gitfetcher.Fetcher{
-				Cache: &cachepersister.Persister{MaxTotal: 512 * 1024 * 1042, MaxItem: 50 * 1024 * 1024},
-				Gcs:   &gcspersister.Persister{Client: storageClient, Bucket: storageClient.Bucket(config.GitBucket)},
-			},
-		),
+		mux:        http.NewServeMux(),
+		shutdown:   shutdown,
+		Queue:      queue.New(config.MaxConcurrentCompiles, config.MaxQueue),
+		Waitgroup:  &sync.WaitGroup{},
+		Cache:      c,
+		Fileserver: fileserver,
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
 	h.mux.HandleFunc("/_ws/", h.SocketHandler)
@@ -65,11 +82,13 @@ func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient 
 }
 
 type Handler struct {
-	Git       *gitcache.Cache
-	Waitgroup *sync.WaitGroup
-	Queue     *queue.Queue
-	mux       *http.ServeMux
-	shutdown  chan struct{}
+	Cache      *cache.Cache
+	Fileserver services.Fileserver
+	Database   services.Database
+	Waitgroup  *sync.WaitGroup
+	Queue      *queue.Queue
+	mux        *http.ServeMux
+	shutdown   chan struct{}
 }
 
 var upgrader = websocket.Upgrader{

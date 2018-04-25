@@ -9,16 +9,15 @@ import (
 	"time"
 
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
-	"github.com/dave/jsgo/getter"
-	"github.com/dave/jsgo/gitcache"
+	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
-	"github.com/dave/jsgo/session"
 )
 
-func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
+func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
 	if info.Source[info.Main] == nil {
 		return fmt.Errorf("can't find main package %s in source", info.Main)
@@ -33,7 +32,7 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
-	gitreq := cache.NewRequest(false)
+	gitreq := h.Cache.NewRequest(false)
 	if info.Main == "main" {
 		// Using package path "main" as a hint isn't useful... Instead use the imports.
 		// TODO: ignore standard library packages in this list.
@@ -47,7 +46,7 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	}
 
 	// Start the download process - just like the "go get" command.
-	if err := getter.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Main, false, false, false); err != nil {
+	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Main, false, false, false); err != nil {
 		return err
 	}
 
@@ -59,7 +58,7 @@ func playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, se
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(s, send).Compile(ctx, info.Main, true)
+	output, err := compile.New(s, h.Fileserver, send).Compile(ctx, info.Main, true)
 	if err != nil {
 		return err
 	}

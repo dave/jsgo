@@ -5,22 +5,21 @@ import (
 	"net/http"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/getter"
-	"github.com/dave/jsgo/gitcache"
+	"github.com/dave/jsgo/builder/session"
+	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
-	"github.com/dave/jsgo/session"
 )
 
-func playInitialise(ctx context.Context, info messages.Initialise, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
+func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
 	s := session.New(nil, assets.Assets)
 
-	gitreq := cache.NewRequest(true)
+	gitreq := h.Cache.NewRequest(true)
 	if err := gitreq.InitialiseFromHints(ctx, info.Path); err != nil {
 		return err
 	}
-	g := getter.New(s, downloadWriter{send: send}, gitreq)
+	g := get.New(s, downloadWriter{send: send}, gitreq)
 
 	source, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {
@@ -43,7 +42,7 @@ func playInitialise(ctx context.Context, info messages.Initialise, req *http.Req
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})
 
-	if err := compile.New(s, send).Update(ctx, source, map[string]string{}); err != nil {
+	if err := compile.New(s, h.Fileserver, send).Update(ctx, source, map[string]string{}); err != nil {
 		return err
 	}
 

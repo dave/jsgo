@@ -3,6 +3,8 @@ package config
 import "time"
 
 const (
+	LocalFileserverTempDir = "/Users/dave/.jsgo-local"
+
 	// ProjectId is the ID of the GCS project
 	ProjectID = "jsgo-192815"
 

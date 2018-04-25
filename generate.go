@@ -1,5 +1,7 @@
 package jsgo
 
-//go:generate go run -tags="dev" ./gen/gen.go
+//go:generate go run -tags "dev local" ./initialise/initialise.go
 
+// -tags=""
+// -tags="dev local"
 // -tags="dev"

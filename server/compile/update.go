@@ -10,7 +10,6 @@ import (
 
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
-	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/gopherjs/gopherjs/compiler"
 )
@@ -65,18 +64,16 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			return nil
 		}
 
-		if !config.UseLocal {
-			if hashPair := std.Index[archive.ImportPath]; hashPair != nil {
-				// All standard library archives are in the CDN, so we instruct the client to get them from
-				// there. This way we can benefit from browser caching.
-				c.send(messages.Archive{
-					Path:     archive.ImportPath,
-					Hash:     hashPair[false],
-					Contents: nil,
-					Standard: true,
-				})
-				return nil
-			}
+		if hashPair := std.Index[archive.ImportPath]; hashPair != nil {
+			// All standard library archives are in the CDN, so we instruct the client to get them from
+			// there. This way we can benefit from browser caching.
+			c.send(messages.Archive{
+				Path:     archive.ImportPath,
+				Hash:     hashPair[false],
+				Contents: nil,
+				Standard: true,
+			})
+			return nil
 		}
 
 		buf := &bytes.Buffer{}

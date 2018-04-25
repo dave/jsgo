@@ -9,18 +9,17 @@ import (
 	"strings"
 
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/getter"
-	"github.com/dave/jsgo/gitcache"
+	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/messages"
-	"github.com/dave/jsgo/session"
 	"github.com/shurcooL/go/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message, cache *gitcache.Cache) error {
+func (h *Handler) playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 	s := session.New(nil, assets.Assets)
-	g := getter.New(s, downloadWriter{send: send}, cache.NewRequest(false))
+	g := get.New(s, downloadWriter{send: send}, h.Cache.NewRequest(false))
 	_, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {
 		return err
@@ -28,7 +27,7 @@ func playGet(ctx context.Context, info messages.Get, req *http.Request, send fun
 	return nil
 }
 
-func getSource(ctx context.Context, g *getter.Getter, s *session.Session, path string, send func(message messages.Message)) (map[string]map[string]string, error) {
+func getSource(ctx context.Context, g *get.Getter, s *session.Session, path string, send func(message messages.Message)) (map[string]map[string]string, error) {
 
 	if strings.HasPrefix(path, "p/") {
 		send(messages.Downloading{Message: path})
