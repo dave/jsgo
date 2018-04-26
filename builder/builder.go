@@ -861,6 +861,17 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 	}
 
 	if initializer {
+		/*
+			var s string
+			if minify {
+				s = "};$done();"
+			} else {
+				s = "};\n$done();"
+			}
+			if _, err := fmt.Fprint(buf, s); err != nil {
+				return nil, nil, err
+			}
+		*/
 		if _, err := fmt.Fprint(buf, "};"); err != nil {
 			return nil, nil, err
 		}

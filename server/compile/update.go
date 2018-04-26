@@ -114,6 +114,15 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 		return nil
 	}
 
+	if cachedPrelude, exists := cache["prelude"]; !exists || cachedPrelude != std.Prelude[min] {
+		// send the prelude first if it's not in the cache
+		c.send(messages.Archive{
+			Path:     "prelude",
+			Hash:     std.Prelude[min],
+			Standard: true,
+		})
+	}
+
 	// All programs need runtime and it's dependencies
 	if _, _, err := b.BuildImportPath(ctx, "runtime"); err != nil {
 		return err

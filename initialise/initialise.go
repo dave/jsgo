@@ -338,6 +338,9 @@ func Prelude(storer *compile.Storer) error {
 }
 
 // Add dummy package prelude to the loader so prelude can be loaded like a package
+/*
+const jsGoPrelude = `$load.prelude=function(){};$done();`
+*/
 const jsGoPrelude = `$load.prelude=function(){};`
 
 func getRootFilesystem() (billy.Filesystem, error) {
