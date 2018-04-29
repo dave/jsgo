@@ -137,7 +137,7 @@ type IndexItem struct {
 	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
 }
 
-// Archive contains the contents (gzipped) of the GopherJS archive file.
+// Archive contains information about the JS and the stripped GopherJS archive file.
 type Archive struct {
 	Path     string
 	Hash     string // Hash of the resultant js

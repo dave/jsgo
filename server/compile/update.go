@@ -95,7 +95,7 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			}
 			storer.Add(StorageItem{
 				Message:   "",
-				Name:      fmt.Sprintf("%s.%s.x", archive.ImportPath, hash), // Note: hash is a string
+				Name:      fmt.Sprintf("%s.%s.ax", archive.ImportPath, hash), // Note: hash is a string
 				Contents:  buf.Bytes(),
 				Bucket:    config.PkgBucket,
 				Mime:      MimeBin,
@@ -151,7 +151,7 @@ func StripArchive(a *compiler.Archive) *compiler.Archive {
 	}
 	for _, d := range a.Declarations {
 		// All that's needed in Declarations is FullName (https://github.com/gopherjs/gopherjs/blob/423bf76ba1888a53d4fe3c1a82991cdb019a52ad/compiler/package.go#L187-L191)
-		out.Declarations = append(out.Declarations, &compiler.Decl{FullName: d.FullName})
+		out.Declarations = append(out.Declarations, &compiler.Decl{FullName: d.FullName, Blocking: d.Blocking})
 	}
 	return out
 }

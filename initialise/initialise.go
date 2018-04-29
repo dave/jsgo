@@ -146,7 +146,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 				}
 				storer.Add(compile.StorageItem{
 					Message:   path + " archive" + minified,
-					Name:      fmt.Sprintf("%s.%x.x", path, hash),
+					Name:      fmt.Sprintf("%s.%x.ax", path, hash),
 					Contents:  buf.Bytes(),
 					Bucket:    config.PkgBucket,
 					Mime:      compile.MimeBin,
