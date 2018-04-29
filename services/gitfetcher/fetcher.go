@@ -3,6 +3,13 @@ package gitfetcher
 import (
 	"context"
 	"errors"
+	"strconv"
+
+	"bufio"
+	"fmt"
+	"io"
+	"regexp"
+	"strings"
 
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/services"
@@ -51,20 +58,20 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, erro
 	var changed bool
 
 	if exists {
-		if changed, err = doFetch(store, worktree); err != nil {
+		if changed, err = doFetch(ctx, store, worktree); err != nil {
 			// If error while fetching, try a full clone before exiting. Make sure we re-initialise
 			// the filesystems.
 			persisted, sfs, store, worktree, err = initFilesystems()
 			if err != nil {
 				return nil, err
 			}
-			if changed, err = doClone(url, store, worktree); err != nil {
+			if changed, err = doClone(ctx, url, store, worktree); err != nil {
 				return nil, err
 			}
 		}
 
 	} else {
-		if changed, err = doClone(url, store, worktree); err != nil {
+		if changed, err = doClone(ctx, url, store, worktree); err != nil {
 			return nil, err
 		}
 	}
@@ -101,7 +108,8 @@ func initFilesystems() (persisted billy.Filesystem, sfs sivafs.SivaFS, store *fi
 	return persisted, sfs, store, worktree, nil
 }
 
-func doFetch(store *filesystem.Storage, worktree billy.Filesystem) (changed bool, err error) {
+func doFetch(ctx context.Context, store *filesystem.Storage, worktree billy.Filesystem) (changed bool, err error) {
+
 	// Opening git repo
 	repo, err := git.Open(store, worktree)
 	if err != nil {
@@ -143,10 +151,22 @@ func doFetch(store *filesystem.Storage, worktree billy.Filesystem) (changed bool
 		// repo has changed - this will mean it's saved after the operation
 		changed = true
 
-		// Do a full Fetch. Can this be made faster with options?
-		if err := repo.Fetch(&git.FetchOptions{
-			Force: true,
-		}); err != nil && err != git.NoErrAlreadyUpToDate {
+		ctx, cancel := context.WithTimeout(ctx, config.GitCloneTimeout)
+		defer cancel()
+
+		pw, errchan := newProgressWatcher()
+		var errFromWatcher error
+		go func() {
+			if err := <-errchan; err != nil {
+				errFromWatcher = err
+				cancel()
+			}
+		}()
+
+		if err := repo.FetchContext(ctx, &git.FetchOptions{Force: true, Progress: pw}); err != nil && err != git.NoErrAlreadyUpToDate {
+			if errFromWatcher != nil {
+				return false, errFromWatcher
+			}
 			return false, err
 		}
 	}
@@ -166,16 +186,79 @@ func doFetch(store *filesystem.Storage, worktree billy.Filesystem) (changed bool
 	return changed, nil
 }
 
-func doClone(url string, store *filesystem.Storage, worktree billy.Filesystem) (changed bool, err error) {
-	// Clone the repo
-	if _, err := git.Clone(store, worktree, &git.CloneOptions{
+func doClone(ctx context.Context, url string, store *filesystem.Storage, worktree billy.Filesystem) (changed bool, err error) {
+
+	ctx, cancel := context.WithTimeout(ctx, config.GitCloneTimeout)
+	defer cancel()
+
+	pw, errchan := newProgressWatcher()
+	var errFromWatcher error
+	go func() {
+		if err := <-errchan; err != nil {
+			errFromWatcher = err
+			cancel()
+		}
+	}()
+
+	if _, err := git.CloneContext(ctx, store, worktree, &git.CloneOptions{
 		URL:          url,
+		Progress:     pw,
 		Tags:         git.NoTags,
 		SingleBranch: true,
 	}); err != nil {
+		if errFromWatcher != nil {
+			return false, errFromWatcher
+		}
 		return false, err
 	}
 	return true, nil
+}
+
+var progressRegex = regexp.MustCompile(`Counting objects: (\d+), done\.?\n$`)
+
+func newProgressWatcher() (*progressWatcher, chan error) {
+	r, w := io.Pipe()
+	p := &progressWatcher{
+		w: w,
+	}
+	errchan := make(chan error)
+	go func() {
+		defer close(errchan)
+		buf := bufio.NewReader(r)
+		s, err := buf.ReadString('\n')
+		p.done = true
+		if err != nil {
+			errchan <- err
+			return
+		}
+		matches := progressRegex.FindStringSubmatch(s)
+		if len(matches) != 2 {
+			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
+			return
+		}
+		objects, err := strconv.Atoi(matches[1])
+		if err != nil {
+			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
+			return
+		}
+		if objects > config.GitMaxObjects {
+			errchan <- fmt.Errorf("too many git objects (max %d): %d", config.GitMaxObjects, objects)
+			return
+		}
+	}()
+	return p, errchan
+}
+
+type progressWatcher struct {
+	w    io.Writer
+	done bool
+}
+
+func (p *progressWatcher) Write(b []byte) (n int, err error) {
+	if p.done {
+		return
+	}
+	return p.w.Write(b)
 }
 
 func save(ctx context.Context, fileserver services.Fileserver, url string, fs billy.Filesystem) error {

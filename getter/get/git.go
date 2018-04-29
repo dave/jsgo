@@ -9,16 +9,6 @@ import (
 
 	"fmt"
 
-	"io"
-
-	"bufio"
-
-	"regexp"
-
-	"strconv"
-
-	"strings"
-
 	"github.com/dave/jsgo/builder/copier"
 	"github.com/dave/jsgo/getter/cache"
 	"gopkg.in/src-d/go-billy.v4"
@@ -79,53 +69,6 @@ func (g *gitProvider) checkSize(ctx context.Context, url string) error {
 		return fmt.Errorf("repo is too big - ls-remote returned %d refs - max is %d", len(refs), configpkg.GitMaxRefs)
 	}
 	return nil
-}
-
-var progressRegex = regexp.MustCompile(`Counting objects: (\d+), done\.?\n$`)
-
-func newProgressWatcher() (*progressWatcher, chan error) {
-	r, w := io.Pipe()
-	p := &progressWatcher{
-		w: w,
-	}
-	errchan := make(chan error)
-	go func() {
-		defer close(errchan)
-		buf := bufio.NewReader(r)
-		s, err := buf.ReadString('\n')
-		p.done = true
-		if err != nil {
-			errchan <- err
-			return
-		}
-		matches := progressRegex.FindStringSubmatch(s)
-		if len(matches) != 2 {
-			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
-			return
-		}
-		objects, err := strconv.Atoi(matches[1])
-		if err != nil {
-			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
-			return
-		}
-		if objects > configpkg.GitMaxObjects {
-			errchan <- fmt.Errorf("too many git objects (max %d): %d", configpkg.GitMaxObjects, objects)
-			return
-		}
-	}()
-	return p, errchan
-}
-
-type progressWatcher struct {
-	w    io.Writer
-	done bool
-}
-
-func (p *progressWatcher) Write(b []byte) (n int, err error) {
-	if p.done {
-		return
-	}
-	return p.w.Write(b)
 }
 
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {
