@@ -79,7 +79,7 @@ func getSourceFiles(fs billy.Filesystem, path, dir string) (map[string]map[strin
 		return nil, err
 	}
 	for _, fi := range fis {
-		if !strings.HasSuffix(fi.Name(), ".go") && !strings.HasSuffix(fi.Name(), ".html") {
+		if !isValidFile(fi.Name()) {
 			continue
 		}
 		if strings.HasSuffix(fi.Name(), "_test.go") {
@@ -101,6 +101,15 @@ func getSourceFiles(fs billy.Filesystem, path, dir string) (map[string]map[strin
 		source[path][fi.Name()] = string(b)
 	}
 	return source, nil
+}
+
+func isValidFile(name string) bool {
+	for _, ext := range config.ValidExtensions {
+		if strings.HasSuffix(name, ext) {
+			return true
+		}
+	}
+	return false
 }
 
 func getGolangPlaygroundSource(ctx context.Context, path string) (map[string]map[string]string, error) {

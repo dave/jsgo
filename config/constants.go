@@ -1,6 +1,8 @@
 package config
 
-import "time"
+import (
+	"time"
+)
 
 const (
 	LocalFileserverTempDir = "/Users/dave/.jsgo-local"
@@ -71,3 +73,5 @@ const (
 
 	ConcurrentStorageUploads = 10
 )
+
+var ValidExtensions = [...]string{".go", ".jsgo.html", ".inc.js", ".md"}

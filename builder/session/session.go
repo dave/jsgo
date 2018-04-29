@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 
+	"github.com/dave/jsgo/config"
+
 	"strings"
 
 	"io"
@@ -156,7 +158,7 @@ func createPackage(fs billy.Filesystem, dir string, files map[string]string) err
 		return err
 	}
 	for name, contents := range files {
-		if !strings.HasSuffix(name, ".go") && !strings.HasSuffix(name, ".inc.js") && !strings.HasSuffix(name, ".jsgo.html") {
+		if !isValidFile(name) {
 			continue
 		}
 		if err := createFile(fs, dir, name, contents); err != nil {
@@ -164,6 +166,15 @@ func createPackage(fs billy.Filesystem, dir string, files map[string]string) err
 		}
 	}
 	return nil
+}
+
+func isValidFile(name string) bool {
+	for _, ext := range config.ValidExtensions {
+		if strings.HasSuffix(name, ext) {
+			return true
+		}
+	}
+	return false
 }
 
 func createFile(fs billy.Filesystem, dir, name, contents string) error {
