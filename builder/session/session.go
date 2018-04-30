@@ -19,7 +19,7 @@ import (
 
 func New(tags []string, root billy.Filesystem) *Session {
 	s := &Session{}
-	s.tags = append([]string{"js", "netgo", "jsgo"}, tags...)
+	s.tags = append([]string{"netgo", "purego", "jsgo"}, tags...)
 	s.pathfs = memfs.New()
 	s.rootfs = root
 	s.source = map[string]map[string]string{}
