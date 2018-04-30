@@ -23,7 +23,7 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 		return fmt.Errorf("can't find main package %s in source", info.Main)
 	}
 
-	s := session.New(nil, assets.Assets)
+	s := session.New(info.Tags, assets.Assets)
 
 	if err := s.SetSource(info.Source); err != nil {
 		return err

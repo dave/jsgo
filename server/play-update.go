@@ -13,7 +13,7 @@ import (
 
 func (h *Handler) playUpdate(ctx context.Context, info messages.Update, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	s := session.New(nil, assets.Assets)
+	s := session.New(info.Tags, assets.Assets)
 
 	if err := s.SetSource(info.Source); err != nil {
 		return err

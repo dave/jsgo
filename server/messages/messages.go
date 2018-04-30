@@ -96,12 +96,14 @@ type Update struct {
 type Share struct {
 	Version int                          `json:"version"`
 	Source  map[string]map[string]string `json:"source"` // Source packages for this build: map[<package>]map[<filename>]<contents>
+	Tags    []string                     `json:"tags"`   // Build tags
 }
 
 type Deploy struct {
 	Main    string
 	Imports []string
 	Source  map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
+	Tags    []string
 }
 
 type Compile struct {
