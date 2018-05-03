@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net"
 	"net/http"
 	"sync"
 	"time"
@@ -124,13 +125,20 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 			return nil
 		})
 		for {
-			_, messageBytes, err := conn.ReadMessage()
+			messageType, messageBytes, err := conn.ReadMessage()
 			if err != nil {
 				if websocket.IsCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 					// Don't bother storing an error if the client disconnects gracefully
 					break
 				}
+				if err, ok := err.(*net.OpError); ok && err.Err.Error() == "use of closed network connection" {
+					// Don't bother storing an error if the client disconnects gracefully
+					break
+				}
 				storeError(ctx, err, req)
+				break
+			}
+			if messageType == websocket.CloseMessage {
 				break
 			}
 			message, err := messages.Unmarshal(messageBytes)

@@ -13,7 +13,10 @@ import (
 
 	"strings"
 
+	"io"
+
 	"github.com/dave/blast/blaster"
+	"github.com/dave/jsgo/server/messages"
 	"github.com/mitchellh/mapstructure"
 	"golang.org/x/net/websocket"
 )
@@ -63,12 +66,21 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 		return map[string]interface{}{"status": "error decoding payload: " + err.Error()}, err
 	}
 
-	ws, err := websocket.Dial(fmt.Sprintf("wss://compile.jsgo.io/_ws/%s", p.Path), "", "https://compile.jsgo.io")
-	//ws, err := websocket.Dial(fmt.Sprintf("ws://localhost:8080/_ws/%s", p.Path), "", "http://localhost:8080")
+	//ws, err := websocket.Dial("wss://compile.jsgo.io/_pg/", "", "https://compile.jsgo.io")
+	ws, err := websocket.Dial("ws://localhost:8081/_pg/", "", "http://localhost:8080")
 	if err != nil {
 		return map[string]interface{}{"status": "error dialing: " + err.Error()}, err
 	}
 	defer ws.Close()
+
+	b, _ := messages.Marshal(messages.Initialise{Path: p.Path, Minify: true})
+	if err != nil {
+		return map[string]interface{}{"status": "error encoding: " + err.Error()}, err
+	}
+	if _, err := ws.Write(b); err != nil {
+		return map[string]interface{}{"status": "error writing: " + err.Error()}, err
+	}
+	//fmt.Println(string(b))
 
 	read := make(chan error)
 	go func() {
@@ -76,10 +88,19 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 		for {
 
 			send := func(err error) {
+				//	if err != nil {
+				//		fmt.Println(raw, err)
+				//	}
 				select {
 				case read <- err:
 					// great!
 				case <-ctx.Done():
+					select {
+					case read <- ctx.Err():
+						// great!
+					default:
+						// continue
+					}
 					return
 				default:
 					// continue
@@ -88,34 +109,51 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 
 			var raw string
 			var msg struct {
-				Type    string `json:"type"`
-				Payload struct {
-					Message string `json:"message"`
-				} `json:"payload"`
-				Err error
+				Type    string
+				Message struct {
+					Message string
+					Done    bool
+				}
 			}
 			if err := websocket.Message.Receive(ws, &raw); err != nil {
+				if err == io.EOF {
+					send(nil)
+					ws.Close()
+					return
+				}
 				send(err)
 				ws.Close()
 				return
 			}
-			//fmt.Println(raw)
+			fmt.Println(raw)
 
 			if err := json.Unmarshal([]byte(raw), &msg); err != nil {
 				send(err)
 				ws.Close()
 				return
 			}
-			if msg.Type == "error" {
-				if strings.Contains(msg.Payload.Message, "too many git objects") {
+			if msg.Type == "Error" {
+				if strings.Contains(msg.Message.Message, "too many git objects") {
 					send(errors.New("too many git objects"))
+				} else if strings.Contains(msg.Message.Message, "unrecognized import path") {
+					send(errors.New("source"))
+				} else if strings.Contains(msg.Message.Message, "no Go files in") {
+					send(errors.New("source"))
+				} else if strings.Contains(msg.Message.Message, "cannot find package") {
+					send(errors.New("source"))
+				} else if strings.HasPrefix(msg.Message.Message, "gopath/src/") {
+					send(errors.New("source"))
 				} else {
-					send(errors.New(msg.Payload.Message))
+					if msg.Message.Message == "" {
+						send(errors.New(raw))
+					} else {
+						send(errors.New(msg.Message.Message))
+					}
 				}
 				ws.Close()
 				return
 			}
-			if msg.Type == "complete" {
+			if msg.Type == "Updating" && msg.Message.Done {
 				send(nil)
 				ws.Close()
 				return

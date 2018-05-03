@@ -7,15 +7,11 @@ import (
 
 	"errors"
 
-	"fmt"
-
 	"github.com/dave/jsgo/builder/copier"
 	"github.com/dave/jsgo/getter/cache"
 	"gopkg.in/src-d/go-billy.v4"
-	"gopkg.in/src-d/go-billy.v4/memfs"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
-	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 	"gopkg.in/src-d/go-git.v4/storage/memory"
 )
 
@@ -37,38 +33,6 @@ type gitProvider struct {
 
 func (g *gitProvider) hash() string {
 	return g.hashString
-}
-
-func (g *gitProvider) checkSize(ctx context.Context, url string) error {
-
-	store, err := filesystem.NewStorage(memfs.New())
-	if err != nil {
-		return err
-	}
-
-	repo, err := git.Init(store, memfs.New())
-	if err != nil {
-		return err
-	}
-
-	r, err := repo.CreateRemote(&config.RemoteConfig{
-		Name:  "origin",
-		URLs:  []string{url},
-		Fetch: []config.RefSpec{config.RefSpec("refs/heads/*:refs/heads/*")},
-	})
-	if err != nil {
-		return err
-	}
-
-	refs, err := r.List(&git.ListOptions{})
-	if err != nil {
-		return err
-	}
-
-	if len(refs) > configpkg.GitMaxRefs {
-		return fmt.Errorf("repo is too big - ls-remote returned %d refs - max is %d", len(refs), configpkg.GitMaxRefs)
-	}
-	return nil
 }
 
 func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.Filesystem) error {

@@ -50,7 +50,7 @@ const (
 	WebsocketInstructionTimeout = time.Second * 5
 
 	// GitCloneTimeout is the time to wait for a git clone operation
-	GitCloneTimeout = time.Second * 60
+	GitCloneTimeout = time.Second * 120
 
 	// GitPullTimeout is the time to wait for a git pull operation
 	GitPullTimeout = time.Second * 60
@@ -58,15 +58,8 @@ const (
 	// GitListTimeout is the time to wait for a git list operation
 	GitListTimeout = time.Second * 10
 
-	// GitMaxBytes is the maximum bytes allowed to be used by the git clone operation before returning
-	// an error.
-	GitMaxBytes = 50 * 1024 * 1024 // 100 MB
-
-	// GitMaxRefs is the maximum refs returned by git ls-remote before the repo is deemed too big (this check is currently disabled)
-	GitMaxRefs = 10000
-
 	// GitMaxObjects is the maximum objects in git clone progress
-	GitMaxObjects = 10000
+	GitMaxObjects = 30000
 
 	// HttpTimeout is the time to wait for HTTP operations (e.g. getting meta data - not git)
 	HttpTimeout = time.Second * 5

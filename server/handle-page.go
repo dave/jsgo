@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strings"
 
+	"runtime"
+
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/store"
 	humanize "github.com/dustin/go-humanize"
@@ -291,7 +293,13 @@ func (h *Handler) handlePlayPage(w http.ResponseWriter, req *http.Request) {
 	}
 	url := fmt.Sprintf("https://pkg.jsgo.io/github.com/dave/play.%s.js", c.Min.Main)
 
-	v := struct{ Script string }{Script: url}
+	v := struct {
+		Script string
+		Count  int
+	}{
+		Script: url,
+		Count:  runtime.NumGoroutine(),
+	}
 
 	if err := playPageTemplate.Execute(w, v); err != nil {
 		http.Error(w, err.Error(), 500)
@@ -309,7 +317,7 @@ var playPageTemplate = template.Must(template.New("main").Parse(`<html>
         <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js"></script>
 		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ext-linking.js"></script>
 	</head>
-	<body id="wrapper" style="margin: 0;">
+	<body id="wrapper" style="margin: 0;" data-count="{{ .Count }}">
 		<div id="progress-holder" style="width: 100%; padding: 25%;">
 			<div class="progress">
 				<div id="progress-bar" class="progress-bar" role="progressbar" style="width: 0%" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100"></div>

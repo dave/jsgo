@@ -1,4 +1,9 @@
 data: packages.csv
+#data: |
+#  package
+#  agamigo.io/vecty-material/demos/button
+
+#github.com/dave/play
 rate: 1
 workers: 9
 worker-type: "jsgo"

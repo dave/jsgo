@@ -9,6 +9,9 @@ import (
 	"fmt"
 	"io"
 	"regexp"
+
+	"net/url"
+
 	"strings"
 
 	"github.com/dave/jsgo/config"
@@ -22,6 +25,23 @@ import (
 	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 	"gopkg.in/src-d/go-git.v4/storage/memory"
 )
+
+/*
+func init() {
+	go func() {
+		for {
+			<-time.After(time.Second)
+			fmt.Println(runtime.NumGoroutine())
+		}
+	}()
+	go func() {
+		for {
+			<-time.After(time.Second * 10)
+			pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+		}
+	}()
+}
+*/
 
 const FNAME = "repo.bin"
 
@@ -58,7 +78,7 @@ func (f *Fetcher) Fetch(ctx context.Context, url string) (billy.Filesystem, erro
 	var changed bool
 
 	if exists {
-		if changed, err = doFetch(ctx, store, worktree); err != nil {
+		if changed, err = doFetch(ctx, url, store, worktree); err != nil {
 			// If error while fetching, try a full clone before exiting. Make sure we re-initialise
 			// the filesystems.
 			persisted, sfs, store, worktree, err = initFilesystems()
@@ -108,7 +128,7 @@ func initFilesystems() (persisted billy.Filesystem, sfs sivafs.SivaFS, store *fi
 	return persisted, sfs, store, worktree, nil
 }
 
-func doFetch(ctx context.Context, store *filesystem.Storage, worktree billy.Filesystem) (changed bool, err error) {
+func doFetch(ctx context.Context, url string, store *filesystem.Storage, worktree billy.Filesystem) (changed bool, err error) {
 
 	// Opening git repo
 	repo, err := git.Open(store, worktree)
@@ -155,6 +175,7 @@ func doFetch(ctx context.Context, store *filesystem.Storage, worktree billy.File
 		defer cancel()
 
 		pw, errchan := newProgressWatcher()
+		defer pw.stop()
 		var errFromWatcher error
 		go func() {
 			if err := <-errchan; err != nil {
@@ -192,6 +213,7 @@ func doClone(ctx context.Context, url string, store *filesystem.Storage, worktre
 	defer cancel()
 
 	pw, errchan := newProgressWatcher()
+	defer pw.stop()
 	var errFromWatcher error
 	go func() {
 		if err := <-errchan; err != nil {
@@ -214,72 +236,89 @@ func doClone(ctx context.Context, url string, store *filesystem.Storage, worktre
 	return true, nil
 }
 
-var progressRegex = regexp.MustCompile(`Counting objects: (\d+), done\.?\n$`)
+var progressRegex = []*regexp.Regexp{
+	regexp.MustCompile(`Counting objects: (\d+), done\.?`),
+	regexp.MustCompile(`Finding sources: +\d+% \(\d+/(\d+)\)`),
+}
 
 func newProgressWatcher() (*progressWatcher, chan error) {
 	r, w := io.Pipe()
 	p := &progressWatcher{
 		w: w,
 	}
+	scanner := bufio.NewScanner(r)
+	scanner.Split(func(data []byte, atEOF bool) (advance int, token []byte, err error) {
+		i := strings.IndexAny(string(data), "\r\n")
+		if i >= 0 {
+			return i + 1, data[:i], nil
+		}
+		if atEOF {
+			return 0, nil, io.EOF
+		}
+		return 0, nil, nil
+	})
 	errchan := make(chan error)
 	go func() {
 		defer close(errchan)
-		buf := bufio.NewReader(r)
-		s, err := buf.ReadString('\n')
-		p.done = true
-		if err != nil {
-			errchan <- err
-			return
-		}
-		matches := progressRegex.FindStringSubmatch(s)
-		if len(matches) != 2 {
-			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
-			return
-		}
-		objects, err := strconv.Atoi(matches[1])
-		if err != nil {
-			errchan <- fmt.Errorf("error parsing git progress: %#v", strings.TrimSuffix(s, "\n"))
-			return
-		}
-		if objects > config.GitMaxObjects {
-			errchan <- fmt.Errorf("too many git objects (max %d): %d", config.GitMaxObjects, objects)
-			return
+		for {
+			ok := scanner.Scan()
+			if !ok {
+				return
+			}
+			if matched, objects := matchProgress(scanner.Text()); matched && objects > config.GitMaxObjects {
+				errchan <- fmt.Errorf("too many git objects (max %d): %d", config.GitMaxObjects, objects)
+			}
 		}
 	}()
 	return p, errchan
 }
 
 type progressWatcher struct {
-	w    io.Writer
-	done bool
+	w *io.PipeWriter
+}
+
+func (p *progressWatcher) stop() {
+	p.w.Close()
 }
 
 func (p *progressWatcher) Write(b []byte) (n int, err error) {
-	if p.done {
-		return
-	}
 	return p.w.Write(b)
 }
 
-func save(ctx context.Context, fileserver services.Fileserver, url string, fs billy.Filesystem) error {
+func matchProgress(s string) (matched bool, objects int) {
+	for _, r := range progressRegex {
+		matches := r.FindStringSubmatch(s)
+		if len(matches) != 2 {
+			continue
+		}
+		objects, err := strconv.Atoi(matches[1])
+		if err != nil {
+			continue
+		}
+		return true, objects
+	}
+	return false, 0
+}
+
+func save(ctx context.Context, fileserver services.Fileserver, repoUrl string, fs billy.Filesystem) error {
 	// open the persisted git file for reading
 	persisted, err := fs.Open(FNAME)
 	if err != nil {
 		return err
 	}
 	defer persisted.Close()
-	if _, err := fileserver.Write(ctx, config.GitBucket, url, persisted, true, "application/octet-stream", "no-cache"); err != nil {
+	if _, err := fileserver.Write(ctx, config.GitBucket, url.PathEscape(repoUrl), persisted, true, "application/octet-stream", "no-cache"); err != nil {
 		return err
 	}
 	return nil
 }
 
-func load(ctx context.Context, fileserver services.Fileserver, url string, fs billy.Filesystem) (found bool, err error) {
+func load(ctx context.Context, fileserver services.Fileserver, repoUrl string, fs billy.Filesystem) (found bool, err error) {
 	// open / create the persisted git file for writing
 	persisted, err := fs.Create(FNAME)
 	if err != nil {
 		return false, err
 	}
 	defer persisted.Close()
-	return fileserver.Read(ctx, config.GitBucket, url, persisted)
+	return fileserver.Read(ctx, config.GitBucket, url.PathEscape(repoUrl), persisted)
 }
