@@ -14,7 +14,7 @@ const (
 	CompileHost = "compile.jsgo.io"
 
 	// MaxConcurrentCompiles is the maximum number of concurrent compile jobs per server
-	MaxConcurrentCompiles = 3
+	MaxConcurrentCompiles = 2
 
 	// MaxQueue is the maximum queue length waiting for compile. After this an error is returned.
 	MaxQueue = 100

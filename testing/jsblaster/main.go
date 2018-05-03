@@ -66,8 +66,8 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 		return map[string]interface{}{"status": "error decoding payload: " + err.Error()}, err
 	}
 
-	//ws, err := websocket.Dial("wss://compile.jsgo.io/_pg/", "", "https://compile.jsgo.io")
-	ws, err := websocket.Dial("ws://localhost:8081/_pg/", "", "http://localhost:8080")
+	ws, err := websocket.Dial("wss://compile.jsgo.io/_pg/", "", "https://compile.jsgo.io")
+	//ws, err := websocket.Dial("ws://localhost:8081/_pg/", "", "http://localhost:8080")
 	if err != nil {
 		return map[string]interface{}{"status": "error dialing: " + err.Error()}, err
 	}
@@ -125,7 +125,7 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 				ws.Close()
 				return
 			}
-			fmt.Println(raw)
+			//fmt.Println(raw)
 
 			if err := json.Unmarshal([]byte(raw), &msg); err != nil {
 				send(err)
@@ -143,6 +143,8 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 					send(errors.New("source"))
 				} else if strings.HasPrefix(msg.Message.Message, "gopath/src/") {
 					send(errors.New("source"))
+				} else if strings.Contains(msg.Message.Message, "bad status") {
+					send(errors.New("bad status"))
 				} else {
 					if msg.Message.Message == "" {
 						send(errors.New(raw))

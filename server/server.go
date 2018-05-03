@@ -60,7 +60,7 @@ func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient 
 		fileserver = gcsfileserver.New(storageClient)
 		c = cache.New(
 			gcshinter.New(datastoreClient, config.HintsKind),
-			gitfetcher.New(cachefileserver.New(512*1024*1042, 50*1024*1024), fileserver),
+			gitfetcher.New(cachefileserver.New(1024*1024*1042, 100*1024*1024), fileserver),
 			nil,
 		)
 	}
