@@ -59,8 +59,8 @@ if it's having trouble compiling your project.
 * https://jsgo.io/dave/todomvc
 * https://jsgo.io/gopherjs/vecty/example/markdown
 * https://jsgo.io/dave/html2vecty
-* https://jsgo.io/dave/compress/image
-* https://jsgo.io/dave/compress/zip  
+* https://jsgo.io/dave/zip
+* https://jsgo.io/dave/img
 
 The power of aggressive caching is apparent when loading pages which share common packages... The examples
 in the [ebiten](https://github.com/hajimehoshi/ebiten) game library are a great demonstration of this:  
