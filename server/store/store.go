@@ -6,6 +6,7 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/services"
 )
 
 type Error struct {
@@ -56,66 +57,40 @@ type CompilePackage struct {
 	Standard bool
 }
 
-func StoreError(ctx context.Context, data Error) error {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	if _, err := client.Put(ctx, errorKey(), &data); err != nil {
+func StoreError(ctx context.Context, database services.Database, data Error) error {
+	if _, err := database.Put(ctx, errorKey(), &data); err != nil {
 		return err
 	}
 	return nil
 }
 
-func StoreShare(ctx context.Context, data ShareData) error {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	if _, err := client.Put(ctx, shareKey(), &data); err != nil {
+func StoreShare(ctx context.Context, database services.Database, data ShareData) error {
+	if _, err := database.Put(ctx, shareKey(), &data); err != nil {
 		return err
 	}
 	return nil
 }
 
-func StoreDeploy(ctx context.Context, data DeployData) error {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
-		return err
-	}
-	defer client.Close()
-	if _, err := client.Put(ctx, deployKey(), &data); err != nil {
+func StoreDeploy(ctx context.Context, database services.Database, data DeployData) error {
+	if _, err := database.Put(ctx, deployKey(), &data); err != nil {
 		return err
 	}
 	return nil
 }
 
-func StoreCompile(ctx context.Context, path string, data CompileData) error {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
+func StoreCompile(ctx context.Context, database services.Database, path string, data CompileData) error {
+	if _, err := database.Put(ctx, compileKey(), &data); err != nil {
 		return err
 	}
-	defer client.Close()
-	if _, err := client.Put(ctx, compileKey(), &data); err != nil {
-		return err
-	}
-	if _, err := client.Put(ctx, packageKey(path), &data); err != nil {
+	if _, err := database.Put(ctx, packageKey(path), &data); err != nil {
 		return err
 	}
 	return nil
 }
 
-func Package(ctx context.Context, path string) (bool, CompileData, error) {
-	client, err := datastore.NewClient(ctx, config.ProjectID)
-	if err != nil {
-		return false, CompileData{}, err
-	}
-	defer client.Close()
+func Package(ctx context.Context, database services.Database, path string) (bool, CompileData, error) {
 	var data CompileData
-
-	if err := client.Get(ctx, packageKey(path), &data); err != nil {
+	if err := database.Get(ctx, packageKey(path), &data); err != nil {
 		if err == datastore.ErrNoSuchEntity {
 			return false, CompileData{}, nil
 		}

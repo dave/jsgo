@@ -63,7 +63,7 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 		return err
 	}
 
-	if err := storeDeploy(ctx, send, true, req, output[true]); err != nil {
+	if err := h.storeDeploy(ctx, send, true, req, output[true]); err != nil {
 		return err
 	}
 
@@ -77,14 +77,14 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 	return nil
 }
 
-func storeDeploy(ctx context.Context, send func(messages.Message), min bool, req *http.Request, output *compile.CompileOutput) error {
+func (h *Handler) storeDeploy(ctx context.Context, send func(messages.Message), min bool, req *http.Request, output *compile.CompileOutput) error {
 	data := store.DeployData{
 		Time:     time.Now(),
 		Contents: getDeployContents(output, min),
 		Minify:   min, // TODO: make this configurable
 		Ip:       req.Header.Get("X-Forwarded-For"),
 	}
-	if err := store.StoreDeploy(ctx, data); err != nil {
+	if err := store.StoreDeploy(ctx, h.Database, data); err != nil {
 		return err
 	}
 	return nil

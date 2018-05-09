@@ -4,6 +4,8 @@ import (
 	"context"
 	"io"
 
+	"cloud.google.com/go/datastore"
+
 	billy "gopkg.in/src-d/go-billy.v4"
 )
 
@@ -16,19 +18,17 @@ type Fileserver interface {
 
 // Database provides the functionality to persist and recall data. In production we use the gcs datastore.
 // In local development mode we use a memory data store.
-type Database interface{}
+type Database interface {
+	Get(ctx context.Context, key *datastore.Key, dst interface{}) (err error)
+	Put(ctx context.Context, key *datastore.Key, src interface{}) (*datastore.Key, error)
+	GetMulti(ctx context.Context, keys []*datastore.Key, dst interface{}) (err error)
+	PutMulti(ctx context.Context, keys []*datastore.Key, src interface{}) (_ []*datastore.Key, err error)
+}
 
 // Resolver provides the functionality to resolve package paths to repo URLs. In production mode this
 // uses the `go get` codebase. In local mode we scan the gopath.
 type Resolver interface {
 	Resolve(ctx context.Context, path string) (url string, root string, err error)
-}
-
-// Hinter provides the functionality to load and save hints to and from a database (e.g. Google
-// Datastore).
-type Hinter interface {
-	Resolve(ctx context.Context, hints []string) (resolved []string, err error)
-	Save(ctx context.Context, resolved map[string][]string) error
 }
 
 // Fetcher fetches the worktree for a git repository. In production the repo is cloned or loaded from

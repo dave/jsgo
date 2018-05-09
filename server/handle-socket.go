@@ -17,6 +17,8 @@ import (
 
 	"encoding/json"
 
+	"strings"
+
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dustin/go-humanize"
@@ -24,8 +26,10 @@ import (
 )
 
 func (h *Handler) handleSocketCommand(ctx context.Context, req *http.Request, send func(message messages.Message), receive chan messages.Message, tj *trackerJob) error {
+	tj.log("handleSocketCommand")
 	select {
 	case m := <-receive:
+		tj.log("received")
 		tj.logMessage(m)
 		switch m := m.(type) {
 		case messages.Compile:
@@ -44,6 +48,7 @@ func (h *Handler) handleSocketCommand(ctx context.Context, req *http.Request, se
 			return fmt.Errorf("invalid init message %T", m)
 		}
 	case <-time.After(config.WebsocketInstructionTimeout):
+		tj.log("timeout")
 		return errors.New("timed out waiting for instruction from client")
 	}
 }
@@ -66,6 +71,7 @@ var infoTmpl = template.Must(template.New("main").Parse(`<html>
 				<th>Queue</th>
 				<th>Message</th>
 				<th>End</th>
+				<th>Logs</th>
 				<th>Message</th>
 			</tr>
 			{{ range .Jobs }}
@@ -84,6 +90,9 @@ var infoTmpl = template.Must(template.New("main").Parse(`<html>
 					</td>
 					<td>
 						{{ .SinceEnd }}
+					</td>
+					<td>
+						<pre>{{ .Logs }}</pre>
 					</td>
 					<td>
 						<pre>{{ .Message }}</pre>
@@ -124,12 +133,14 @@ type trackerJob struct {
 	endTime     time.Time
 	queuePos    int
 	message     messages.Message
+	logs        []string
 }
 
 type jobInfo struct {
 	SinceStart, SinceQueue, SinceMessage, SinceEnd string
 	QueuePos                                       string
 	Message                                        interface{}
+	Logs                                           string
 }
 
 type pageInfo struct {
@@ -171,6 +182,7 @@ func (t *tracker) info() pageInfo {
 		if !j.endTime.IsZero() {
 			ji.SinceEnd = humanize.Time(j.endTime)
 		}
+		ji.Logs = strings.Join(j.logs, "\n")
 		ji.QueuePos = fmt.Sprint(j.queuePos)
 		info = append(info, ji)
 	}
@@ -196,6 +208,12 @@ func (j *trackerJob) end() {
 		defer j.Unlock()
 		delete(j.jobs, j)
 	}()
+}
+
+func (j *trackerJob) log(message string) {
+	j.Lock()
+	defer j.Unlock()
+	j.logs = append(j.logs, message)
 }
 
 func (j *trackerJob) queueDone() {
@@ -224,7 +242,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
-		storeError(ctx, fmt.Errorf("upgrading request to websocket: %v", err), req)
+		h.storeError(ctx, fmt.Errorf("upgrading request to websocket: %v", err), req)
 		return
 	}
 
@@ -246,7 +264,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	// Recover from any panic and log the error.
 	defer func() {
 		if r := recover(); r != nil {
-			sendAndStoreError(ctx, send, "", errors.New(fmt.Sprintf("panic recovered: %s", r)), req)
+			h.sendAndStoreError(ctx, send, "", errors.New(fmt.Sprintf("panic recovered: %s", r)), req)
 		}
 	}()
 
@@ -311,7 +329,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 					// Don't bother storing an error if the client disconnects gracefully
 					break
 				}
-				storeError(ctx, err, req)
+				h.storeError(ctx, err, req)
 				break
 			}
 			if messageType == websocket.CloseMessage {
@@ -319,7 +337,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 			}
 			message, err := messages.Unmarshal(messageBytes)
 			if err != nil {
-				storeError(ctx, err, req)
+				h.storeError(ctx, err, req)
 				break
 			}
 			select {
@@ -333,7 +351,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	go func() {
 		select {
 		case <-h.shutdown:
-			sendAndStoreError(ctx, send, "", errors.New("server shut down"), req)
+			h.sendAndStoreError(ctx, send, "", errors.New("server shut down"), req)
 			cancel()
 		case <-ctx.Done():
 		}
@@ -345,7 +363,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 		send(messages.Queueing{Position: position})
 	})
 	if err != nil {
-		sendAndStoreError(ctx, send, "", err, req)
+		h.sendAndStoreError(ctx, send, "", err, req)
 		return
 	}
 
@@ -366,7 +384,7 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	send(messages.Queueing{Done: true})
 
 	if err := h.handleSocketCommand(ctx, req, send, receive, tj); err != nil {
-		sendAndStoreError(ctx, send, "", err, req)
+		h.sendAndStoreError(ctx, send, "", err, req)
 		return
 	}
 

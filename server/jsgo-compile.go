@@ -49,7 +49,7 @@ func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *h
 	}
 
 	// Logs the success in the datastore
-	storeCompile(ctx, send, path, req, output)
+	h.storeCompile(ctx, send, path, req, output)
 
 	// Send a message to the client that the process has successfully finished
 	send(messages.Complete{
@@ -61,7 +61,7 @@ func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *h
 	return nil
 }
 
-func storeCompile(ctx context.Context, send func(messages.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
+func (h *Handler) storeCompile(ctx context.Context, send func(messages.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
 	data := store.CompileData{
 		Path:    path,
 		Time:    time.Now(),
@@ -70,9 +70,9 @@ func storeCompile(ctx context.Context, send func(messages.Message), path string,
 		Ip:      req.Header.Get("X-Forwarded-For"),
 		Success: true,
 	}
-	if err := store.StoreCompile(ctx, path, data); err != nil {
+	if err := store.StoreCompile(ctx, h.Database, path, data); err != nil {
 		// don't save this one to the datastore because it's an error from the datastore.
-		sendError(send, err)
+		h.sendError(send, err)
 		return
 	}
 }

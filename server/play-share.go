@@ -50,7 +50,7 @@ func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.
 
 	send(messages.Storing{Done: true})
 
-	if err := storeShare(ctx, info.Source, fmt.Sprintf("%x", hash), send, req); err != nil {
+	if err := h.storeShare(ctx, info.Source, fmt.Sprintf("%x", hash), send, req); err != nil {
 		return err
 	}
 
@@ -59,7 +59,7 @@ func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.
 	return nil
 }
 
-func storeShare(ctx context.Context, source map[string]map[string]string, hash string, send func(messages.Message), req *http.Request) error {
+func (h *Handler) storeShare(ctx context.Context, source map[string]map[string]string, hash string, send func(messages.Message), req *http.Request) error {
 	var count int
 	for _, pkg := range source {
 		for range pkg {
@@ -72,7 +72,7 @@ func storeShare(ctx context.Context, source map[string]map[string]string, hash s
 		Files: count,
 		Hash:  hash,
 	}
-	if err := store.StoreShare(ctx, data); err != nil {
+	if err := store.StoreShare(ctx, h.Database, data); err != nil {
 		return err
 	}
 	return nil

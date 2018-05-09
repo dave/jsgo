@@ -30,11 +30,11 @@ import (
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/jsgo/services"
 	"github.com/dave/jsgo/services/cachefileserver"
+	"github.com/dave/jsgo/services/gcsdatabase"
 	"github.com/dave/jsgo/services/gcsfileserver"
-	"github.com/dave/jsgo/services/gcshinter"
 	"github.com/dave/jsgo/services/gitfetcher"
+	"github.com/dave/jsgo/services/localdatabase"
 	"github.com/dave/jsgo/services/localfileserver"
-	"github.com/dave/jsgo/services/localhinter"
 	"github.com/dave/jsgo/services/localresolverfetcher"
 	"github.com/gorilla/websocket"
 	"github.com/shurcooL/httpgzip"
@@ -45,21 +45,34 @@ func init() {
 	assets.Init()
 }
 
-func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient *datastore.Client) *Handler {
+func New(shutdown chan struct{}) *Handler {
 	var c *cache.Cache
 	var fileserver services.Fileserver
+	var database services.Database
 	if config.LOCAL {
 		fileserver = localfileserver.New(config.LocalFileserverTempDir)
+		database = localdatabase.New(config.LocalFileserverTempDir)
 		fetcherResolver := localfetcher.New()
 		c = cache.New(
-			localhinter.New(),
+			database,
 			fetcherResolver,
 			fetcherResolver,
 		)
 	} else {
+		storageClient, err := storage.NewClient(context.Background())
+		if err != nil {
+			panic(err)
+		}
+
+		datastoreClient, err := datastore.NewClient(context.Background(), config.ProjectID)
+		if err != nil {
+			panic(err)
+		}
+
+		database = gcsdatabase.New(datastoreClient)
 		fileserver = gcsfileserver.New(storageClient)
 		c = cache.New(
-			gcshinter.New(datastoreClient, config.HintsKind),
+			database,
 			gitfetcher.New(cachefileserver.New(1024*1024*1042, 100*1024*1024), fileserver),
 			nil,
 		)
@@ -71,6 +84,7 @@ func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient 
 		Waitgroup:  &sync.WaitGroup{},
 		Cache:      c,
 		Fileserver: fileserver,
+		Database:   database,
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
 	h.mux.HandleFunc("/_info/", h.InfoHandler)
@@ -96,18 +110,18 @@ var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
 }
 
-func sendAndStoreError(ctx context.Context, send func(messages.Message), path string, err error, req *http.Request) {
-	storeError(ctx, err, req)
-	sendError(send, err)
+func (h *Handler) sendAndStoreError(ctx context.Context, send func(messages.Message), path string, err error, req *http.Request) {
+	h.storeError(ctx, err, req)
+	h.sendError(send, err)
 }
 
-func sendError(send func(messages.Message), err error) {
+func (h *Handler) sendError(send func(messages.Message), err error) {
 	send(messages.Error{
 		Message: err.Error(),
 	})
 }
 
-func storeError(ctx context.Context, err error, req *http.Request) {
+func (h *Handler) storeError(ctx context.Context, err error, req *http.Request) {
 
 	if err == queue.TooManyItemsQueued {
 		// If the server is getting flooded by a DOS, this will prevent database flooding
@@ -115,7 +129,7 @@ func storeError(ctx context.Context, err error, req *http.Request) {
 	}
 
 	// ignore errors when logging an error
-	store.StoreError(ctx, store.Error{
+	store.StoreError(ctx, h.Database, store.Error{
 		Time:  time.Now(),
 		Error: err.Error(),
 		Ip:    req.Header.Get("X-Forwarded-For"),

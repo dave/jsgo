@@ -1,31 +1,20 @@
-package gcshinter
+package cache
 
 import (
 	"context"
 
 	"cloud.google.com/go/datastore"
+	"github.com/dave/jsgo/config"
 )
 
-func New(client *datastore.Client, kind string) *Hinter {
-	return &Hinter{
-		client: client,
-		kind:   kind,
-	}
-}
-
-type Hinter struct {
-	client *datastore.Client
-	kind   string
-}
-
-func (h *Hinter) Resolve(ctx context.Context, hints []string) (resolved []string, err error) {
+func (c *Cache) ResolveHints(ctx context.Context, hints []string) (resolved []string, err error) {
 	var keys []*datastore.Key
 	for _, path := range hints {
-		keys = append(keys, h.hintsKey(path))
+		keys = append(keys, c.hintsKey(path))
 	}
 	urls := map[string]bool{}
 	response := make([]Hints, len(keys))
-	if err := h.client.GetMulti(ctx, keys, response); err != nil {
+	if err := c.database.GetMulti(ctx, keys, response); err != nil {
 		if me, ok := err.(datastore.MultiError); ok {
 			for _, merr := range me {
 				if merr != datastore.ErrNoSuchEntity {
@@ -50,21 +39,21 @@ func (h *Hinter) Resolve(ctx context.Context, hints []string) (resolved []string
 	return out, nil
 }
 
-func (h *Hinter) Save(ctx context.Context, resolved map[string][]string) error {
+func (c *Cache) SaveHints(ctx context.Context, resolved map[string][]string) error {
 	var keys []*datastore.Key
 	var vals []Hints
 	for path, hints := range resolved {
-		keys = append(keys, h.hintsKey(path))
+		keys = append(keys, c.hintsKey(path))
 		vals = append(vals, Hints{Path: path, Hints: hints})
 	}
-	if _, err := h.client.PutMulti(ctx, keys, vals); err != nil {
+	if _, err := c.database.PutMulti(ctx, keys, vals); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (h *Hinter) hintsKey(path string) *datastore.Key {
-	return datastore.NameKey(h.kind, path, nil)
+func (c *Cache) hintsKey(path string) *datastore.Key {
+	return datastore.NameKey(config.HintsKind, path, nil)
 }
 
 type Hints struct {

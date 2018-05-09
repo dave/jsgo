@@ -8,9 +8,9 @@ import (
 )
 
 // New returns a new cache.
-func New(hinter services.Hinter, fetcher services.Fetcher, resolver services.Resolver) *Cache {
+func New(database services.Database, fetcher services.Fetcher, resolver services.Resolver) *Cache {
 	c := &Cache{}
-	c.hinter = hinter
+	c.database = database
 	c.fetcher = fetcher
 	c.resolver = resolver
 	return c
@@ -19,7 +19,7 @@ func New(hinter services.Hinter, fetcher services.Fetcher, resolver services.Res
 // Cache stores a local cache of marshaled repos (only small repos will be cached because we're limited
 // on memory). There should be one Cache per server. All methods should be safe for concurrent execution.
 type Cache struct {
-	hinter   services.Hinter
+	database services.Database
 	fetcher  services.Fetcher
 	resolver services.Resolver
 }
@@ -51,7 +51,7 @@ func (c *Cache) NewRequest(save bool) *Request {
 // them in parallel
 // TODO: use a worker pool
 func (r *Request) InitialiseFromHints(ctx context.Context, paths ...string) error {
-	urls, err := r.cache.hinter.Resolve(ctx, paths)
+	urls, err := r.cache.ResolveHints(ctx, paths)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (r *Request) Close(ctx context.Context) error {
 	if !r.save {
 		return nil
 	}
-	return r.cache.hinter.Save(ctx, r.hints)
+	return r.cache.SaveHints(ctx, r.hints)
 }
 
 func (r *Request) Resolver() services.Resolver {

@@ -51,7 +51,7 @@ func (h *Handler) handleCompilePage(w http.ResponseWriter, req *http.Request) {
 	if config.LOCAL {
 		found = false
 	} else {
-		found, data, err = store.Package(ctx, path)
+		found, data, err = store.Package(ctx, h.Database, path)
 		if err != nil {
 			http.Error(w, err.Error(), 500)
 			return
@@ -289,7 +289,7 @@ func (h *Handler) handlePlayPage(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), config.PageTimeout)
 	defer cancel()
 
-	found, c, err := store.Package(ctx, "github.com/dave/play")
+	found, c, err := store.Package(ctx, h.Database, "github.com/dave/play")
 	if err != nil {
 		http.Error(w, err.Error(), 500)
 		return
