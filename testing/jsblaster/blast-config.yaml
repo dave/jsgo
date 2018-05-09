@@ -4,8 +4,8 @@ data: packages.csv
 #  agamigo.io/vecty-material/demos/button
 
 #github.com/dave/play
-rate: 15
-workers: 30
+rate: 1
+workers: 5
 worker-type: "jsgo"
 timeout: 300000
 payload-template:

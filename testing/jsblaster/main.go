@@ -15,6 +15,9 @@ import (
 
 	"io"
 
+	"math/rand"
+	"time"
+
 	"github.com/dave/blast/blaster"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/mitchellh/mapstructure"
@@ -58,6 +61,10 @@ type Payload struct {
 	Path string `mapstructure:"path"`
 }
 
+func init() {
+	rand.Seed(time.Now().UnixNano())
+}
+
 // Send satisfies the blaster.Worker interface
 func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[string]interface{}, err error) {
 
@@ -66,12 +73,20 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 		return map[string]interface{}{"status": "error decoding payload: " + err.Error()}, err
 	}
 
-	ws, err := websocket.Dial("wss://compile.jsgo.io/_pg/", "", "https://compile.jsgo.io")
-	//ws, err := websocket.Dial("ws://localhost:8081/_pg/", "", "http://localhost:8080")
+	//ws, err := websocket.Dial("wss://compile.jsgo.io/_pg/", "", "https://compile.jsgo.io")
+	ws, err := websocket.Dial("ws://localhost:8081/_pg/", "", "http://localhost:8080")
 	if err != nil {
 		return map[string]interface{}{"status": "error dialing: " + err.Error()}, err
 	}
+	if rand.Intn(10) < 2 {
+		return // insert error
+	}
 	defer ws.Close()
+
+	if rand.Intn(10) < 2 {
+		ws.Write([]byte("^^asdkjnsad}}}"))
+		return // insert error
+	}
 
 	b, _ := messages.Marshal(messages.Initialise{Path: p.Path, Minify: true})
 	if err != nil {
