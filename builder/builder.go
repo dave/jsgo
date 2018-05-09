@@ -59,11 +59,12 @@ func (e *ImportCError) Error() string {
 // If an error occurs, Import returns a non-nil error and a nil
 // *PackageData.
 func (b *Builder) Import(ctx context.Context, path string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
-	return b.importWithSrcDir(ctx, path, "", mode, installSuffix)
+	bctx := b.BuildContext(true, installSuffix)
+	return b.importWithSrcDir(ctx, *bctx, path, "", mode, installSuffix)
 }
 
-func (b *Builder) importWithSrcDir(ctx context.Context, path string, srcDir string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
-	bctx := b.BuildContext(true, installSuffix)
+func (b *Builder) importWithSrcDir(ctx context.Context, bctx build.Context, path string, srcDir string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
+	// bctx is passed by value, so it can be modified here.
 	switch path {
 	case "syscall":
 		// syscall needs to use a typical GOARCH like amd64 to pick up definitions for _Socklen, BpfInsn, IFNAMSIZ, Timeval, BpfStat, SYS_FCNTL, Flock_t, etc.
@@ -425,6 +426,7 @@ type PackageData struct {
 
 type Builder struct {
 	*session.Session
+	bctx     *build.Context
 	options  *Options
 	Archives map[string]*compiler.Archive
 	Types    map[string]*types.Package
@@ -440,6 +442,7 @@ func New(session *session.Session, options *Options) *Builder {
 		options:  options,
 		Archives: make(map[string]*compiler.Archive),
 	}
+	s.bctx = s.BuildContext(true, s.InstallSuffix())
 	s.Types = make(map[string]*types.Package)
 	return s
 }
@@ -456,7 +459,7 @@ func (b *Builder) BuildDir(ctx context.Context, packagePath string, importPath s
 	var buildPkg *build.Package
 	var err error
 	if WithCancel(ctx, func() {
-		buildPkg, err = b.BuildContext(true, b.InstallSuffix()).ImportDir(packagePath, 0)
+		buildPkg, err = b.bctx.ImportDir(packagePath, 0)
 	}) {
 		return nil, ctx.Err()
 	}
@@ -515,7 +518,7 @@ func (b *Builder) BuildImportPath(ctx context.Context, path string) (*PackageDat
 }
 
 func (b *Builder) buildImportPathWithSrcDir(ctx context.Context, path string, srcDir string) (*PackageData, *compiler.Archive, error) {
-	pkg, err := b.importWithSrcDir(ctx, path, srcDir, 0, b.InstallSuffix())
+	pkg, err := b.importWithSrcDir(ctx, *b.bctx, path, srcDir, 0, b.InstallSuffix())
 	if err != nil {
 		return nil, nil, err
 	}
