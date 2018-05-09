@@ -304,7 +304,7 @@ func (b *Builder) parseAndAugment(pkg *build.Package, isTest bool, fileSet *toke
 
 	var errList compiler.ErrorList
 	for _, name := range pkg.GoFiles {
-		if !filepath.IsAbs(name) {
+		if !filepath.IsAbs(name) { // name might be absolute if specified directly. E.g., `gopherjs build /abs/file.go`.
 			name = filepath.Join(pkg.Dir, name)
 		}
 		fdir, _ := filepath.Split(name)
