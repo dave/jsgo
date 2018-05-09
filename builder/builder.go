@@ -65,6 +65,7 @@ func (b *Builder) Import(ctx context.Context, path string, mode build.ImportMode
 
 func (b *Builder) importWithSrcDir(ctx context.Context, bctx build.Context, path string, srcDir string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
 	// bctx is passed by value, so it can be modified here.
+	var isVirtual bool
 	switch path {
 	case "syscall":
 		// syscall needs to use a typical GOARCH like amd64 to pick up definitions for _Socklen, BpfInsn, IFNAMSIZ, Timeval, BpfStat, SYS_FCNTL, Flock_t, etc.
@@ -83,6 +84,7 @@ func (b *Builder) importWithSrcDir(ctx context.Context, bctx build.Context, path
 		// These packages are already embedded via gopherjspkg.FS virtual filesystem (which can be
 		// safely vendored). Don't try to use vendor directory to resolve them.
 		mode |= build.IgnoreVendor
+		isVirtual = true
 	}
 
 	var pkg *build.Package
@@ -133,7 +135,7 @@ func (b *Builder) importWithSrcDir(ctx context.Context, bctx build.Context, path
 		return nil, err
 	}
 
-	return &PackageData{Package: pkg, JSFiles: jsFiles}, nil
+	return &PackageData{Package: pkg, JSFiles: jsFiles, IsVirtual: isVirtual}, nil
 }
 
 // excludeExecutable excludes all executable implementation .go files.
@@ -421,6 +423,7 @@ type PackageData struct {
 	IsTest     bool // IsTest is true if the package is being built for running tests.
 	SrcModTime time.Time
 	UpToDate   bool
+	IsVirtual  bool // If true, the package does not have a corresponding physical directory on disk.
 }
 
 type Builder struct {
