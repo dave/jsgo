@@ -45,10 +45,17 @@ func (h *Handler) handleCompilePage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	found, data, err := store.Package(ctx, path)
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	var found bool
+	var data store.CompileData
+	var err error
+	if config.LOCAL {
+		found = false
+	} else {
+		found, data, err = store.Package(ctx, path)
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
 	}
 
 	type vars struct {

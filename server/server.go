@@ -73,6 +73,7 @@ func New(shutdown chan struct{}, storageClient *storage.Client, datastoreClient 
 		Fileserver: fileserver,
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
+	h.mux.HandleFunc("/_info/", h.InfoHandler)
 	h.mux.HandleFunc("/_ws/", h.SocketHandler)
 	h.mux.HandleFunc("/_pg/", h.SocketHandler)
 	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
