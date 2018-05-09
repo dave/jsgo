@@ -79,6 +79,10 @@ func (b *Builder) importWithSrcDir(ctx context.Context, bctx build.Context, path
 	case "crypto/x509", "os/user":
 		// These stdlib packages have cgo and non-cgo versions (via build tags); we want the latter.
 		bctx.CgoEnabled = false
+	case "github.com/gopherjs/gopherjs/js", "github.com/gopherjs/gopherjs/nosync":
+		// These packages are already embedded via gopherjspkg.FS virtual filesystem (which can be
+		// safely vendored). Don't try to use vendor directory to resolve them.
+		mode |= build.IgnoreVendor
 	}
 
 	var pkg *build.Package
@@ -90,11 +94,6 @@ func (b *Builder) importWithSrcDir(ctx context.Context, bctx build.Context, path
 	}
 	if err != nil {
 		return nil, err
-	}
-
-	// TODO: Resolve issue #415 and remove this temporary workaround.
-	if strings.HasSuffix(pkg.ImportPath, "/vendor/github.com/gopherjs/gopherjs/js") {
-		return nil, fmt.Errorf("vendoring github.com/gopherjs/gopherjs/js package is not supported, see https://github.com/gopherjs/gopherjs/issues/415")
 	}
 
 	switch path {
