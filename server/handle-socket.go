@@ -232,13 +232,19 @@ func (j *trackerJob) logMessage(m messages.Message) {
 func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 
 	h.Waitgroup.Add(1)
-	defer h.Waitgroup.Done()
+	defer func() {
+		h.Waitgroup.Done()
+	}()
 
 	tj := track.start()
-	defer tj.end()
+	defer func() {
+		tj.end()
+	}()
 
 	ctx, cancel := context.WithTimeout(req.Context(), config.CompileTimeout)
-	defer cancel()
+	defer func() {
+		cancel()
+	}()
 
 	conn, err := upgrader.Upgrade(w, req, nil)
 	if err != nil {
@@ -249,16 +255,21 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	var sendWg sync.WaitGroup
 	sendChan := make(chan messages.Message, 256)
 	receive := make(chan messages.Message, 256)
+	var finished bool
 
 	send := func(message messages.Message) {
+		if finished {
+			return // prevent more messages from being sent after we want to finish
+		}
 		sendWg.Add(1)
 		sendChan <- message
 	}
 
 	defer func() {
-		// wait for sends to finish before closing websocket
-		sendWg.Wait()
-		conn.Close()
+		finished = true // we won't be adding any more messages to the send channel
+		sendWg.Wait()   // wait for in-flight sends to finish
+		close(sendChan) // close the sendChan, so the send loop will exit
+		conn.Close()    // finally close the websocket
 	}()
 
 	// Recover from any panic and log the error.
@@ -278,32 +289,23 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 		for {
 			select {
 			case message, ok := <-sendChan:
+				if !ok {
+					// the send channel was closed - exit immediately
+					conn.WriteMessage(websocket.CloseMessage, []byte{})
+					return
+				}
 				func() {
 					defer sendWg.Done()
-					conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
-					if !ok {
-						// The send channel was closed.
-						conn.WriteMessage(websocket.CloseMessage, []byte{})
-						return
-					}
 					b, err := messages.Marshal(message)
 					if err != nil {
-						conn.WriteMessage(websocket.CloseMessage, []byte{})
 						return
 					}
-					if err := conn.WriteMessage(websocket.TextMessage, b); err != nil {
-						// Error writing message, close and exit
-						conn.WriteMessage(websocket.CloseMessage, []byte{})
-						return
-					}
+					conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
+					conn.WriteMessage(websocket.TextMessage, b)
 				}()
 			case <-ticker.C:
 				conn.SetWriteDeadline(time.Now().Add(config.WebsocketWriteTimeout))
-				if err := conn.WriteMessage(websocket.PingMessage, nil); err != nil {
-					return
-				}
-			case <-ctx.Done():
-				return
+				conn.WriteMessage(websocket.PingMessage, nil)
 			}
 		}
 	}()
@@ -368,7 +370,9 @@ func (h *Handler) SocketHandler(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Signal to the queue that processing has finished.
-	defer close(end)
+	defer func() {
+		close(end)
+	}()
 
 	// Wait for the slot to become available.
 	select {

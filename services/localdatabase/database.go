@@ -115,11 +115,9 @@ func (d *Database) GetMulti(ctx context.Context, keys []*datastore.Key, dst inte
 		}
 		if err := d.Get(ctx, k, elem.Interface()); err != nil {
 			if err == datastore.ErrNoSuchEntity {
-				fmt.Println("FOO")
 				multiErr[i] = datastore.ErrNoSuchEntity
 				any = true
 			} else {
-				fmt.Println("BAR")
 				multiErr[i] = err
 				any = true
 			}
