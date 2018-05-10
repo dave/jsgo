@@ -6,8 +6,8 @@ var Index = map[string]map[bool]string{
 		true:  "577ba6b02f02dc24868cb70760ca2ac622ac0ae5",
 	},
 	"archive/zip": {
-		false: "939a5df3909a5af10becf686dcd626ae4c42dbc5",
-		true:  "195bf2dee233f9eaf4128fabaed2cdf832a09fbb",
+		false: "d54e66ddbfd84138b7e6fe05e11ac626500009ed",
+		true:  "8966d6e15a8118ee0d7eace5983e3ac8268a6919",
 	},
 	"bufio": {
 		false: "6192dfa62472678ecbb1b7831333a660d74b9567",
@@ -90,8 +90,8 @@ var Index = map[string]map[bool]string{
 		true:  "a62d2a01db8464c5ea5498d116e2b354dbd65796",
 	},
 	"cmd/compile/internal/ssa": {
-		false: "ce7e76525895fc7765634aef65878d2c34ec0bb8",
-		true:  "b712cc90f4ef75dcbce209c7ef25f602723bfb64",
+		false: "880969e113626f65a3e97f22a7c57c4294199b9f",
+		true:  "d368a4ada0b249a7bf6ce4f9a9b4a250f66805b3",
 	},
 	"cmd/compile/internal/syntax": {
 		false: "a5796fc1314a8a34c044860c1fc52a3a3b7edf58",
@@ -110,8 +110,8 @@ var Index = map[string]map[bool]string{
 		true:  "3b396f50919bb47f4e43201352cc4f8f0118d15a",
 	},
 	"cmd/cover": {
-		false: "c3ed4c7dc2fbc409b56b61bbaeed331a0d50d400",
-		true:  "4923a03f72ba48492c433d9821e1743be4da17ec",
+		false: "f33c52d696daa435acb6745e4d68814c725eb142",
+		true:  "caafc48575f84d1c562ba284f837beaad5c038dc",
 	},
 	"cmd/dist": {
 		false: "183a3d3b15ce70e18fa4d0f5fc3829d99c4a8fa3",
@@ -174,8 +174,8 @@ var Index = map[string]map[bool]string{
 		true:  "2240292c26b0541869843975eabb0a06d9985fd6",
 	},
 	"cmd/go/internal/get": {
-		false: "f8b1289cb1688e8d8247ac935cdfd6197dabf488",
-		true:  "91d2563311b0c0f8869d06f7aac86b1b54001b46",
+		false: "9b9150c82782596eb7266cea81e1f45944e76e4d",
+		true:  "3ac13aee3b159b1064c3bc8fb54443a5a7ba151f",
 	},
 	"cmd/go/internal/help": {
 		false: "13fbc76f597ea821b74ec0d0c93aa76ea8ba3c31",
@@ -198,8 +198,8 @@ var Index = map[string]map[bool]string{
 		true:  "81f3a5affab696b0adc67a2f6bf170f9ff8457ee",
 	},
 	"cmd/go/internal/test": {
-		false: "5836cfa3093cc83522b44c3ed9f0fc063c73927c",
-		true:  "ea08f953779ab609b52c46c01e80a2ba477e2fc8",
+		false: "49fac3b119a0b324e9bc8e2b0d6aa8fbe282dfb0",
+		true:  "b002d0c86b30bdaddd86adb20ff4e44af7a3f392",
 	},
 	"cmd/go/internal/tool": {
 		false: "508c1385ed68657154091da7766573b9d8b8053d",
@@ -210,16 +210,16 @@ var Index = map[string]map[bool]string{
 		true:  "d58c34b3776cef5183135ea63e65673dc44d28de",
 	},
 	"cmd/go/internal/vet": {
-		false: "dc60f9df3dbebcf95fdf810a7487c6cd496ce319",
-		true:  "cc431574521da48041f03f1a1f081c4ad86de1f6",
+		false: "43cff86158e052eb040272299e2a22367553ea28",
+		true:  "13365eda2471e7c01214ff4cdf090423fc522df6",
 	},
 	"cmd/go/internal/web": {
 		false: "1df235b44aadc4474c9096ac26fc6f4113fbad7d",
 		true:  "04e083afb2fc93b64719edc355d66c2544f28a42",
 	},
 	"cmd/go/internal/work": {
-		false: "9fc106c32fba777f0925183e8366a99ff3a214a0",
-		true:  "db41a0d145720bc6adbf0664fd968908a709d662",
+		false: "c3f3a025ace10c7c660bdaa629f41d36611de476",
+		true:  "3de6c9eefc24953c507083344ddf9f17a2dd35fb",
 	},
 	"cmd/gofmt": {
 		false: "452b6151f0dac584de27297d18f60fbb7befcb97",
@@ -282,8 +282,8 @@ var Index = map[string]map[bool]string{
 		true:  "8f8f297c7a86e97c91fa1ddc2e7aaebc73629c9b",
 	},
 	"cmd/internal/objabi": {
-		false: "20b5261ca5ff955d8c026d537f327fc53d9b1784",
-		true:  "fc394f065fd691fe02ade83d01535b368ecd460c",
+		false: "04b42cc4e23e7f30e2f3332c3c9bd2df7a8883f2",
+		true:  "6f418f92867e19f2ba412f852ac61586823923d7",
 	},
 	"cmd/internal/objfile": {
 		false: "8038e6a61a7f7f61d373530e500c04a28e427fd7",
@@ -318,8 +318,8 @@ var Index = map[string]map[bool]string{
 		true:  "cb26a51fbe249f09a57c618db6cdb89bc310cd70",
 	},
 	"cmd/link/internal/ld": {
-		false: "89077c2f8fb1c9066a0c0689458c84bc4b5439ed",
-		true:  "3c0fe94e125169ce2dbed790268977f6b5bf7200",
+		false: "56f0feb5c2413a5946a388f1afc589126fab168d",
+		true:  "7dcc811c707bd67e6f0f3afc368afe3b594c6e47",
 	},
 	"cmd/link/internal/loadelf": {
 		false: "27dacfc8df200c6c5e27da1c706be21eb418a5fe",
@@ -506,8 +506,8 @@ var Index = map[string]map[bool]string{
 		true:  "a28a38a0cd7a4f8cd09fdb90cec5ce01038de512",
 	},
 	"crypto/x509": {
-		false: "09e6dcea2363cd338719d7e91c1124cbe7b63ee1",
-		true:  "1ce81819e31dccd3da4952dfbbf0fb3eeaf453c9",
+		false: "6fb6b7c3f3620b1782af75f6b528b58f57b510c4",
+		true:  "34863509a8191bceaf8d9d92408e2c50530e2441",
 	},
 	"crypto/x509/pkix": {
 		false: "3cd7ae9bb0064b80a254f6d886b8432c98beda78",
@@ -582,8 +582,8 @@ var Index = map[string]map[bool]string{
 		true:  "ccee97989e950d8e6ee0fe629ed8857ed5f160f3",
 	},
 	"encoding/json": {
-		false: "9d82150d749bfdd1e5d5d60318fb9205481ac91e",
-		true:  "9ce6c378fe4f2a8ca8046e7afe81b1c18c3ff328",
+		false: "72a3fe0c6ccca56b110712824ff05e36e777e40d",
+		true:  "48296815905956c822372dbd0922c25a24b36bae",
 	},
 	"encoding/pem": {
 		false: "86e5de085754bba6f9ccd40190e3220f0e09219d",
@@ -702,8 +702,8 @@ var Index = map[string]map[bool]string{
 		true:  "ace963592eb870e547936c0d21370c7aab278975",
 	},
 	"go/internal/srcimporter": {
-		false: "26823ef2da999e2cfcdde1afb223d2c9fc6539c4",
-		true:  "2b7c941ebfba255fa3454dd5bc560d4f9784f906",
+		false: "c5fc287104b146cb67764553371d7414d55e263c",
+		true:  "5c509ab862986d35abefe318f9c46c04397fc543",
 	},
 	"go/parser": {
 		false: "62a2fdf14d2ee9d1ab4f9c2a4f7dec346a68c224",
@@ -878,8 +878,8 @@ var Index = map[string]map[bool]string{
 		true:  "2a5898f657203ab95a30f72ace9132934cd44b50",
 	},
 	"internal/singleflight": {
-		false: "25ba4b7df1246ab56c0660e983ea30f8cab92acc",
-		true:  "ade94f7ac2316c88b43bc4cd049e21073d788be2",
+		false: "504ea2fc816589369e2bcf769446bc24b2f728f0",
+		true:  "f76007b9ebc1e68ae0e327a2805e7b41a03c0cc5",
 	},
 	"internal/syscall/windows": {
 		false: "916a0803c40bb3274db634885f6e139dc3bb0097",
@@ -954,8 +954,8 @@ var Index = map[string]map[bool]string{
 		true:  "e8160d0becd9d350317af6745769de3c59346397",
 	},
 	"net": {
-		false: "23dae1308787e0fe01459993074f5203684d0f76",
-		true:  "793ae173f305c6516407ef0d0d1c0c364f62df69",
+		false: "8e94411a0f4d15df589b4211d0085e4c32659aca",
+		true:  "2274c501ec1570689cf305cf5e775be7a1bdf673",
 	},
 	"net/http": {
 		false: "7e1160c0793abc7e5d0563dca527a2ebf3d66a11",
@@ -1054,8 +1054,8 @@ var Index = map[string]map[bool]string{
 		true:  "270b587be1a9199df83eb012195006ab71f4a0fc",
 	},
 	"runtime": {
-		false: "347acfb5a071d63e7a3d7c16ccb107259def0680",
-		true:  "862690a6e22bb9d83a495b05ae0a6de473c0b502",
+		false: "a5165d1b42f569a8a7159c3daf0f396ee9548be9",
+		true:  "5aab2cb3d2b7bd9883b38da26de0c3b037e9e382",
 	},
 	"runtime/debug": {
 		false: "7f20e77bc7650626cea3394407bc6415228c3272",

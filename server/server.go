@@ -87,11 +87,14 @@ func New(shutdown chan struct{}) *Handler {
 		Database:   database,
 	}
 	h.mux.HandleFunc("/", h.PageHandler)
+	h.mux.HandleFunc("/_script.js", h.ScriptHandler)
+	h.mux.HandleFunc("/_script.js.map", h.ScriptHandler)
 	h.mux.HandleFunc("/_info/", h.InfoHandler)
 	h.mux.HandleFunc("/_ws/", h.SocketHandler)
 	h.mux.HandleFunc("/_pg/", h.SocketHandler)
 	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
 	h.mux.HandleFunc("/compile.css", h.CssHandler)
+	h.mux.HandleFunc("/_local/", h.LocalHandler)
 	h.mux.HandleFunc("/_ah/health", h.HealthCheckHandler)
 	return h
 }
@@ -146,6 +149,12 @@ func (h *Handler) IconHandler(w http.ResponseWriter, req *http.Request) {
 func (h *Handler) CssHandler(w http.ResponseWriter, req *http.Request) {
 	if err := ServeStatic(req.URL.Path, w, req, "text/css"); err != nil {
 		http.Error(w, "error serving static file", 500)
+	}
+}
+
+func (h *Handler) LocalHandler(w http.ResponseWriter, req *http.Request) {
+	if err := ServeStatic(req.URL.Path, w, req, mime.TypeByExtension(pathpkg.Ext(req.URL.Path))); err != nil {
+		http.Error(w, "error serving local static file", 500)
 	}
 }
 

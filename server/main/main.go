@@ -15,25 +15,38 @@ import (
 )
 
 func main() {
-	port := "8081"
-	if fromEnv := os.Getenv("PORT"); fromEnv != "" {
-		port = fromEnv
-	}
+
+	var mainServer, devServer *http.Server
 
 	shutdown := make(chan struct{})
 	handler := server.New(shutdown)
-	s := &http.Server{
-		Addr:    ":" + port,
-		Handler: handler,
+
+	if config.DEV {
+		mainServer = &http.Server{Addr: ":8080", Handler: handler}
+		devServer = &http.Server{Addr: ":8081", Handler: handler}
+	} else {
+		port := "8080"
+		if fromEnv := os.Getenv("PORT"); fromEnv != "" {
+			port = fromEnv
+		}
+		mainServer = &http.Server{Addr: ":" + port, Handler: handler}
 	}
 
 	go func() {
-		log.Print("Listening on port " + port)
-
-		if err := s.ListenAndServe(); err != http.ErrServerClosed {
+		log.Print("Listening on " + mainServer.Addr)
+		if err := mainServer.ListenAndServe(); err != http.ErrServerClosed {
 			log.Fatal(err)
 		}
 	}()
+
+	if config.DEV {
+		go func() {
+			log.Print("Listening on " + devServer.Addr)
+			if err := devServer.ListenAndServe(); err != http.ErrServerClosed {
+				log.Fatal(err)
+			}
+		}()
+	}
 
 	// Set up graceful shutdown
 	stop := make(chan os.Signal, 1)
@@ -51,10 +64,18 @@ func main() {
 	// Wait for all compile jobs to be cancelled
 	handler.Waitgroup.Wait()
 
-	if err := s.Shutdown(ctx); err != nil {
+	if err := mainServer.Shutdown(ctx); err != nil {
 		log.Printf("Error: %v\n", err)
 	} else {
-		log.Println("Server stopped")
+		log.Println("Main server stopped")
+	}
+
+	if config.DEV {
+		if err := devServer.Shutdown(ctx); err != nil {
+			log.Printf("Error: %v\n", err)
+		} else {
+			log.Println("Dev server stopped")
+		}
 	}
 
 }

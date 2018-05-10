@@ -15,16 +15,19 @@ import (
 )
 
 func (h *Handler) PageHandler(w http.ResponseWriter, req *http.Request) {
+	var play, compile bool
 	if config.DEV {
-		// always run the compile page in dev mode
-		h.handleCompilePage(w, req)
-		return
+		play = strings.HasSuffix(req.Host, "8080")
+		compile = strings.HasSuffix(req.Host, "8081")
+	} else {
+		play = req.Host == "play.jsgo.io"
+		compile = req.Host == "compile.jsgo.io"
 	}
-	switch req.Host {
-	case "play.jsgo.io":
+	switch {
+	case play:
 		h.handlePlayPage(w, req)
 		return
-	case "compile.jsgo.io":
+	case compile:
 		h.handleCompilePage(w, req)
 		return
 	default:
@@ -289,23 +292,30 @@ func (h *Handler) handlePlayPage(w http.ResponseWriter, req *http.Request) {
 	ctx, cancel := context.WithTimeout(req.Context(), config.PageTimeout)
 	defer cancel()
 
-	found, c, err := store.Package(ctx, h.Database, "github.com/dave/play")
-	if err != nil {
-		http.Error(w, err.Error(), 500)
-		return
+	var url string
+	if config.DEV {
+		url = "/_script.js"
+	} else {
+		found, c, err := store.Package(ctx, h.Database, "github.com/dave/play")
+		if err != nil {
+			http.Error(w, err.Error(), 500)
+			return
+		}
+		if !found {
+			http.Error(w, "play package not found", 500)
+			return
+		}
+		url = fmt.Sprintf("https://pkg.jsgo.io/github.com/dave/play.%s.js", c.Min.Main)
 	}
-	if !found {
-		http.Error(w, "play package not found", 500)
-		return
-	}
-	url := fmt.Sprintf("https://pkg.jsgo.io/github.com/dave/play.%s.js", c.Min.Main)
 
 	v := struct {
 		Script string
 		Count  int
+		Prod   bool
 	}{
 		Script: url,
 		Count:  runtime.NumGoroutine(),
+		Prod:   !config.DEV,
 	}
 
 	if err := playPageTemplate.Execute(w, v); err != nil {
@@ -314,9 +324,17 @@ func (h *Handler) handlePlayPage(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-var playPageTemplate = template.Must(template.New("main").Parse(`<html>
+var playPageTemplate = template.Must(template.New("main").Funcs(template.FuncMap{
+	"Asset": func(url string) string {
+		if config.LOCAL {
+			return "/_local" + url[strings.LastIndex(url, "/"):]
+		}
+		return url
+	},
+}).Parse(`<html>
 	<head>
 		<meta charset="utf-8">
+		{{ if .Prod -}}
 		<script async src="https://www.googletagmanager.com/gtag/js?id=UA-118676357-1"></script>
         <script>
             window.dataLayer = window.dataLayer || [];
@@ -324,12 +342,13 @@ var playPageTemplate = template.Must(template.New("main").Parse(`<html>
             gtag('js', new Date());
             gtag('config', 'UA-118676357-1');
         </script>
-        <link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
-        <script src="https://code.jquery.com/jquery-3.2.1.slim.min.js" integrity="sha384-KJ3o2DKtIkvYIK3UENzmM7KCkRr/rE9/Qpg6aAZGJwFDMVNA/GpGFF93hXpG5KkN" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" integrity="sha384-ApNbgh9B+Y1QKtv3Rn7W3mgPxhU9K/ScQsAP7hUibX39j7fakFPskvXusvfa0b4Q" crossorigin="anonymous"></script>
-        <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" integrity="sha384-JZR6Spejh4U02d8jOt6vLEHfe/JQGiRRSQQxSfFWpi1MquVdAyjUar5+76PVCmYl" crossorigin="anonymous"></script>
-        <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js"></script>
-		<script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ext-linking.js"></script>
+		{{- end }}
+        <link href="{{ Asset "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" }}" rel="stylesheet">
+        <script src="{{ Asset "https://code.jquery.com/jquery-3.2.1.slim.min.js" }}"></script>
+        <script src="{{ Asset "https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.12.9/umd/popper.min.js" }}"></script>
+        <script src="{{ Asset "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/js/bootstrap.min.js" }}"></script>
+        <script src="{{ Asset "https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ace.js" }}"></script>
+		<script src="{{ Asset "https://cdnjs.cloudflare.com/ajax/libs/ace/1.3.3/ext-linking.js" }}"></script>
 	</head>
 	<body id="wrapper" style="margin: 0;" data-count="{{ .Count }}">
 		<div id="progress-holder" style="width: 100%; padding: 25%;">
