@@ -68,3 +68,11 @@ const (
 )
 
 var ValidExtensions = [...]string{".go", ".jsgo.html", ".inc.js", ".md"}
+
+var Buckets = []string{SrcBucket, PkgBucket, IndexBucket, GitBucket}
+
+var Sites = map[string]string{
+	SrcHost:   SrcBucket,
+	PkgHost:   PkgBucket,
+	IndexHost: IndexBucket,
+}

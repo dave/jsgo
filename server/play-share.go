@@ -13,9 +13,9 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/cstorer"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services/constor"
 )
 
 func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
@@ -36,13 +36,13 @@ func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.
 	}
 	defer client.Close()
 
-	storer := cstorer.New(ctx, h.Fileserver, config.ConcurrentStorageUploads)
-	storer.Add(cstorer.Item{
+	storer := constor.New(ctx, h.Fileserver, config.ConcurrentStorageUploads)
+	storer.Add(constor.Item{
 		Message:   "source",
 		Name:      fmt.Sprintf("%x.json", hash),
 		Contents:  buf.Bytes(),
 		Bucket:    config.SrcBucket,
-		Mime:      cstorer.MimeJson,
+		Mime:      constor.MimeJson,
 		Count:     true,
 		Immutable: true,
 		Changed: func(done bool) {

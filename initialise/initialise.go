@@ -23,13 +23,14 @@ import (
 
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
-	"github.com/dave/jsgo/builder/copier"
 	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
-	"github.com/dave/jsgo/services"
-	"github.com/dave/jsgo/services/gcsfileserver"
-	"github.com/dave/jsgo/services/localfileserver"
+	"github.com/dave/services"
+	"github.com/dave/services/constor"
+	"github.com/dave/services/copier"
+	"github.com/dave/services/gcsfileserver"
+	"github.com/dave/services/localfileserver"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
@@ -43,17 +44,17 @@ func main() {
 
 	var fileserver services.Fileserver
 	if config.LOCAL {
-		fileserver = localfileserver.New(config.LocalFileserverTempDir)
+		fileserver = localfileserver.New(config.LocalFileserverTempDir, config.Sites)
 	} else {
 		client, err := storage.NewClient(ctx)
 		if err != nil {
 			log.Fatal(err)
 		}
 		defer client.Close()
-		fileserver = gcsfileserver.New(client)
+		fileserver = gcsfileserver.New(client, config.Buckets)
 	}
 
-	storer := compile.NewStorer(ctx, fileserver, nil, 20)
+	storer := constor.New(ctx, fileserver, 20)
 
 	index := map[string]map[bool]string{}
 	archives := map[string]map[bool]*compiler.Archive{}
@@ -87,7 +88,7 @@ func main() {
 
 }
 
-func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
+func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 
 	s := session.New(nil, root)
@@ -118,12 +119,12 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 				if err != nil {
 					return err
 				}
-				storer.Add(compile.StorageItem{
+				storer.Add(constor.Item{
 					Message:   path + minified,
 					Name:      fmt.Sprintf("%s.%x.js", path, hash),
 					Contents:  contents,
 					Bucket:    config.PkgBucket,
-					Mime:      compile.MimeJs,
+					Mime:      constor.MimeJs,
 					Count:     true,
 					Immutable: true,
 				})
@@ -144,12 +145,12 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 				if err := compiler.WriteArchive(compile.StripArchive(archive), buf); err != nil {
 					return err
 				}
-				storer.Add(compile.StorageItem{
+				storer.Add(constor.Item{
 					Message:   path + " archive" + minified,
 					Name:      fmt.Sprintf("%s.%x.ax", path, hash),
 					Contents:  buf.Bytes(),
 					Bucket:    config.PkgBucket,
-					Mime:      compile.MimeBin,
+					Mime:      constor.MimeBin,
 					Count:     true,
 					Immutable: true,
 				})
@@ -205,7 +206,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *compile.Storer, pack
 	return nil
 }
 
-func CreateAssetsZip(storer *compile.Storer, root billy.Filesystem, archives map[string]map[bool]*compiler.Archive) error {
+func CreateAssetsZip(storer *constor.Storer, root billy.Filesystem, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 	buf := new(bytes.Buffer)
 	w := zip.NewWriter(buf)
@@ -279,12 +280,12 @@ func CreateAssetsZip(storer *compile.Storer, root billy.Filesystem, archives map
 		return err
 	}
 
-	storer.Add(compile.StorageItem{
+	storer.Add(constor.Item{
 		Message:   "assets",
 		Name:      config.AssetsFilename,
 		Contents:  buf.Bytes(),
 		Bucket:    config.PkgBucket,
-		Mime:      compile.MimeZip,
+		Mime:      constor.MimeZip,
 		Count:     false,
 		Immutable: false,
 	})
@@ -292,7 +293,7 @@ func CreateAssetsZip(storer *compile.Storer, root billy.Filesystem, archives map
 	return nil
 }
 
-func Prelude(storer *compile.Storer) error {
+func Prelude(storer *constor.Storer) error {
 	store := func(suffix, contents string) ([]byte, error) {
 		b := []byte(contents)
 		s := sha1.New()
@@ -300,12 +301,12 @@ func Prelude(storer *compile.Storer) error {
 			return nil, err
 		}
 		hash := s.Sum(nil)
-		storer.Add(compile.StorageItem{
+		storer.Add(constor.Item{
 			Message:   "prelude" + suffix,
 			Name:      fmt.Sprintf("prelude.%x.js", hash),
 			Contents:  b,
 			Bucket:    config.PkgBucket,
-			Mime:      compile.MimeJs,
+			Mime:      constor.MimeJs,
 			Count:     true,
 			Immutable: true,
 		})

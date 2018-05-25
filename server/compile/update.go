@@ -12,14 +12,14 @@ import (
 	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/cstorer"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/services/constor"
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
 func (c *Compiler) Update(ctx context.Context, source map[string]map[string]string, cache map[string]string, min bool) error {
 
-	storer := cstorer.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
+	storer := constor.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
 	c.send(messages.Updating{Starting: true})
@@ -80,12 +80,12 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 		if !standard {
 			var wait sync.WaitGroup
 			wait.Add(2)
-			storer.Add(cstorer.Item{
+			storer.Add(constor.Item{
 				Message:   archive.Name,
 				Name:      fmt.Sprintf("%s.%s.js", archive.ImportPath, hash), // Note: hash is a string
 				Contents:  js,
 				Bucket:    config.PkgBucket,
-				Mime:      cstorer.MimeJs,
+				Mime:      constor.MimeJs,
 				Count:     true,
 				Immutable: true,
 				Wait:      &wait,
@@ -97,12 +97,12 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			if err := compiler.WriteArchive(StripArchive(archive), buf); err != nil {
 				return err
 			}
-			storer.Add(cstorer.Item{
+			storer.Add(constor.Item{
 				Message:   "",
 				Name:      fmt.Sprintf("%s.%s.ax", archive.ImportPath, hash), // Note: hash is a string
 				Contents:  buf.Bytes(),
 				Bucket:    config.PkgBucket,
-				Mime:      cstorer.MimeBin,
+				Mime:      constor.MimeBin,
 				Count:     true,
 				Immutable: true,
 				Wait:      &wait,

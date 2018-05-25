@@ -27,9 +27,9 @@ import (
 	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/cstorer"
 	"github.com/dave/jsgo/server/messages"
-	"github.com/dave/jsgo/services"
+	"github.com/dave/services"
+	"github.com/dave/services/constor"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
@@ -57,7 +57,7 @@ type CompileOutput struct {
 // in source forces them to be compiled (if they are not included the pre-compiled Archives are used).
 func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[bool]*CompileOutput, error) {
 
-	storer := cstorer.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
+	storer := constor.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
 	c.send(messages.Compiling{Starting: true})
@@ -158,7 +158,7 @@ func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
 	}
 }
 
-func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *cstorer.Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *constor.Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
 	b := builder.New(c.Session, c.defaultOptions(compileWriter{c.send}, min))
 
@@ -180,12 +180,12 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *cst
 		if !po.Store {
 			continue
 		}
-		storer.Add(cstorer.Item{
+		storer.Add(constor.Item{
 			Message:   po.Path,
 			Name:      fmt.Sprintf("%s.%x.js", po.Path, po.Hash),
 			Contents:  po.Contents,
 			Bucket:    config.PkgBucket,
-			Mime:      cstorer.MimeJs,
+			Mime:      constor.MimeJs,
 			Count:     true,
 			Immutable: true,
 			Changed: func(done bool) {
@@ -250,7 +250,7 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func (c *Compiler) genIndex(storer *cstorer.Storer, tpl *template.Template, path string, loaderHash []byte, min, play bool) ([]byte, error) {
+func (c *Compiler) genIndex(storer *constor.Storer, tpl *template.Template, path string, loaderHash []byte, min, play bool) ([]byte, error) {
 
 	v := IndexVars{
 		Path:   path,
@@ -268,24 +268,24 @@ func (c *Compiler) genIndex(storer *cstorer.Storer, tpl *template.Template, path
 	indexHash := sha.Sum(nil)
 
 	if play {
-		storer.Add(cstorer.Item{
+		storer.Add(constor.Item{
 			Message:   "Index",
 			Name:      fmt.Sprintf("%x", indexHash),
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      cstorer.MimeHtml,
+			Mime:      constor.MimeHtml,
 			Count:     true,
 			Immutable: true,
 			Changed: func(done bool) {
 				messages.SendStoring(c.send, storer.Stats)
 			},
 		})
-		storer.Add(cstorer.Item{
+		storer.Add(constor.Item{
 			Message:   "",
 			Name:      fmt.Sprintf("%x/index.html", indexHash),
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      cstorer.MimeHtml,
+			Mime:      constor.MimeHtml,
 			Count:     true,
 			Immutable: true,
 			Changed: func(done bool) {
@@ -299,41 +299,41 @@ func (c *Compiler) genIndex(storer *cstorer.Storer, tpl *template.Template, path
 		}
 		shortpath := strings.TrimPrefix(fullpath, "github.com/")
 
-		storer.Add(cstorer.Item{
+		storer.Add(constor.Item{
 			Message:   "Index",
 			Name:      shortpath,
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      cstorer.MimeHtml,
+			Mime:      constor.MimeHtml,
 			Count:     false,
 			Immutable: false,
 		})
-		storer.Add(cstorer.Item{
+		storer.Add(constor.Item{
 			Message:   "",
 			Name:      fmt.Sprintf("%s/index.html", shortpath),
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      cstorer.MimeHtml,
+			Mime:      constor.MimeHtml,
 			Count:     false,
 			Immutable: false,
 		})
 
 		if shortpath != fullpath {
-			storer.Add(cstorer.Item{
+			storer.Add(constor.Item{
 				Message:   "",
 				Name:      fullpath,
 				Contents:  buf.Bytes(),
 				Bucket:    config.IndexBucket,
-				Mime:      cstorer.MimeHtml,
+				Mime:      constor.MimeHtml,
 				Count:     false,
 				Immutable: false,
 			})
-			storer.Add(cstorer.Item{
+			storer.Add(constor.Item{
 				Message:   "",
 				Name:      fmt.Sprintf("%s/index.html", fullpath),
 				Contents:  buf.Bytes(),
 				Bucket:    config.IndexBucket,
-				Mime:      cstorer.MimeHtml,
+				Mime:      constor.MimeHtml,
 				Count:     false,
 				Immutable: false,
 			})
@@ -344,7 +344,7 @@ func (c *Compiler) genIndex(storer *cstorer.Storer, tpl *template.Template, path
 
 }
 
-func (c *Compiler) genMain(ctx context.Context, storer *cstorer.Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
+func (c *Compiler) genMain(ctx context.Context, storer *constor.Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
 
 	preludeHash := std.Prelude[min]
 	pkgs := []PkgJson{
@@ -397,12 +397,12 @@ func (c *Compiler) genMain(ctx context.Context, storer *cstorer.Storer, output *
 	} else {
 		message = "Loader (un-minified)"
 	}
-	storer.Add(cstorer.Item{
+	storer.Add(constor.Item{
 		Message:   message,
 		Name:      fmt.Sprintf("%s.%x.js", output.Path, hash),
 		Contents:  buf.Bytes(),
 		Bucket:    config.PkgBucket,
-		Mime:      cstorer.MimeJs,
+		Mime:      constor.MimeJs,
 		Count:     true,
 		Immutable: true,
 		Changed: func(done bool) {

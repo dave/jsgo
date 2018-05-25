@@ -6,7 +6,7 @@ import (
 
 	"cloud.google.com/go/datastore"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/services"
+	"github.com/dave/services"
 )
 
 type Error struct {

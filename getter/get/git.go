@@ -7,8 +7,8 @@ import (
 
 	"errors"
 
-	"github.com/dave/jsgo/builder/copier"
 	"github.com/dave/jsgo/getter/cache"
+	"github.com/dave/services/copier"
 	"gopkg.in/src-d/go-billy.v4"
 	git "gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"

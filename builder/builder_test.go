@@ -6,7 +6,7 @@ import (
 	"go/types"
 	"testing"
 
-	"github.com/dave/jsgo/builder/copier"
+	"github.com/dave/services/copier"
 
 	"io/ioutil"
 	"os"

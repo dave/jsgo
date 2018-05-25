@@ -3,7 +3,7 @@ package cache
 import (
 	"context"
 
-	"github.com/dave/jsgo/services"
+	"github.com/dave/services"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
