@@ -15,7 +15,7 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
-	"github.com/dave/services/constor"
+	"github.com/dave/services/fileserver/constor"
 )
 
 func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {

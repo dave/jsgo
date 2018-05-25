@@ -13,7 +13,7 @@ import (
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
-	"github.com/dave/services/constor"
+	"github.com/dave/services/fileserver/constor"
 	"github.com/gopherjs/gopherjs/compiler"
 )
 
