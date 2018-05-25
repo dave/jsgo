@@ -61,7 +61,7 @@ const (
 	ConcurrentStorageUploads = 10
 )
 
-var ValidExtensions = [...]string{".go", ".jsgo.html", ".inc.js", ".md"}
+var ValidExtensions = []string{".go", ".jsgo.html", ".inc.js", ".md"}
 
 var Buckets = []string{SrcBucket, PkgBucket, IndexBucket, GitBucket}
 

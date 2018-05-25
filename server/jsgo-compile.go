@@ -10,10 +10,10 @@ import (
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services/getter/get"
 	"github.com/dave/services/session"
 )
 
