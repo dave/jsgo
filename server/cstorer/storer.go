@@ -1,4 +1,5 @@
-package compile
+// package cstorer (concurrent storer) for storing items into a services.Fileserver concurrently
+package cstorer
 
 import (
 	"bytes"
@@ -6,27 +7,24 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/services"
 )
 
 type Storer struct {
 	fileserver services.Fileserver
-	queue      chan StorageItem
+	queue      chan Item
 	wait       sync.WaitGroup
-	send       func(messages.Message)
 	unchanged  int32
 	done       int32
 	total      int32
 	Err        error
 }
 
-func NewStorer(ctx context.Context, fileserver services.Fileserver, send func(messages.Message), workers int) *Storer {
+func New(ctx context.Context, fileserver services.Fileserver, workers int) *Storer {
 	s := &Storer{
 		fileserver: fileserver,
-		queue:      make(chan StorageItem, 1000),
+		queue:      make(chan Item, 1000),
 		wait:       sync.WaitGroup{},
-		send:       send,
 	}
 	for i := 0; i < workers; i++ {
 		go s.Worker(ctx)
@@ -61,33 +59,34 @@ func (s *Storer) Worker(ctx context.Context) {
 				return
 			}
 			if item.Count {
-				var unchanged, done int32
 				if saved {
-					unchanged = atomic.LoadInt32(&s.unchanged)
-					done = atomic.AddInt32(&s.done, 1)
+					atomic.AddInt32(&s.done, 1)
 				} else {
-					unchanged = atomic.AddInt32(&s.unchanged, 1)
-					done = atomic.LoadInt32(&s.done)
+					atomic.AddInt32(&s.unchanged, 1)
 				}
-				remain := atomic.LoadInt32(&s.total) - unchanged - done
-				if s.send != nil {
-					s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-				}
+			}
+			if item.Changed != nil {
+				item.Changed(true)
 			}
 		}()
 	}
 }
 
-func (s *Storer) Add(item StorageItem) {
+func (s *Storer) Stats() (total, done, unchanged int) {
+	total = int(atomic.LoadInt32(&s.total))
+	done = int(atomic.LoadInt32(&s.done))
+	unchanged = int(atomic.LoadInt32(&s.unchanged))
+	return total, done, unchanged
+}
+
+func (s *Storer) Add(item Item) {
 	s.wait.Add(1)
 
 	if item.Count {
-		unchanged := atomic.LoadInt32(&s.unchanged)
-		done := atomic.LoadInt32(&s.done)
-		remain := atomic.AddInt32(&s.total, 1) - unchanged - done
-		if s.send != nil {
-			s.send(messages.Storing{Finished: int(done), Unchanged: int(unchanged), Remain: int(remain)})
-		}
+		atomic.AddInt32(&s.total, 1)
+	}
+	if item.Changed != nil {
+		item.Changed(false)
 	}
 
 	s.queue <- item
@@ -102,7 +101,7 @@ const (
 	MimeZip  = "application/zip"
 )
 
-type StorageItem struct {
+type Item struct {
 	Message   string
 	Bucket    string
 	Name      string
@@ -111,4 +110,5 @@ type StorageItem struct {
 	Immutable bool
 	Count     bool
 	Wait      *sync.WaitGroup
+	Changed   func(done bool)
 }

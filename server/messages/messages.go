@@ -184,3 +184,8 @@ func init() {
 }
 
 var payloadTypes = make(map[string]reflect.Type)
+
+func SendStoring(send func(Message), stats func() (int, int, int)) {
+	total, done, unchanged := stats() // don't pass storer in because this package is shared on the client
+	send(Storing{Finished: done, Unchanged: unchanged, Remain: total - done - unchanged})
+}

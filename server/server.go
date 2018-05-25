@@ -36,6 +36,8 @@ import (
 	"github.com/dave/jsgo/services/localdatabase"
 	"github.com/dave/jsgo/services/localfileserver"
 	"github.com/dave/jsgo/services/localresolverfetcher"
+	"github.com/dave/patsy"
+	"github.com/dave/patsy/vos"
 	"github.com/gorilla/websocket"
 	"github.com/shurcooL/httpgzip"
 	"gopkg.in/src-d/go-billy.v4"
@@ -94,8 +96,14 @@ func New(shutdown chan struct{}) *Handler {
 	h.mux.HandleFunc("/_pg/", h.SocketHandler)
 	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
 	h.mux.HandleFunc("/compile.css", h.CssHandler)
-	h.mux.HandleFunc("/_local/", h.LocalHandler)
 	h.mux.HandleFunc("/_ah/health", h.HealthCheckHandler)
+	if config.LOCAL {
+		dir, err := patsy.Dir(vos.Os(), "github.com/dave/jsgo/assets/static/")
+		if err != nil {
+			panic(err)
+		}
+		h.mux.Handle("/_local/", http.FileServer(http.Dir(dir)))
+	}
 	return h
 }
 
@@ -149,12 +157,6 @@ func (h *Handler) IconHandler(w http.ResponseWriter, req *http.Request) {
 func (h *Handler) CssHandler(w http.ResponseWriter, req *http.Request) {
 	if err := ServeStatic(req.URL.Path, w, req, "text/css"); err != nil {
 		http.Error(w, "error serving static file", 500)
-	}
-}
-
-func (h *Handler) LocalHandler(w http.ResponseWriter, req *http.Request) {
-	if err := ServeStatic(req.URL.Path, w, req, mime.TypeByExtension(pathpkg.Ext(req.URL.Path))); err != nil {
-		http.Error(w, "error serving local static file", 500)
 	}
 }
 

@@ -27,6 +27,7 @@ import (
 	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/server/cstorer"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/services"
 	"gopkg.in/src-d/go-billy.v4/memfs"
@@ -56,7 +57,7 @@ type CompileOutput struct {
 // in source forces them to be compiled (if they are not included the pre-compiled Archives are used).
 func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[bool]*CompileOutput, error) {
 
-	storer := NewStorer(ctx, c.fileserver, c.send, config.ConcurrentStorageUploads)
+	storer := cstorer.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
 	c.send(messages.Compiling{Starting: true})
@@ -83,7 +84,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[boo
 
 		c.send(messages.Compiling{Message: "Loader"})
 
-		mainHashes[min], err = genMain(ctx, storer, outputs[min], min)
+		mainHashes[min], err = c.genMain(ctx, storer, outputs[min], min)
 		if err != nil {
 			outer = err
 			return
@@ -97,7 +98,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[boo
 			return
 		}
 
-		indexHashes[min], err = genIndex(storer, tpl, path, mainHashes[min], min, play)
+		indexHashes[min], err = c.genIndex(storer, tpl, path, mainHashes[min], min, play)
 		if err != nil {
 			outer = err
 			return
@@ -157,7 +158,7 @@ func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
 	}
 }
 
-func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
+func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *cstorer.Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
 	b := builder.New(c.Session, c.defaultOptions(compileWriter{c.send}, min))
 
@@ -179,14 +180,17 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *Sto
 		if !po.Store {
 			continue
 		}
-		storer.Add(StorageItem{
+		storer.Add(cstorer.Item{
 			Message:   po.Path,
 			Name:      fmt.Sprintf("%s.%x.js", po.Path, po.Hash),
 			Contents:  po.Contents,
 			Bucket:    config.PkgBucket,
-			Mime:      MimeJs,
+			Mime:      cstorer.MimeJs,
 			Count:     true,
 			Immutable: true,
+			Changed: func(done bool) {
+				messages.SendStoring(c.send, storer.Stats)
+			},
 		})
 	}
 
@@ -246,7 +250,7 @@ var indexTemplate = template.Must(template.New("main").Parse(`
 </html>
 `))
 
-func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []byte, min, play bool) ([]byte, error) {
+func (c *Compiler) genIndex(storer *cstorer.Storer, tpl *template.Template, path string, loaderHash []byte, min, play bool) ([]byte, error) {
 
 	v := IndexVars{
 		Path:   path,
@@ -264,23 +268,29 @@ func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []
 	indexHash := sha.Sum(nil)
 
 	if play {
-		storer.Add(StorageItem{
+		storer.Add(cstorer.Item{
 			Message:   "Index",
 			Name:      fmt.Sprintf("%x", indexHash),
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      MimeHtml,
+			Mime:      cstorer.MimeHtml,
 			Count:     true,
 			Immutable: true,
+			Changed: func(done bool) {
+				messages.SendStoring(c.send, storer.Stats)
+			},
 		})
-		storer.Add(StorageItem{
+		storer.Add(cstorer.Item{
 			Message:   "",
 			Name:      fmt.Sprintf("%x/index.html", indexHash),
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      MimeHtml,
+			Mime:      cstorer.MimeHtml,
 			Count:     true,
 			Immutable: true,
+			Changed: func(done bool) {
+				messages.SendStoring(c.send, storer.Stats)
+			},
 		})
 	} else {
 		fullpath := path
@@ -289,41 +299,41 @@ func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []
 		}
 		shortpath := strings.TrimPrefix(fullpath, "github.com/")
 
-		storer.Add(StorageItem{
+		storer.Add(cstorer.Item{
 			Message:   "Index",
 			Name:      shortpath,
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      MimeHtml,
+			Mime:      cstorer.MimeHtml,
 			Count:     false,
 			Immutable: false,
 		})
-		storer.Add(StorageItem{
+		storer.Add(cstorer.Item{
 			Message:   "",
 			Name:      fmt.Sprintf("%s/index.html", shortpath),
 			Contents:  buf.Bytes(),
 			Bucket:    config.IndexBucket,
-			Mime:      MimeHtml,
+			Mime:      cstorer.MimeHtml,
 			Count:     false,
 			Immutable: false,
 		})
 
 		if shortpath != fullpath {
-			storer.Add(StorageItem{
+			storer.Add(cstorer.Item{
 				Message:   "",
 				Name:      fullpath,
 				Contents:  buf.Bytes(),
 				Bucket:    config.IndexBucket,
-				Mime:      MimeHtml,
+				Mime:      cstorer.MimeHtml,
 				Count:     false,
 				Immutable: false,
 			})
-			storer.Add(StorageItem{
+			storer.Add(cstorer.Item{
 				Message:   "",
 				Name:      fmt.Sprintf("%s/index.html", fullpath),
 				Contents:  buf.Bytes(),
 				Bucket:    config.IndexBucket,
-				Mime:      MimeHtml,
+				Mime:      cstorer.MimeHtml,
 				Count:     false,
 				Immutable: false,
 			})
@@ -334,7 +344,7 @@ func genIndex(storer *Storer, tpl *template.Template, path string, loaderHash []
 
 }
 
-func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
+func (c *Compiler) genMain(ctx context.Context, storer *cstorer.Storer, output *builder.CommandOutput, min bool) ([]byte, error) {
 
 	preludeHash := std.Prelude[min]
 	pkgs := []PkgJson{
@@ -387,14 +397,17 @@ func genMain(ctx context.Context, storer *Storer, output *builder.CommandOutput,
 	} else {
 		message = "Loader (un-minified)"
 	}
-	storer.Add(StorageItem{
+	storer.Add(cstorer.Item{
 		Message:   message,
 		Name:      fmt.Sprintf("%s.%x.js", output.Path, hash),
 		Contents:  buf.Bytes(),
 		Bucket:    config.PkgBucket,
-		Mime:      MimeJs,
+		Mime:      cstorer.MimeJs,
 		Count:     true,
 		Immutable: true,
+		Changed: func(done bool) {
+			messages.SendStoring(c.send, storer.Stats)
+		},
 	})
 
 	return hash, nil

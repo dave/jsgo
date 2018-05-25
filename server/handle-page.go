@@ -94,11 +94,11 @@ func (h *Handler) handleCompilePage(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-var compilePageTemplate = template.Must(template.New("main").Parse(`
+var compilePageTemplate = template.Must(template.New("main").Funcs(template.FuncMap{"Asset": asset}).Parse(`
 <html>
 	<head>
 		<meta charset="utf-8">
-		<link href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+		<link href="{{ Asset "https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" }}" rel="stylesheet" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
 		<link href="/compile.css" rel="stylesheet">
 	</head>
 	<body>
@@ -184,7 +184,7 @@ var compilePageTemplate = template.Must(template.New("main").Parse(`
 			</div>
 		</div>
 		<a href="https://github.com/dave/jsgo" target="_blank">
-			<img style="position: absolute; top: 0; right: 0; border: 0;" src="https://s3.amazonaws.com/github/ribbons/forkme_right_white_ffffff.png" alt="Fork me on GitHub">
+			<img style="position: absolute; top: 0; right: 0; border: 0;" src="{{ Asset "https://s3.amazonaws.com/github/ribbons/forkme_right_white_ffffff.png" }}" alt="Fork me on GitHub">
 		</a>
 	</body>
 	<script>
@@ -324,14 +324,14 @@ func (h *Handler) handlePlayPage(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-var playPageTemplate = template.Must(template.New("main").Funcs(template.FuncMap{
-	"Asset": func(url string) string {
-		if config.LOCAL {
-			return "/_local" + url[strings.LastIndex(url, "/"):]
-		}
-		return url
-	},
-}).Parse(`<html>
+func asset(url string) string {
+	if config.LOCAL {
+		return "/_local" + url[strings.LastIndex(url, "/"):]
+	}
+	return url
+}
+
+var playPageTemplate = template.Must(template.New("main").Funcs(template.FuncMap{"Asset": asset}).Parse(`<html>
 	<head>
 		<meta charset="utf-8">
 		{{ if .Prod -}}
