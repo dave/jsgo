@@ -52,12 +52,6 @@ const (
 	// GitCloneTimeout is the time to wait for a git clone operation
 	GitCloneTimeout = time.Second * 120
 
-	// GitPullTimeout is the time to wait for a git pull operation
-	GitPullTimeout = time.Second * 60
-
-	// GitListTimeout is the time to wait for a git list operation
-	GitListTimeout = time.Second * 10
-
 	// GitMaxObjects is the maximum objects in git clone progress
 	GitMaxObjects = 30000
 

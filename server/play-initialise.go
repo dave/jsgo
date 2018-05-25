@@ -5,15 +5,16 @@ import (
 	"net/http"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder/session"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/services/session"
 )
 
 func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	s := session.New(nil, assets.Assets)
+	s := session.New(nil, assets.Assets, config.ValidExtensions)
 
 	gitreq := h.Cache.NewRequest(true)
 	if err := gitreq.InitialiseFromHints(ctx, info.Path); err != nil {

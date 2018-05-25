@@ -3,9 +3,7 @@ package get
 import (
 	"context"
 
-	configpkg "github.com/dave/jsgo/config"
-
-	"errors"
+	"time"
 
 	"github.com/dave/jsgo/getter/cache"
 	"github.com/dave/services/copier"
@@ -48,42 +46,45 @@ func (g *gitProvider) create(ctx context.Context, url, dir string, fs billy.File
 
 // TODO: Do something about this (it's unused right now)
 func (g *gitProvider) download(ctx context.Context) error {
-	// git pull --ff-only
-	// git submodule update --init --recursive
-	ctx, cancel := context.WithTimeout(ctx, configpkg.GitPullTimeout)
-	defer cancel()
-	err := g.worktree.PullContext(ctx, &git.PullOptions{
-		SingleBranch:      true,
-		RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
-		Force:             true,
-	})
-	if err != nil {
-		if err == OutOfSpace {
-			return errors.New("out of space pulling repo")
+	panic("download not implemented")
+	/*
+		// git pull --ff-only
+		// git submodule update --init --recursive
+		ctx, cancel := context.WithTimeout(ctx, configpkg.GitPullTimeout)
+		defer cancel()
+		err := g.worktree.PullContext(ctx, &git.PullOptions{
+			SingleBranch:      true,
+			RecurseSubmodules: git.DefaultSubmoduleRecursionDepth,
+			Force:             true,
+		})
+		if err != nil {
+			if err == OutOfSpace {
+				return errors.New("out of space pulling repo")
+			}
+			return err
 		}
-		return err
-	}
 
-	// ... retrieves the branch pointed by HEAD
-	ref, err := g.repo.Head()
-	if err != nil {
-		return err
-	}
+		// ... retrieves the branch pointed by HEAD
+		ref, err := g.repo.Head()
+		if err != nil {
+			return err
+		}
 
-	// ... retrieves the commit history
-	iter, err := g.repo.Log(&git.LogOptions{From: ref.Hash()})
-	if err != nil {
-		return err
-	}
+		// ... retrieves the commit history
+		iter, err := g.repo.Log(&git.LogOptions{From: ref.Hash()})
+		if err != nil {
+			return err
+		}
 
-	c, err := iter.Next()
-	if err != nil {
-		return err
-	}
+		c, err := iter.Next()
+		if err != nil {
+			return err
+		}
 
-	g.hashString = c.Hash.String()
+		g.hashString = c.Hash.String()
 
-	return nil
+		return nil
+	*/
 }
 
 func (g *gitProvider) cmd() string {
@@ -106,7 +107,7 @@ func (g *gitProvider) ping(ctx context.Context, scheme, repo string) error {
 		return err
 	}
 
-	ctx, cancel := context.WithTimeout(ctx, configpkg.GitListTimeout)
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10)
 	defer cancel()
 
 	if WithCancel(ctx, func() {

@@ -9,12 +9,13 @@ import (
 	"time"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services/session"
 )
 
 func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
@@ -23,7 +24,7 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 		return fmt.Errorf("can't find main package %s in source", info.Main)
 	}
 
-	s := session.New(info.Tags, assets.Assets)
+	s := session.New(info.Tags, assets.Assets, config.ValidExtensions)
 
 	if err := s.SetSource(info.Source); err != nil {
 		return err

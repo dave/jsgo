@@ -23,7 +23,6 @@ import (
 
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/builder"
-	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/services"
@@ -31,6 +30,7 @@ import (
 	"github.com/dave/services/copier"
 	"github.com/dave/services/gcsfileserver"
 	"github.com/dave/services/localfileserver"
+	"github.com/dave/services/session"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
@@ -91,7 +91,7 @@ func main() {
 func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 
-	s := session.New(nil, root)
+	s := session.New(nil, root, config.ValidExtensions)
 
 	buildAndSend := func(min bool) error {
 		b := builder.New(s, &builder.Options{Unvendor: true, Initializer: true, Minify: min})

@@ -6,8 +6,8 @@ import (
 	"io"
 	"sync"
 
-	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/getter/cache"
+	"github.com/dave/services/session"
 	"golang.org/x/sync/singleflight"
 )
 

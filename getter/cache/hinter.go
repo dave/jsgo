@@ -4,7 +4,6 @@ import (
 	"context"
 
 	"cloud.google.com/go/datastore"
-	"github.com/dave/jsgo/config"
 )
 
 func (c *Cache) ResolveHints(ctx context.Context, hints []string) (resolved []string, err error) {
@@ -53,7 +52,7 @@ func (c *Cache) SaveHints(ctx context.Context, resolved map[string][]string) err
 }
 
 func (c *Cache) hintsKey(path string) *datastore.Key {
-	return datastore.NameKey(config.HintsKind, path, nil)
+	return datastore.NameKey(c.configHintsKind, path, nil)
 }
 
 type Hints struct {

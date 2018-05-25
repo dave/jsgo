@@ -9,16 +9,16 @@ import (
 	"strings"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/services/session"
 	"github.com/shurcooL/go/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
 func (h *Handler) playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
-	s := session.New(nil, assets.Assets)
+	s := session.New(nil, assets.Assets, config.ValidExtensions)
 	g := get.New(s, downloadWriter{send: send}, h.Cache.NewRequest(false))
 	_, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {

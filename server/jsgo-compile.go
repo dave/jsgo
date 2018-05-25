@@ -8,19 +8,20 @@ import (
 	"time"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services/session"
 )
 
 func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message) error {
 
 	path := info.Path
 
-	s := session.New(nil, assets.Assets)
+	s := session.New(nil, assets.Assets, config.ValidExtensions)
 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})

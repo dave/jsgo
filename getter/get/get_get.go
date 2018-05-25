@@ -214,6 +214,7 @@ func (g *Getter) downloadPackage(ctx context.Context, p *Package, update bool, i
 		}
 	} else {
 		// Root does exist; download incremental updates.
+		panic("root exists")
 
 		if g.log != nil {
 			fmt.Fprintln(g.log, root.root)

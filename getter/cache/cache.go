@@ -8,20 +8,22 @@ import (
 )
 
 // New returns a new cache.
-func New(database services.Database, fetcher services.Fetcher, resolver services.Resolver) *Cache {
+func New(database services.Database, fetcher services.Fetcher, resolver services.Resolver, configHintsKind string) *Cache {
 	c := &Cache{}
 	c.database = database
 	c.fetcher = fetcher
 	c.resolver = resolver
+	c.configHintsKind = configHintsKind
 	return c
 }
 
 // Cache stores a local cache of marshaled repos (only small repos will be cached because we're limited
 // on memory). There should be one Cache per server. All methods should be safe for concurrent execution.
 type Cache struct {
-	database services.Database
-	fetcher  services.Fetcher
-	resolver services.Resolver
+	database        services.Database
+	fetcher         services.Fetcher
+	resolver        services.Resolver
+	configHintsKind string
 }
 
 // Request represents a single request, possibly with several "go get" operations. It is assumed that

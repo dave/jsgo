@@ -5,15 +5,16 @@ import (
 	"net/http"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder/session"
+	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/getter/get"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/services/session"
 )
 
 func (h *Handler) playUpdate(ctx context.Context, info messages.Update, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	s := session.New(info.Tags, assets.Assets)
+	s := session.New(info.Tags, assets.Assets, config.ValidExtensions)
 
 	if err := s.SetSource(info.Source); err != nil {
 		return err

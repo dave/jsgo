@@ -24,12 +24,12 @@ import (
 	"sync"
 
 	"github.com/dave/jsgo/builder"
-	"github.com/dave/jsgo/builder/session"
 	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/services"
 	"github.com/dave/services/constor"
+	"github.com/dave/services/session"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 )
 
