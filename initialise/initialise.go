@@ -22,10 +22,10 @@ import (
 	"encoding/gob"
 
 	"github.com/dave/jennifer/jen"
-	"github.com/dave/jsgo/builder"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/services"
+	"github.com/dave/services/builder"
 	"github.com/dave/services/copier"
 	"github.com/dave/services/fileserver/constor"
 	"github.com/dave/services/fileserver/gcsfileserver"
