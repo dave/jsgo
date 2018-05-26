@@ -18,7 +18,7 @@ import (
 )
 
 func (h *Handler) playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
-	s := session.New(nil, assets.Assets, h.Fileserver, config.ValidExtensions)
+	s := session.New(nil, assets.Assets, assets.Archives, h.Fileserver, config.ValidExtensions)
 	g := get.New(s, downloadWriter{send: send}, h.Cache.NewRequest(false))
 	_, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {

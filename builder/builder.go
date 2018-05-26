@@ -27,7 +27,6 @@ import (
 
 	"context"
 
-	"github.com/dave/jsgo/assets"
 	"github.com/dave/services/session"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/natives"
@@ -535,13 +534,13 @@ func (b *Builder) buildImportPathWithSrcDir(ctx context.Context, path string, sr
 
 func (b *Builder) ImportStandardArchive(ctx context.Context, importPath string) (*compiler.Archive, error) {
 
-	if assets.Archives == nil {
-		// assets.Archives may be nil if we don't initialise the assets (for bootstrapping we need to
+	if b.session.AssetsArchives == nil {
+		// AssetsArchives may be nil if we don't initialise the assets (for bootstrapping we need to
 		// run "go generate" without existing assets).
 		return nil, nil
 	}
 
-	archivePair, ok := assets.Archives[importPath]
+	archivePair, ok := b.session.AssetsArchives[importPath]
 	if !ok {
 		return nil, nil
 	}
