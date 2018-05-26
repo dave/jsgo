@@ -21,7 +21,7 @@ func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *h
 
 	path := info.Path
 
-	s := session.New(nil, assets.Assets, config.ValidExtensions)
+	s := session.New(nil, assets.Assets, h.Fileserver, config.ValidExtensions)
 
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})

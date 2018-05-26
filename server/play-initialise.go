@@ -14,7 +14,7 @@ import (
 
 func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	s := session.New(nil, assets.Assets, config.ValidExtensions)
+	s := session.New(nil, assets.Assets, h.Fileserver, config.ValidExtensions)
 
 	gitreq := h.Cache.NewRequest(true)
 	if err := gitreq.InitialiseFromHints(ctx, info.Path); err != nil {

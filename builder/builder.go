@@ -59,7 +59,7 @@ func (e *ImportCError) Error() string {
 // If an error occurs, Import returns a non-nil error and a nil
 // *PackageData.
 func (b *Builder) Import(ctx context.Context, path string, mode build.ImportMode, installSuffix string) (*PackageData, error) {
-	bctx := b.BuildContext(true, installSuffix)
+	bctx := b.session.BuildContext(true, installSuffix)
 	return b.importWithSrcDir(ctx, *bctx, path, "", mode, installSuffix)
 }
 
@@ -173,7 +173,7 @@ func (b *Builder) ImportDir(ctx context.Context, dir string, mode build.ImportMo
 	var pkg *build.Package
 	var err error
 	if WithCancel(ctx, func() {
-		pkg, err = b.BuildContext(true, installSuffix).ImportDir(dir, mode)
+		pkg, err = b.session.BuildContext(true, installSuffix).ImportDir(dir, mode)
 	}) {
 		return nil, ctx.Err()
 	}
@@ -309,7 +309,7 @@ func (b *Builder) parseAndAugment(pkg *build.Package, isTest bool, fileSet *toke
 			name = filepath.Join(pkg.Dir, name)
 		}
 		fdir, _ := filepath.Split(name)
-		fs := b.Filesystem(fdir)
+		fs := b.session.Filesystem(fdir)
 		r, err := fs.Open(name)
 		if err != nil {
 			return nil, err
@@ -427,7 +427,7 @@ type PackageData struct {
 }
 
 type Builder struct {
-	*session.Session
+	session  *session.Session
 	bctx     *build.Context
 	options  *Options
 	Archives map[string]*compiler.Archive
@@ -440,12 +440,12 @@ func New(session *session.Session, options *Options) *Builder {
 		options.Temporary = memfs.New()
 	}
 	s := &Builder{
-		Session:  session,
+		session:  session,
 		options:  options,
 		Archives: make(map[string]*compiler.Archive),
+		Types:    make(map[string]*types.Package),
 	}
-	s.bctx = s.BuildContext(true, s.InstallSuffix())
-	s.Types = make(map[string]*types.Package)
+	s.bctx = s.session.BuildContext(true, s.InstallSuffix())
 	return s
 }
 
@@ -586,7 +586,7 @@ func (b *Builder) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 
 	// If the path is not in the source collection, and the archive exists in the std lib precompiled
 	// archives, load it...
-	if !b.HasSource(importPath) {
+	if !b.session.HasSource(importPath) {
 		archive, err := b.ImportStandardArchive(ctx, importPath)
 		if err != nil {
 			return nil, err
@@ -636,7 +636,7 @@ func (b *Builder) BuildPackage(ctx context.Context, pkg *PackageData) (*compiler
 
 	for _, jsFile := range pkg.JSFiles {
 		fname := filepath.Join(pkg.Dir, jsFile)
-		fs := b.Filesystem(pkg.Dir)
+		fs := b.session.Filesystem(pkg.Dir)
 		code, err := readFile(fs, fname)
 		if err != nil {
 			return nil, err
@@ -808,7 +808,7 @@ func (b *Builder) GetProgramCode(ctx context.Context, pkgs []*compiler.Archive) 
 		var ph map[bool]string
 		ph, std = b.options.Standard[pkg.ImportPath]
 
-		if std && !b.HasSource(pkg.ImportPath) {
+		if std && !b.session.HasSource(pkg.ImportPath) {
 			packageOutputs = append(packageOutputs, &PackageOutput{
 				Path:     pkg.ImportPath,
 				Hash:     Bytes(ph[minify]),
@@ -890,7 +890,7 @@ func GetPackageCode(ctx context.Context, archive *compiler.Archive, minify, init
 }
 
 func (b *Builder) jsFilesFromDir(dir string) ([]string, error) {
-	fs := b.Filesystem(dir)
+	fs := b.session.Filesystem(dir)
 	files, err := fs.ReadDir(dir)
 	if err != nil {
 		return nil, err

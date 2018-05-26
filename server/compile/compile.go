@@ -37,7 +37,6 @@ type Compiler struct {
 	*session.Session
 	fileserver services.Fileserver
 	send       func(messages.Message)
-	log        io.Writer
 }
 
 func New(session *session.Session, fileserver services.Fileserver, send func(messages.Message)) *Compiler {

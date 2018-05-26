@@ -14,7 +14,7 @@ import (
 
 func (h *Handler) playUpdate(ctx context.Context, info messages.Update, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
 
-	s := session.New(info.Tags, assets.Assets, config.ValidExtensions)
+	s := session.New(info.Tags, assets.Assets, h.Fileserver, config.ValidExtensions)
 
 	if err := s.SetSource(info.Source); err != nil {
 		return err

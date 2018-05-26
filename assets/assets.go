@@ -13,10 +13,6 @@ import (
 	"io/ioutil"
 	"path/filepath"
 
-	"os"
-
-	"strings"
-
 	"encoding/gob"
 
 	"github.com/dave/jsgo/config"
@@ -40,9 +36,7 @@ func loadAssets(fs billy.Filesystem) error {
 
 	var buf *bytes.Buffer
 
-	hostname, _ := os.Hostname()
-
-	if config.DEV || strings.ToLower(hostname) == "davids-macbook.home" {
+	if config.DEV {
 		dir, err := patsy.Dir(vos.Os(), "github.com/dave/jsgo/assets")
 		if err != nil {
 			return err

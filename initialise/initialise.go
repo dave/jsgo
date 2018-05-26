@@ -91,7 +91,7 @@ func main() {
 func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 
-	s := session.New(nil, root, config.ValidExtensions)
+	s := session.New(nil, root, nil, config.ValidExtensions)
 
 	buildAndSend := func(min bool) error {
 		b := builder.New(s, &builder.Options{Unvendor: true, Initializer: true, Minify: min})
