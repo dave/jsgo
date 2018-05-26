@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"github.com/dave/jsgo/assets"
-	"github.com/dave/jsgo/builder/std"
+	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/messages"

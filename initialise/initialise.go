@@ -198,7 +198,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 			})
 		}
 	}))
-	if err := f.Save("./builder/std/index.go"); err != nil {
+	if err := f.Save("./assets/std/index.go"); err != nil {
 		return err
 	}
 	fmt.Println("Done.")
@@ -332,7 +332,7 @@ func Prelude(storer *constor.Storer) error {
 		jen.Lit(false): jen.Lit(fmt.Sprintf("%x", hashMax)),
 		jen.Lit(true):  jen.Lit(fmt.Sprintf("%x", hashMin)),
 	})
-	if err := f.Save("./builder/std/prelude.go"); err != nil {
+	if err := f.Save("./assets/std/prelude.go"); err != nil {
 		return err
 	}
 	return nil

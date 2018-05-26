@@ -23,8 +23,8 @@ import (
 
 	"sync"
 
+	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/builder"
-	"github.com/dave/jsgo/builder/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/messages"
 	"github.com/dave/services"
