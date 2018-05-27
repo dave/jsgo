@@ -9,8 +9,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/dave/jsgo/server/tracker"
 	"github.com/dave/services"
+	"github.com/dave/services/tracker"
 	"github.com/gorilla/websocket"
 )
 

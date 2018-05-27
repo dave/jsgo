@@ -13,10 +13,10 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
-	"github.com/dave/jsgo/server/tracker"
 	"github.com/dave/services"
 	"github.com/dave/services/getter/cache"
 	"github.com/dave/services/queue"
+	"github.com/dave/services/tracker"
 )
 
 type Handler struct {
