@@ -18,10 +18,10 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/services"
 	"github.com/dave/services/builder"
 	"github.com/dave/services/copier"
+	"github.com/dave/services/deployer"
 	"github.com/dave/services/fileserver/constor"
 	"github.com/dave/services/fileserver/gcsfileserver"
 	"github.com/dave/services/fileserver/localfileserver"
@@ -137,7 +137,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 				// benefit from browser caching.
 
 				buf := &bytes.Buffer{}
-				if err := compiler.WriteArchive(compile.StripArchive(archive), buf); err != nil {
+				if err := compiler.WriteArchive(deployer.StripArchive(archive), buf); err != nil {
 					return err
 				}
 				storer.Add(constor.Item{

@@ -12,40 +12,11 @@ type Compile struct {
 	Path string
 }
 
-type Queueing struct {
-	Position int
-	Done     bool
-}
-
-type Downloading struct {
-	Starting bool
-	Message  string
-	Done     bool
-}
-
-type Compiling struct {
-	Starting bool
-	Message  string
-	Done     bool
-}
-
-type Storing struct {
-	Starting  bool
-	Finished  int
-	Unchanged int
-	Remain    int
-	Done      bool
-}
-
 type Complete struct {
 	Path    string
 	Short   string
 	HashMin string
 	HashMax string
-}
-
-type Error struct {
-	Message string
 }
 
 func Marshal(in services.Message) ([]byte, int, error) {
@@ -72,9 +43,4 @@ func Unmarshal(in []byte) (services.Message, error) {
 		return nil, err
 	}
 	return m.Message, nil
-}
-
-func SendStoring(send func(services.Message), stats func() (int, int, int)) {
-	total, done, unchanged := stats() // don't pass storer in because this package is shared on the client
-	send(Storing{Finished: done, Unchanged: unchanged, Remain: total - done - unchanged})
 }

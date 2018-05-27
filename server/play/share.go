@@ -17,11 +17,12 @@ import (
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/services"
 	"github.com/dave/services/fileserver/constor"
+	"github.com/dave/services/fileserver/constor/constormsg"
 )
 
 func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Request, send func(message services.Message), receive chan services.Message) error {
 
-	send(messages.Storing{Starting: true})
+	send(constormsg.Storing{Starting: true})
 
 	buf := &bytes.Buffer{}
 	sha := sha1.New()
@@ -37,7 +38,7 @@ func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Requ
 	}
 	defer client.Close()
 
-	storer := constor.New(ctx, h.Fileserver, config.ConcurrentStorageUploads)
+	storer := constor.New(ctx, h.Fileserver, send, config.ConcurrentStorageUploads)
 	storer.Add(constor.Item{
 		Message:   "source",
 		Name:      fmt.Sprintf("%x.json", hash),
@@ -46,13 +47,11 @@ func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Requ
 		Mime:      constor.MimeJson,
 		Count:     true,
 		Immutable: true,
-		Changed: func(done bool) {
-			messages.SendStoring(send, storer.Stats)
-		},
+		Send:      true,
 	})
 	storer.Wait()
 
-	send(messages.Storing{Done: true})
+	send(constormsg.Storing{Done: true})
 
 	if err := h.storeShare(ctx, info.Source, fmt.Sprintf("%x", hash), send, req); err != nil {
 		return err

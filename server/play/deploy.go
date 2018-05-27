@@ -8,16 +8,15 @@ import (
 
 	"time"
 
-	"strings"
-
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/services"
+	"github.com/dave/services/deployer"
 	"github.com/dave/services/getter/get"
+	"github.com/dave/services/getter/gettermsg"
 	"github.com/dave/services/session"
 )
 
@@ -34,7 +33,7 @@ func (h *Handler) Deploy(ctx context.Context, info messages.Deploy, req *http.Re
 	}
 
 	// Send a message to the client that downloading step has started.
-	send(messages.Downloading{Starting: true})
+	send(gettermsg.Downloading{Starting: true})
 
 	gitreq := h.Cache.NewRequest(false)
 	if info.Main == "main" {
@@ -53,7 +52,7 @@ func (h *Handler) Deploy(ctx context.Context, info messages.Deploy, req *http.Re
 	insecure := config.LOCAL
 
 	// Start the download process - just like the "go get" command.
-	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Main, false, insecure, false); err != nil {
+	if err := get.New(s, send, gitreq).Get(ctx, info.Main, false, insecure, false); err != nil {
 		return err
 	}
 
@@ -62,10 +61,10 @@ func (h *Handler) Deploy(ctx context.Context, info messages.Deploy, req *http.Re
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send(messages.Downloading{Done: true})
+	send(gettermsg.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(s, send).Compile(ctx, info.Main, true)
+	output, err := deployer.New(s, send, std.Index, std.Prelude, deployerConfig).Deploy(ctx, info.Main, deployer.HashIndex, map[bool]bool{true: true, false: false})
 	if err != nil {
 		return err
 	}
@@ -84,7 +83,7 @@ func (h *Handler) Deploy(ctx context.Context, info messages.Deploy, req *http.Re
 	return nil
 }
 
-func (h *Handler) storeDeploy(ctx context.Context, send func(services.Message), min bool, req *http.Request, output *compile.CompileOutput) error {
+func (h *Handler) storeDeploy(ctx context.Context, send func(services.Message), min bool, req *http.Request, output *deployer.DeployOutput) error {
 	data := store.DeployData{
 		Time:     time.Now(),
 		Contents: getDeployContents(output, min),
@@ -97,7 +96,7 @@ func (h *Handler) storeDeploy(ctx context.Context, send func(services.Message), 
 	return nil
 }
 
-func getDeployContents(c *compile.CompileOutput, min bool) store.DeployContents {
+func getDeployContents(c *deployer.DeployOutput, min bool) store.DeployContents {
 	val := store.DeployContents{}
 	val.Main = fmt.Sprintf("%x", c.MainHash)
 	val.Index = fmt.Sprintf("%x", c.IndexHash)
@@ -117,13 +116,4 @@ func getDeployContents(c *compile.CompileOutput, min bool) store.DeployContents 
 		})
 	}
 	return val
-}
-
-type downloadWriter struct {
-	send func(services.Message)
-}
-
-func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send(messages.Downloading{Message: strings.TrimSuffix(string(b), "\n")})
-	return len(b), nil
 }

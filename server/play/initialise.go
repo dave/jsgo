@@ -5,11 +5,13 @@ import (
 	"net/http"
 
 	"github.com/dave/jsgo/assets"
+	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/compile"
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/services"
+	"github.com/dave/services/deployer"
 	"github.com/dave/services/getter/get"
+	"github.com/dave/services/getter/gettermsg"
 	"github.com/dave/services/session"
 )
 
@@ -21,7 +23,7 @@ func (h *Handler) Initialise(ctx context.Context, info messages.Initialise, req 
 	if err := gitreq.InitialiseFromHints(ctx, info.Path); err != nil {
 		return err
 	}
-	g := get.New(s, downloadWriter{send: send}, gitreq)
+	g := get.New(s, send, gitreq)
 
 	source, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {
@@ -45,9 +47,9 @@ func (h *Handler) Initialise(ctx context.Context, info messages.Initialise, req 
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send(messages.Downloading{Done: true})
+	send(gettermsg.Downloading{Done: true})
 
-	if err := compile.New(s, send).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
+	if err := deployer.New(s, send, std.Index, std.Prelude, deployerConfig).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
 		return err
 	}
 

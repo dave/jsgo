@@ -5,26 +5,32 @@ import (
 	"fmt"
 	"reflect"
 
+	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/services"
+	"github.com/dave/services/builder/buildermsg"
+	"github.com/dave/services/deployer/deployermsg"
+	"github.com/dave/services/fileserver/constor/constormsg"
+	"github.com/dave/services/getter/gettermsg"
 	"github.com/gorilla/websocket"
 )
 
 var payloads = []interface{}{
 
 	// Progress messages:
-	Queueing{},
-	Downloading{},
-	Compiling{},
-	Storing{},
-	Updating{},
+	servermsg.Queueing{},
+	gettermsg.Downloading{},
+
+	constormsg.Storing{},
+	buildermsg.Building{},
 
 	// Data messages:
-	Error{},
-	Archive{},
-	Index{},
+	servermsg.Error{},
 	ShareComplete{},
 	GetComplete{},
 	DeployComplete{},
+
+	deployermsg.Archive{},
+	deployermsg.Index{},
 
 	// Commands:
 	Update{},
@@ -34,44 +40,9 @@ var payloads = []interface{}{
 	Initialise{},
 }
 
-type Queueing struct {
-	Position int
-	Done     bool
-}
-
-type Downloading struct {
-	Starting bool
-	Message  string
-	Done     bool
-}
-
-type Compiling struct {
-	Starting bool
-	Message  string
-	Done     bool
-}
-
-type Updating struct {
-	Starting bool
-	Message  string
-	Done     bool
-}
-
-type Storing struct {
-	Starting  bool
-	Finished  int
-	Unchanged int
-	Remain    int
-	Done      bool
-}
-
 type DeployComplete struct {
 	Main  string
 	Index string
-}
-
-type Error struct {
-	Message string
 }
 
 // Update is sent by the client to the server asking it to compile the source and return the archive
@@ -117,23 +88,6 @@ type ShareComplete struct {
 	Hash string
 }
 
-// Index is an ordered list of dependencies.
-type Index map[string]IndexItem
-
-// IndexItem is an item in Index. Unchanged is true if the client already has cached as specified by
-// Cache in the Update message. Unchanged dependencies are not sent as Archive messages.
-type IndexItem struct {
-	Hash      string // Hash of the js file
-	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
-}
-
-// Archive contains information about the JS and the stripped GopherJS archive file.
-type Archive struct {
-	Path     string
-	Hash     string // Hash of the resultant js
-	Standard bool
-}
-
 func Marshal(in services.Message) ([]byte, int, error) {
 	m := struct {
 		Type    string
@@ -176,8 +130,3 @@ func init() {
 }
 
 var payloadTypes = make(map[string]reflect.Type)
-
-func SendStoring(send func(services.Message), stats func() (int, int, int)) {
-	total, done, unchanged := stats() // don't pass storer in because this package is shared on the client
-	send(Storing{Finished: done, Unchanged: unchanged, Remain: total - done - unchanged})
-}

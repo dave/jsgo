@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/services"
 	"github.com/dave/services/tracker"
 	"github.com/gorilla/websocket"
@@ -22,8 +23,6 @@ type SocketHandlerInterface interface {
 	WebsocketPongTimeout() time.Duration
 	MarshalMessage(services.Message) (payload []byte, messageType int, err error)
 	UnarshalMessage([]byte) (services.Message, error)
-	SendQueueing(send func(message services.Message), position int, done bool)
-	SendError(send func(message services.Message), err error)
 	StoreError(ctx context.Context, err error, req *http.Request)
 }
 
@@ -76,7 +75,7 @@ func (h *Handler) SocketHandler(s SocketHandlerInterface) func(w http.ResponseWr
 		defer func() {
 			if r := recover(); r != nil {
 				s.StoreError(ctx, fmt.Errorf("panic recovered: %s", r), req)
-				s.SendError(send, fmt.Errorf("panic recovered: %s", r))
+				send(servermsg.Error{Message: fmt.Sprintf("panic recovered: %s", r)})
 			}
 		}()
 
@@ -155,7 +154,7 @@ func (h *Handler) SocketHandler(s SocketHandlerInterface) func(w http.ResponseWr
 			select {
 			case <-h.shutdown:
 				s.StoreError(ctx, errors.New("server shut down"), req)
-				s.SendError(send, errors.New("server shut down"))
+				send(servermsg.Error{Message: "server shut down"})
 				cancel()
 			case <-ctx.Done():
 			}
@@ -164,11 +163,11 @@ func (h *Handler) SocketHandler(s SocketHandlerInterface) func(w http.ResponseWr
 		// Request a slot in the queue...
 		start, end, err := h.Queue.Slot(func(position int) {
 			tj.Queue(position)
-			s.SendQueueing(send, position, false)
+			send(servermsg.Queueing{Position: position})
 		})
 		if err != nil {
 			s.StoreError(ctx, err, req)
-			s.SendError(send, err)
+			send(servermsg.Error{Message: err.Error()})
 			return
 		}
 
@@ -188,11 +187,11 @@ func (h *Handler) SocketHandler(s SocketHandlerInterface) func(w http.ResponseWr
 		tj.QueueDone()
 
 		// Send a message to the client that queue step has finished.
-		s.SendQueueing(send, 0, true)
+		send(servermsg.Queueing{Done: true})
 
 		if err := s.Handle(ctx, req, send, receive, tj); err != nil {
 			s.StoreError(ctx, err, req)
-			s.SendError(send, err)
+			send(servermsg.Error{Message: err.Error()})
 			return
 		}
 

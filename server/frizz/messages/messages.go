@@ -5,7 +5,12 @@ import (
 	"encoding/gob"
 
 	"github.com/dave/frizz/gotypes"
+	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/services"
+	"github.com/dave/services/builder/buildermsg"
+	"github.com/dave/services/deployer/deployermsg"
+	"github.com/dave/services/fileserver/constor/constormsg"
+	"github.com/dave/services/getter/gettermsg"
 	"github.com/gorilla/websocket"
 )
 
@@ -14,13 +19,7 @@ type Payload struct {
 }
 
 func init() {
-	// Progress messages:
-	gob.Register(Queueing{})
-	gob.Register(Downloading{})
-
 	// Data messages:
-	gob.Register(Error{})
-	gob.Register(GetComplete{})
 	gob.Register(TypesComplete{})
 
 	// Commands:
@@ -28,25 +27,25 @@ func init() {
 
 	// Initialise types in gotypes
 	gotypes.RegisterTypes()
+
+	// Initialise types in deployermsg
+	deployermsg.RegisterTypes()
+
+	// Initialise types in servermsg
+	servermsg.RegisterTypes()
+
+	// Initialise types in buildermsg
+	buildermsg.RegisterTypes()
+
+	// Initialise types in constormsg
+	constormsg.RegisterTypes()
+
+	// Initialise types in gettermsg
+	gettermsg.RegisterTypes()
 }
 
-type Queueing struct {
-	Position int
-	Done     bool
-}
-type Downloading struct {
-	Starting bool
-	Message  string
-	Done     bool
-}
-type Error struct {
-	Message string
-}
 type Types struct {
 	Path string
-}
-type GetComplete struct {
-	Source map[string]map[string]string
 }
 type TypesComplete struct {
 	Types []gotypes.Named

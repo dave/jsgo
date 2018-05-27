@@ -13,6 +13,7 @@ import (
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/services"
 	"github.com/dave/services/getter/get"
+	"github.com/dave/services/getter/gettermsg"
 	"github.com/dave/services/session"
 	"github.com/shurcooL/go/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
@@ -20,7 +21,7 @@ import (
 
 func (h *Handler) Get(ctx context.Context, info messages.Get, req *http.Request, send func(message services.Message), receive chan services.Message) error {
 	s := session.New(nil, assets.Assets, assets.Archives, h.Fileserver, config.ValidExtensions)
-	g := get.New(s, downloadWriter{send: send}, h.Cache.NewRequest(false))
+	g := get.New(s, send, h.Cache.NewRequest(false))
 	_, err := getSource(ctx, g, s, info.Path, send)
 	if err != nil {
 		return err
@@ -31,12 +32,12 @@ func (h *Handler) Get(ctx context.Context, info messages.Get, req *http.Request,
 func getSource(ctx context.Context, g *get.Getter, s *session.Session, path string, send func(message services.Message)) (map[string]map[string]string, error) {
 
 	if strings.HasPrefix(path, "p/") {
-		send(messages.Downloading{Message: path})
+		send(gettermsg.Downloading{Message: path})
 		source, err := getGolangPlaygroundSource(ctx, path)
 		if err != nil {
 			return nil, err
 		}
-		send(messages.Downloading{Done: true})
+		send(gettermsg.Downloading{Done: true})
 		send(messages.GetComplete{Source: source})
 		return source, nil
 	}
@@ -53,7 +54,7 @@ func getSource(ctx context.Context, g *get.Getter, s *session.Session, path stri
 	}
 
 	// Send a message to the client that downloading step has started.
-	send(messages.Downloading{Starting: true})
+	send(gettermsg.Downloading{Starting: true})
 
 	// set insecure = true in local mode or it will fail if git repo has git protocol
 	insecure := config.LOCAL
@@ -70,7 +71,7 @@ func getSource(ctx context.Context, g *get.Getter, s *session.Session, path stri
 	}
 
 	// Send a message to the client that downloading step has finished.
-	send(messages.Downloading{Done: true})
+	send(gettermsg.Downloading{Done: true})
 	send(messages.GetComplete{Source: source})
 
 	return source, nil

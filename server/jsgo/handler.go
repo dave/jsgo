@@ -65,14 +65,6 @@ func (h *Handler) UnarshalMessage(b []byte) (services.Message, error) {
 	return messages.Unmarshal(b)
 }
 
-func (h *Handler) SendQueueing(send func(message services.Message), position int, done bool) {
-	send(messages.Queueing{Position: position, Done: done})
-}
-
-func (h *Handler) SendError(send func(message services.Message), err error) {
-	send(messages.Error{Message: err.Error()})
-}
-
 func (h *Handler) StoreError(ctx context.Context, err error, req *http.Request) {
 
 	fmt.Println(err)
