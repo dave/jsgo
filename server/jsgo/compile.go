@@ -1,4 +1,4 @@
-package server
+package jsgo
 
 import (
 	"context"
@@ -11,13 +11,14 @@ import (
 	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/jsgo/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services"
 	"github.com/dave/services/getter/get"
 	"github.com/dave/services/session"
 )
 
-func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *http.Request, send func(messages.Message), receive chan messages.Message) error {
+func (h *Handler) Compile(ctx context.Context, info messages.Compile, req *http.Request, send func(services.Message), receive chan services.Message) error {
 
 	path := info.Path
 
@@ -31,8 +32,11 @@ func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *h
 		return err
 	}
 
+	// set insecure = true in local mode or it will fail if git repo has git protocol
+	insecure := config.LOCAL
+
 	// Start the download process - just like the "go get" command.
-	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, false, false); err != nil {
+	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, path, false, insecure, false); err != nil {
 		return err
 	}
 
@@ -44,7 +48,7 @@ func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *h
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(s, h.Fileserver, send).Compile(ctx, path, false)
+	output, err := compile.New(s, send).Compile(ctx, path, false)
 	if err != nil {
 		return err
 	}
@@ -62,7 +66,7 @@ func (h *Handler) jsgoCompile(ctx context.Context, info messages.Compile, req *h
 	return nil
 }
 
-func (h *Handler) storeCompile(ctx context.Context, send func(messages.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
+func (h *Handler) storeCompile(ctx context.Context, send func(services.Message), path string, req *http.Request, output map[bool]*compile.CompileOutput) {
 	data := store.CompileData{
 		Path:    path,
 		Time:    time.Now(),
@@ -73,7 +77,7 @@ func (h *Handler) storeCompile(ctx context.Context, send func(messages.Message),
 	}
 	if err := store.StoreCompile(ctx, h.Database, path, data); err != nil {
 		// don't save this one to the datastore because it's an error from the datastore.
-		h.sendError(send, err)
+		h.SendError(send, err)
 		return
 	}
 }
@@ -97,4 +101,13 @@ func getCompileContents(c *compile.CompileOutput, min bool) store.CompileContent
 		})
 	}
 	return val
+}
+
+type downloadWriter struct {
+	send func(services.Message)
+}
+
+func (w downloadWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Downloading{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
 }

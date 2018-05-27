@@ -1,4 +1,4 @@
-package server
+package play
 
 import (
 	"context"
@@ -7,12 +7,13 @@ import (
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/play/messages"
+	"github.com/dave/services"
 	"github.com/dave/services/getter/get"
 	"github.com/dave/services/session"
 )
 
-func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func (h *Handler) Initialise(ctx context.Context, info messages.Initialise, req *http.Request, send func(message services.Message), receive chan services.Message) error {
 
 	s := session.New(nil, assets.Assets, assets.Archives, h.Fileserver, config.ValidExtensions)
 
@@ -31,8 +32,11 @@ func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, 
 		return err
 	}
 
+	// set insecure = true in local mode or it will fail if git repo has git protocol
+	insecure := config.LOCAL
+
 	// Start the download process - just like the "go get" command.
-	if err := g.Get(ctx, info.Path, false, false, false); err != nil {
+	if err := g.Get(ctx, info.Path, false, insecure, false); err != nil {
 		return err
 	}
 
@@ -43,7 +47,7 @@ func (h *Handler) playInitialise(ctx context.Context, info messages.Initialise, 
 	// Send a message to the client that downloading step has finished.
 	send(messages.Downloading{Done: true})
 
-	if err := compile.New(s, h.Fileserver, send).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
+	if err := compile.New(s, send).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
 		return err
 	}
 

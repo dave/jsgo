@@ -24,8 +24,11 @@ import (
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/frizz"
+	"github.com/dave/jsgo/server/jsgo"
+	"github.com/dave/jsgo/server/play"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/jsgo/server/tracker"
 	"github.com/dave/patsy"
 	"github.com/dave/patsy/vos"
 	"github.com/dave/services"
@@ -100,9 +103,14 @@ func New(shutdown chan struct{}) *Handler {
 	h.mux.HandleFunc("/", h.PageHandler)
 	h.mux.HandleFunc("/_script.js", h.ScriptHandler)
 	h.mux.HandleFunc("/_script.js.map", h.ScriptHandler)
-	h.mux.HandleFunc("/_info/", h.InfoHandler)
-	h.mux.HandleFunc("/_ws/", h.SocketHandler)
-	h.mux.HandleFunc("/_pg/", h.SocketHandler)
+	h.mux.HandleFunc("/_info/", tracker.Handler)
+
+	h.mux.HandleFunc("/_jsgo/", h.SocketHandler(&jsgo.Handler{h.Cache, h.Fileserver, h.Database}))
+	h.mux.HandleFunc("/_play/", h.SocketHandler(&play.Handler{h.Cache, h.Fileserver, h.Database}))
+	h.mux.HandleFunc("/_frizz/", h.SocketHandler(&frizz.Handler{h.Cache, h.Fileserver, h.Database}))
+
+	//h.mux.HandleFunc("/_ws/", h.SocketHandler)
+	//h.mux.HandleFunc("/_pg/", h.SocketHandler)
 	h.mux.HandleFunc("/favicon.ico", h.IconHandler)
 	h.mux.HandleFunc("/compile.css", h.CssHandler)
 	h.mux.HandleFunc("/_ah/health", h.HealthCheckHandler)
@@ -128,17 +136,6 @@ type Handler struct {
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool { return true },
-}
-
-func (h *Handler) sendAndStoreError(ctx context.Context, send func(messages.Message), path string, err error, req *http.Request) {
-	h.storeError(ctx, err, req)
-	h.sendError(send, err)
-}
-
-func (h *Handler) sendError(send func(messages.Message), err error) {
-	send(messages.Error{
-		Message: err.Error(),
-	})
 }
 
 func (h *Handler) storeError(ctx context.Context, err error, req *http.Request) {
@@ -260,15 +257,6 @@ func StreamWithTimeout(w io.Writer, r io.Reader) error {
 
 func WriteWithTimeout(w io.Writer, b []byte) error {
 	return StreamWithTimeout(w, bytes.NewBuffer(b))
-}
-
-type downloadWriter struct {
-	send func(messages.Message)
-}
-
-func (w downloadWriter) Write(b []byte) (n int, err error) {
-	w.send(messages.Downloading{Message: strings.TrimSuffix(string(b), "\n")})
-	return len(b), nil
 }
 
 type Pather interface {

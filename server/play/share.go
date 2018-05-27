@@ -1,4 +1,4 @@
-package server
+package play
 
 import (
 	"bytes"
@@ -13,12 +13,13 @@ import (
 
 	"cloud.google.com/go/storage"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services"
 	"github.com/dave/services/fileserver/constor"
 )
 
-func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Request, send func(message services.Message), receive chan services.Message) error {
 
 	send(messages.Storing{Starting: true})
 
@@ -62,7 +63,7 @@ func (h *Handler) playShare(ctx context.Context, info messages.Share, req *http.
 	return nil
 }
 
-func (h *Handler) storeShare(ctx context.Context, source map[string]map[string]string, hash string, send func(messages.Message), req *http.Request) error {
+func (h *Handler) storeShare(ctx context.Context, source map[string]map[string]string, hash string, send func(services.Message), req *http.Request) error {
 	var count int
 	for _, pkg := range source {
 		for range pkg {

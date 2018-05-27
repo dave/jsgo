@@ -1,4 +1,4 @@
-package server
+package play
 
 import (
 	"context"
@@ -8,17 +8,20 @@ import (
 
 	"time"
 
+	"strings"
+
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/compile"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/services"
 	"github.com/dave/services/getter/get"
 	"github.com/dave/services/session"
 )
 
-func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func (h *Handler) Deploy(ctx context.Context, info messages.Deploy, req *http.Request, send func(message services.Message), receive chan services.Message) error {
 
 	if info.Source[info.Main] == nil {
 		return fmt.Errorf("can't find main package %s in source", info.Main)
@@ -46,8 +49,11 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 		}
 	}
 
+	// set insecure = true in local mode or it will fail if git repo has git protocol
+	insecure := config.LOCAL
+
 	// Start the download process - just like the "go get" command.
-	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Main, false, false, false); err != nil {
+	if err := get.New(s, downloadWriter{send: send}, gitreq).Get(ctx, info.Main, false, insecure, false); err != nil {
 		return err
 	}
 
@@ -59,7 +65,7 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 	send(messages.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := compile.New(s, h.Fileserver, send).Compile(ctx, info.Main, true)
+	output, err := compile.New(s, send).Compile(ctx, info.Main, true)
 	if err != nil {
 		return err
 	}
@@ -78,7 +84,7 @@ func (h *Handler) playDeploy(ctx context.Context, info messages.Deploy, req *htt
 	return nil
 }
 
-func (h *Handler) storeDeploy(ctx context.Context, send func(messages.Message), min bool, req *http.Request, output *compile.CompileOutput) error {
+func (h *Handler) storeDeploy(ctx context.Context, send func(services.Message), min bool, req *http.Request, output *compile.CompileOutput) error {
 	data := store.DeployData{
 		Time:     time.Now(),
 		Contents: getDeployContents(output, min),
@@ -111,4 +117,13 @@ func getDeployContents(c *compile.CompileOutput, min bool) store.DeployContents 
 		})
 	}
 	return val
+}
+
+type downloadWriter struct {
+	send func(services.Message)
+}
+
+func (w downloadWriter) Write(b []byte) (n int, err error) {
+	w.send(messages.Downloading{Message: strings.TrimSuffix(string(b), "\n")})
+	return len(b), nil
 }

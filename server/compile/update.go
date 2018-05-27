@@ -11,7 +11,8 @@ import (
 
 	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/play/messages"
+	"github.com/dave/services"
 	"github.com/dave/services/builder"
 	"github.com/dave/services/fileserver/constor"
 	"github.com/gopherjs/gopherjs/compiler"
@@ -19,12 +20,12 @@ import (
 
 func (c *Compiler) Update(ctx context.Context, source map[string]map[string]string, cache map[string]string, min bool) error {
 
-	storer := constor.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
+	storer := constor.New(ctx, c.session.Fileserver, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
 	c.send(messages.Updating{Starting: true})
 
-	b := builder.New(c.Session, c.defaultOptions(updateWriter{c.send}, min))
+	b := builder.New(c.session, c.defaultOptions(updateWriter{c.send}, min))
 
 	index := messages.Index{}
 	done := map[string]bool{}
@@ -41,7 +42,7 @@ func (c *Compiler) Update(ctx context.Context, source map[string]map[string]stri
 			return nil
 		}
 
-		if c.HasSource(archive.ImportPath) {
+		if c.session.HasSource(archive.ImportPath) {
 			// don't return anything if the package is in the source collection
 			return nil
 		}
@@ -164,7 +165,7 @@ func StripArchive(a *compiler.Archive) *compiler.Archive {
 }
 
 type updateWriter struct {
-	send func(messages.Message)
+	send func(services.Message)
 }
 
 func (w updateWriter) Write(b []byte) (n int, err error) {

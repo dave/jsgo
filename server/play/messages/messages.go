@@ -4,9 +4,10 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-)
 
-type Message interface{}
+	"github.com/dave/services"
+	"github.com/gorilla/websocket"
+)
 
 var payloads = []interface{}{
 
@@ -18,7 +19,6 @@ var payloads = []interface{}{
 	Updating{},
 
 	// Data messages:
-	Complete{},
 	Error{},
 	Archive{},
 	Index{},
@@ -27,7 +27,6 @@ var payloads = []interface{}{
 	DeployComplete{},
 
 	// Commands:
-	Compile{},
 	Update{},
 	Share{},
 	Get{},
@@ -66,13 +65,6 @@ type Storing struct {
 	Done      bool
 }
 
-type Complete struct {
-	Path    string
-	Short   string
-	HashMin string
-	HashMax string
-}
-
 type DeployComplete struct {
 	Main  string
 	Index string
@@ -104,10 +96,6 @@ type Deploy struct {
 	Imports []string
 	Source  map[string]map[string]string // Source packages for this build: map[<package>]map[<filename>]<contents>
 	Tags    []string
-}
-
-type Compile struct {
-	Path string
 }
 
 // Initialise is sent by the client to get the source at Path, and update.
@@ -146,18 +134,22 @@ type Archive struct {
 	Standard bool
 }
 
-func Marshal(in Message) ([]byte, error) {
+func Marshal(in services.Message) ([]byte, int, error) {
 	m := struct {
 		Type    string
-		Message Message
+		Message services.Message
 	}{
 		Type:    reflect.TypeOf(in).Name(),
 		Message: in,
 	}
-	return json.Marshal(m)
+	b, err := json.Marshal(m)
+	if err != nil {
+		return nil, 0, err
+	}
+	return b, websocket.TextMessage, nil
 }
 
-func Unmarshal(in []byte) (Message, error) {
+func Unmarshal(in []byte) (services.Message, error) {
 	var m struct {
 		Type    string
 		Message json.RawMessage
@@ -167,7 +159,7 @@ func Unmarshal(in []byte) (Message, error) {
 	}
 	typ, ok := payloadTypes[m.Type]
 	if !ok {
-		return nil, fmt.Errorf("type not found: %s", m.Type)
+		return nil, fmt.Errorf("type not found: %s, %#v", m.Type, m)
 	}
 	pointer := reflect.New(typ)
 	if err := json.Unmarshal(m.Message, pointer.Interface()); err != nil {
@@ -185,7 +177,7 @@ func init() {
 
 var payloadTypes = make(map[string]reflect.Type)
 
-func SendStoring(send func(Message), stats func() (int, int, int)) {
+func SendStoring(send func(services.Message), stats func() (int, int, int)) {
 	total, done, unchanged := stats() // don't pass storer in because this package is shared on the client
 	send(Storing{Finished: done, Unchanged: unchanged, Remain: total - done - unchanged})
 }

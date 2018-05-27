@@ -74,7 +74,7 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 	}
 
 	//ws, err := websocket.Dial("wss://compile.jsgo.io/_pg/", "", "https://compile.jsgo.io")
-	ws, err := websocket.Dial("ws://localhost:8081/_pg/", "", "http://localhost:8080")
+	ws, err := websocket.Dial("ws://localhost:8081/_play/", "", "http://localhost:8080")
 	if err != nil {
 		return map[string]interface{}{"status": "error dialing: " + err.Error()}, err
 	}

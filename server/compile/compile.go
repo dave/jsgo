@@ -25,7 +25,7 @@ import (
 
 	"github.com/dave/jsgo/assets/std"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/jsgo/messages"
 	"github.com/dave/services"
 	"github.com/dave/services/builder"
 	"github.com/dave/services/fileserver/constor"
@@ -34,15 +34,13 @@ import (
 )
 
 type Compiler struct {
-	*session.Session
-	fileserver services.Fileserver
-	send       func(messages.Message)
+	session *session.Session
+	send    func(services.Message)
 }
 
-func New(session *session.Session, fileserver services.Fileserver, send func(messages.Message)) *Compiler {
+func New(session *session.Session, send func(services.Message)) *Compiler {
 	c := &Compiler{}
-	c.Session = session
-	c.fileserver = fileserver
+	c.session = session
 	c.send = send
 	return c
 }
@@ -56,7 +54,7 @@ type CompileOutput struct {
 // in source forces them to be compiled (if they are not included the pre-compiled Archives are used).
 func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[bool]*CompileOutput, error) {
 
-	storer := constor.New(ctx, c.fileserver, config.ConcurrentStorageUploads)
+	storer := constor.New(ctx, c.session.Fileserver, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
 	c.send(messages.Compiling{Starting: true})
@@ -137,7 +135,7 @@ func (c *Compiler) Compile(ctx context.Context, path string, play bool) (map[boo
 }
 
 type compileWriter struct {
-	send func(messages.Message)
+	send func(services.Message)
 }
 
 func (w compileWriter) Write(b []byte) (n int, err error) {
@@ -159,7 +157,7 @@ func (c *Compiler) defaultOptions(log io.Writer, min bool) *builder.Options {
 
 func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *constor.Storer, min bool) (*builder.PackageData, *builder.CommandOutput, error) {
 
-	b := builder.New(c.Session, c.defaultOptions(compileWriter{c.send}, min))
+	b := builder.New(c.session, c.defaultOptions(compileWriter{c.send}, min))
 
 	data, archive, err := b.BuildImportPath(ctx, path)
 	if err != nil {
@@ -197,7 +195,7 @@ func (c *Compiler) compileAndStore(ctx context.Context, path string, storer *con
 }
 
 func (c *Compiler) getIndexTpl(dir string) (*template.Template, error) {
-	fs := c.Filesystem(dir)
+	fs := c.session.Filesystem(dir)
 	fname := filepath.Join(dir, "index.jsgo.html")
 	_, err := fs.Stat(fname)
 	if err != nil {

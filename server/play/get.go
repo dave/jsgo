@@ -1,4 +1,4 @@
-package server
+package play
 
 import (
 	"context"
@@ -10,14 +10,15 @@ import (
 
 	"github.com/dave/jsgo/assets"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/play/messages"
+	"github.com/dave/services"
 	"github.com/dave/services/getter/get"
 	"github.com/dave/services/session"
 	"github.com/shurcooL/go/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
-func (h *Handler) playGet(ctx context.Context, info messages.Get, req *http.Request, send func(message messages.Message), receive chan messages.Message) error {
+func (h *Handler) Get(ctx context.Context, info messages.Get, req *http.Request, send func(message services.Message), receive chan services.Message) error {
 	s := session.New(nil, assets.Assets, assets.Archives, h.Fileserver, config.ValidExtensions)
 	g := get.New(s, downloadWriter{send: send}, h.Cache.NewRequest(false))
 	_, err := getSource(ctx, g, s, info.Path, send)
@@ -27,7 +28,7 @@ func (h *Handler) playGet(ctx context.Context, info messages.Get, req *http.Requ
 	return nil
 }
 
-func getSource(ctx context.Context, g *get.Getter, s *session.Session, path string, send func(message messages.Message)) (map[string]map[string]string, error) {
+func getSource(ctx context.Context, g *get.Getter, s *session.Session, path string, send func(message services.Message)) (map[string]map[string]string, error) {
 
 	if strings.HasPrefix(path, "p/") {
 		send(messages.Downloading{Message: path})
@@ -54,9 +55,12 @@ func getSource(ctx context.Context, g *get.Getter, s *session.Session, path stri
 	// Send a message to the client that downloading step has started.
 	send(messages.Downloading{Starting: true})
 
+	// set insecure = true in local mode or it will fail if git repo has git protocol
+	insecure := config.LOCAL
+
 	// Start the download process - just like the "go get" command.
 	// Don't need to give git hints here because only one package will be downloaded
-	if err := g.Get(ctx, path, false, false, true); err != nil {
+	if err := g.Get(ctx, path, false, insecure, true); err != nil {
 		return nil, err
 	}
 

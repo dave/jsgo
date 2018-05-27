@@ -205,7 +205,7 @@ var compilePageTemplate = template.Must(template.New("main").Funcs(template.Func
 		document.getElementById("short-url-checkbox").onchange = refresh;
 		document.getElementById("btn").onclick = function(event) {
 			event.preventDefault();
-			var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_ws/");
+			var socket = new WebSocket("{{ .Scheme }}://{{ .Host }}/_jsgo/");
 
 			var headerPanel = document.getElementById("header-panel");
 			var buttonPanel = document.getElementById("button-panel");
