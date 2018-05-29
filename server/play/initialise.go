@@ -49,7 +49,7 @@ func (h *Handler) Initialise(ctx context.Context, info messages.Initialise, req 
 	// Send a message to the client that downloading step has finished.
 	send(gettermsg.Downloading{Done: true})
 
-	if err := deployer.New(s, send, std.Index, std.Prelude, deployerConfig).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
+	if err := deployer.New(s, send, std.Index, std.Prelude, config.DeployerConfig).Update(ctx, source, map[string]string{}, info.Minify); err != nil {
 		return err
 	}
 

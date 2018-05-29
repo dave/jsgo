@@ -14,8 +14,6 @@ import (
 
 	"errors"
 
-	"regexp"
-
 	"context"
 
 	"sync"
@@ -55,7 +53,7 @@ func New(shutdown chan struct{}) *Handler {
 	var fileserver services.Fileserver
 	var database services.Database
 	if config.LOCAL {
-		fileserver = localfileserver.New(config.LocalFileserverTempDir, config.Sites)
+		fileserver = localfileserver.New(config.LocalFileserverTempDir, config.Static, config.Host, config.Bucket)
 		database = localdatabase.New(config.LocalFileserverTempDir)
 		fetcherResolver := localfetcher.New()
 		c = cache.New(
@@ -82,10 +80,7 @@ func New(shutdown chan struct{}) *Handler {
 			gitfetcher.New(
 				cachefileserver.New(1024*1024*1042, 100*1024*1024),
 				fileserver,
-				config.GitSaveTimeout,
-				config.GitCloneTimeout,
-				config.GitMaxObjects,
-				config.GitBucket,
+				config.GitFetcherConfig,
 			),
 			nil,
 			config.HintsKind,
@@ -173,30 +168,6 @@ func (h *Handler) HealthCheckHandler(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	h.mux.ServeHTTP(w, r)
 }
-
-func normalizePath(path string) string {
-
-	// We should normalize gist urls by removing the username part
-	if strings.HasPrefix(path, "gist.github.com/") {
-		matches := gistWithUsername.FindStringSubmatch(path)
-		if len(matches) > 1 {
-			return fmt.Sprintf("gist.github.com/%s", matches[1])
-		}
-	}
-
-	// Add github.com if the first part of the path is not a hostname and matches the github username regex
-	if strings.Contains(path, "/") {
-		firstPart := path[:strings.Index(path, "/")]
-		if !strings.Contains(firstPart, ".") && githubUsername.MatchString(firstPart) {
-			return fmt.Sprintf("github.com/%s", path)
-		}
-	}
-
-	return path
-}
-
-var gistWithUsername = regexp.MustCompile(`^gist\.github\.com/[A-Za-z0-9_.\-]+/([a-f0-9]+)(/[\p{L}0-9_.\-]+)*$`)
-var githubUsername = regexp.MustCompile(`^[a-zA-Z0-9\-]{0,38}$`)
 
 func ServeStatic(name string, w http.ResponseWriter, req *http.Request, mimeType string) error {
 	var file billy.File

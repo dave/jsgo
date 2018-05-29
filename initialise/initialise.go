@@ -39,7 +39,7 @@ func main() {
 
 	var fileserver services.Fileserver
 	if config.LOCAL {
-		fileserver = localfileserver.New(config.LocalFileserverTempDir, nil)
+		fileserver = localfileserver.New(config.LocalFileserverTempDir, nil, nil, nil)
 	} else {
 		client, err := storage.NewClient(ctx)
 		if err != nil {

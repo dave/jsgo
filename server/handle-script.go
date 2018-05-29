@@ -26,6 +26,16 @@ func (h *Handler) ScriptHandler(w http.ResponseWriter, req *http.Request) {
 }
 
 func (h *Handler) handleScript(w http.ResponseWriter, req *http.Request) error {
+
+	var path string
+
+	switch getPage(req) {
+	case PlayPage:
+		path = "github.com/dave/play"
+	case FrizzPage:
+		path = "github.com/dave/frizz"
+	}
+
 	isPkg := strings.HasSuffix(req.URL.Path, ".js")
 	isMap := strings.HasSuffix(req.URL.Path, ".js.map")
 
@@ -42,7 +52,7 @@ func (h *Handler) handleScript(w http.ResponseWriter, req *http.Request) error {
 
 	// If we're going to be serving our special files, make sure there's a Go command in this folder.
 	s := gbuild.NewSession(options)
-	pkg, err := gbuild.Import("github.com/dave/play", 0, s.InstallSuffix(), options.BuildTags)
+	pkg, err := gbuild.Import(path, 0, s.InstallSuffix(), options.BuildTags)
 	if err != nil {
 		return err
 	}
@@ -71,7 +81,7 @@ func (h *Handler) handleScript(w http.ResponseWriter, req *http.Request) error {
 			mapBuf := new(bytes.Buffer)
 			m.WriteTo(mapBuf)
 			buf.WriteString("//# sourceMappingURL=_script.js.map\n")
-			lastMap = mapBuf.Bytes()
+			lastMaps[path] = mapBuf.Bytes()
 			return nil
 		}()
 		if err != nil {
@@ -86,11 +96,11 @@ func (h *Handler) handleScript(w http.ResponseWriter, req *http.Request) error {
 	case isMap:
 		w.Header().Set("Cache-Control", "no-cache")
 		w.Header().Set("Content-Type", "application/javascript")
-		if _, err := io.Copy(w, bytes.NewBuffer(lastMap)); err != nil {
+		if _, err := io.Copy(w, bytes.NewBuffer(lastMaps[path])); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-var lastMap []byte
+var lastMaps = map[string][]byte{}

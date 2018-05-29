@@ -4,7 +4,7 @@ import (
 	"bytes"
 	"encoding/gob"
 
-	"github.com/dave/frizz/gotypes"
+	"github.com/dave/jsgo/server/frizz/gotypes"
 	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/services"
 	"github.com/dave/services/builder/buildermsg"

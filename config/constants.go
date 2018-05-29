@@ -4,6 +4,18 @@ import (
 	"time"
 )
 
+type Site int
+
+const (
+	Jsgo Site = iota
+	Play
+	Frizz
+	Index
+	Pkg
+	Src
+	Git
+)
+
 const (
 	LocalFileserverTempDir = "/Users/dave/.jsgo-local"
 
@@ -27,9 +39,6 @@ const (
 	// CompileTimeout is the timeout when compiling a package.
 	RequestTimeout = time.Second * 300
 
-	// GitSaveTimeout is the timeout when saving git repos to GCS
-	GitSaveTimeout = time.Second * 300
-
 	// PageTimeout is the timeout when generating the compile page
 	PageTimeout = time.Second * 5
 
@@ -49,12 +58,6 @@ const (
 	// playground compile)
 	WebsocketInstructionTimeout = time.Second * 5
 
-	// GitCloneTimeout is the time to wait for a git clone operation
-	GitCloneTimeout = time.Second * 120
-
-	// GitMaxObjects is the maximum objects in git clone progress
-	GitMaxObjects = 30000
-
 	// HttpTimeout is the time to wait for HTTP operations (e.g. getting meta data - not git)
 	HttpTimeout = time.Second * 5
 
@@ -63,10 +66,6 @@ const (
 
 var ValidExtensions = []string{".go", ".jsgo.html", ".inc.js", ".md"}
 
-var Buckets = []string{SrcBucket, PkgBucket, IndexBucket, GitBucket}
+var Buckets = []string{Bucket[Src], Bucket[Pkg], Bucket[Index], Bucket[Git]}
 
-var Sites = map[string]string{
-	SrcHost:   SrcBucket,
-	PkgHost:   PkgBucket,
-	IndexHost: IndexBucket,
-}
+var Static = []Site{Src, Pkg, Index}

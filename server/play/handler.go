@@ -14,7 +14,6 @@ import (
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/services"
-	"github.com/dave/services/deployer"
 	"github.com/dave/services/getter/cache"
 	"github.com/dave/services/queue"
 	"github.com/dave/services/tracker"
@@ -89,12 +88,4 @@ func (h *Handler) StoreError(ctx context.Context, err error, req *http.Request) 
 		Ip:    req.Header.Get("X-Forwarded-For"),
 	})
 
-}
-
-var deployerConfig = deployer.Config{
-	ConcurrentStorageUploads: config.ConcurrentStorageUploads,
-	IndexBucket:              config.IndexBucket,
-	PkgBucket:                config.PkgBucket,
-	Protocol:                 config.Protocol,
-	PkgHost:                  config.PkgHost,
 }

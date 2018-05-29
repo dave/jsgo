@@ -50,7 +50,7 @@ func (h *Handler) Compile(ctx context.Context, info messages.Compile, req *http.
 	send(gettermsg.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := deployer.New(s, send, std.Index, std.Prelude, deployerConfig).Deploy(ctx, path, deployer.PathIndex, map[bool]bool{true: true, false: true})
+	output, err := deployer.New(s, send, std.Index, std.Prelude, config.DeployerConfig).Deploy(ctx, path, deployer.PathIndex, map[bool]bool{true: true, false: true})
 	if err != nil {
 		return err
 	}
@@ -103,12 +103,4 @@ func getCompileContents(c *deployer.DeployOutput, min bool) store.CompileContent
 		})
 	}
 	return val
-}
-
-var deployerConfig = deployer.Config{
-	ConcurrentStorageUploads: config.ConcurrentStorageUploads,
-	IndexBucket:              config.IndexBucket,
-	PkgBucket:                config.PkgBucket,
-	Protocol:                 config.Protocol,
-	PkgHost:                  config.PkgHost,
 }

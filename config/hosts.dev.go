@@ -3,9 +3,23 @@
 package config
 
 const (
-	LOCAL     = false
-	SrcHost   = "dev-src.jsgo.io"
-	PkgHost   = "dev-pkg.jsgo.io"
-	IndexHost = "dev-index.jsgo.io"
-	Protocol  = "https"
+	LOCAL = false
 )
+
+var Host = map[Site]string{
+	Play:  "localhost:8080",
+	Jsgo:  "localhost:8081",
+	Frizz: "localhost:8082",
+	Src:   "dev-src.jsgo.io",
+	Pkg:   "dev-pkg.jsgo.io",
+	Index: "dev-index.jsgo.io",
+}
+
+var Protocol = map[Site]string{
+	Jsgo:  "http",
+	Play:  "http",
+	Frizz: "http",
+	Src:   "https",
+	Pkg:   "https",
+	Index: "https",
+}

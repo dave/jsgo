@@ -5,11 +5,6 @@ package config
 const (
 	DEV = false
 
-	SrcBucket   = "src.jsgo.io"
-	PkgBucket   = "pkg.jsgo.io"
-	IndexBucket = "jsgo.io"
-	GitBucket   = "git.jsgo.io"
-
 	ErrorKind   = "Error"
 	CompileKind = "Compile"
 	PackageKind = "Package"
@@ -17,3 +12,10 @@ const (
 	ShareKind   = "Share"
 	HintsKind   = "Hints"
 )
+
+var Bucket = map[Site]string{
+	Src:   "src.jsgo.io",
+	Pkg:   "pkg.jsgo.io",
+	Index: "jsgo.io",
+	Git:   "git.jsgo.io",
+}

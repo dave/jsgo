@@ -53,7 +53,7 @@ func (h *Handler) Update(ctx context.Context, info messages.Update, req *http.Re
 	// Send a message to the client that downloading step has finished.
 	send(gettermsg.Downloading{Done: true})
 
-	if err := deployer.New(s, send, std.Index, std.Prelude, deployerConfig).Update(ctx, info.Source, info.Cache, info.Minify); err != nil {
+	if err := deployer.New(s, send, std.Index, std.Prelude, config.DeployerConfig).Update(ctx, info.Source, info.Cache, info.Minify); err != nil {
 		return err
 	}
 

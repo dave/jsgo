@@ -64,7 +64,7 @@ func (h *Handler) Deploy(ctx context.Context, info messages.Deploy, req *http.Re
 	send(gettermsg.Downloading{Done: true})
 
 	// Start the compile process - this compiles to JS and sends the files to a GCS bucket.
-	output, err := deployer.New(s, send, std.Index, std.Prelude, deployerConfig).Deploy(ctx, info.Main, deployer.HashIndex, map[bool]bool{true: true, false: false})
+	output, err := deployer.New(s, send, std.Index, std.Prelude, config.DeployerConfig).Deploy(ctx, info.Main, deployer.HashIndex, map[bool]bool{true: true, false: false})
 	if err != nil {
 		return err
 	}

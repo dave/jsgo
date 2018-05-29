@@ -3,9 +3,23 @@
 package config
 
 const (
-	LOCAL     = true
-	SrcHost   = "localhost:8091"
-	PkgHost   = "localhost:8092"
-	IndexHost = "localhost:8093"
-	Protocol  = "http"
+	LOCAL = true
 )
+
+var Host = map[Site]string{
+	Play:  "localhost:8080",
+	Jsgo:  "localhost:8081",
+	Frizz: "localhost:8082",
+	Src:   "localhost:8091",
+	Pkg:   "localhost:8092",
+	Index: "localhost:8093",
+}
+
+var Protocol = map[Site]string{
+	Jsgo:  "http",
+	Play:  "http",
+	Frizz: "http",
+	Src:   "http",
+	Pkg:   "http",
+	Index: "http",
+}

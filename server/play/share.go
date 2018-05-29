@@ -43,7 +43,7 @@ func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Requ
 		Message:   "source",
 		Name:      fmt.Sprintf("%x.json", hash),
 		Contents:  buf.Bytes(),
-		Bucket:    config.SrcBucket,
+		Bucket:    config.Bucket[config.Src],
 		Mime:      constor.MimeJson,
 		Count:     true,
 		Immutable: true,
