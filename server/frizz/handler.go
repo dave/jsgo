@@ -5,11 +5,9 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-
-	"cloud.google.com/go/datastore"
-
 	"time"
 
+	"cloud.google.com/go/datastore"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/frizz/messages"
 	"github.com/dave/jsgo/server/store"
@@ -42,35 +40,27 @@ func (h *Handler) Handle(ctx context.Context, req *http.Request, send func(messa
 }
 
 func (h *Handler) RequestTimeout() time.Duration {
-	panic("implement me")
+	return config.RequestTimeout
 }
 
 func (h *Handler) WebsocketPingPeriod() time.Duration {
-	panic("implement me")
+	return config.WebsocketPingPeriod
 }
 
 func (h *Handler) WebsocketTimeout() time.Duration {
-	panic("implement me")
+	return config.WebsocketWriteTimeout
 }
 
 func (h *Handler) WebsocketPongTimeout() time.Duration {
-	panic("implement me")
+	return config.WebsocketPongTimeout
 }
 
-func (h *Handler) MarshalMessage(services.Message) (payload []byte, messageType int, err error) {
-	panic("implement me")
+func (h *Handler) MarshalMessage(m services.Message) (payload []byte, messageType int, err error) {
+	return messages.Marshal(m)
 }
 
-func (h *Handler) UnarshalMessage([]byte) (services.Message, error) {
-	panic("implement me")
-}
-
-func (h *Handler) SendQueueing(send func(message services.Message), position int, done bool) {
-	panic("implement me")
-}
-
-func (h *Handler) SendError(send func(message services.Message), err error) {
-	panic("implement me")
+func (h *Handler) UnarshalMessage(b []byte) (services.Message, error) {
+	return messages.Unmarshal(b)
 }
 
 func (h *Handler) StoreError(ctx context.Context, err error, req *http.Request) {
