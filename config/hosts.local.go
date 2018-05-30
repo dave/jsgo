@@ -6,7 +6,7 @@ const (
 	LOCAL = true
 )
 
-var Host = map[Site]string{
+var Host = map[string]string{
 	Play:  "localhost:8080",
 	Jsgo:  "localhost:8081",
 	Frizz: "localhost:8082",
@@ -15,7 +15,7 @@ var Host = map[Site]string{
 	Index: "localhost:8093",
 }
 
-var Protocol = map[Site]string{
+var Protocol = map[string]string{
 	Jsgo:  "http",
 	Play:  "http",
 	Frizz: "http",

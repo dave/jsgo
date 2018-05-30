@@ -16,8 +16,8 @@ import (
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
 	"github.com/dave/services"
-	"github.com/dave/services/fileserver/constor"
-	"github.com/dave/services/fileserver/constor/constormsg"
+	"github.com/dave/services/constor"
+	"github.com/dave/services/constor/constormsg"
 )
 
 func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Request, send func(message services.Message), receive chan services.Message) error {

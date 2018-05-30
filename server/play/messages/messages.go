@@ -8,8 +8,8 @@ import (
 	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/services"
 	"github.com/dave/services/builder/buildermsg"
+	"github.com/dave/services/constor/constormsg"
 	"github.com/dave/services/deployer/deployermsg"
-	"github.com/dave/services/fileserver/constor/constormsg"
 	"github.com/dave/services/getter/gettermsg"
 	"github.com/gorilla/websocket"
 )

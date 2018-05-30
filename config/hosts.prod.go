@@ -6,7 +6,7 @@ const (
 	LOCAL = false
 )
 
-var Host = map[Site]string{
+var Host = map[string]string{
 	Jsgo:  "compile.jsgo.io",
 	Play:  "play.jsgo.io",
 	Frizz: "frizz.io",
@@ -15,7 +15,7 @@ var Host = map[Site]string{
 	Index: "jsgo.io",
 }
 
-var Protocol = map[Site]string{
+var Protocol = map[string]string{
 	Jsgo:  "https",
 	Play:  "https",
 	Frizz: "https",

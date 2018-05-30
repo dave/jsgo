@@ -13,7 +13,7 @@ const (
 	HintsKind   = "Hints"
 )
 
-var Bucket = map[Site]string{
+var Bucket = map[string]string{
 	Src:   "src.jsgo.io",
 	Pkg:   "pkg.jsgo.io",
 	Index: "jsgo.io",

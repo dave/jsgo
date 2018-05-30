@@ -4,16 +4,14 @@ import (
 	"time"
 )
 
-type Site int
-
 const (
-	Jsgo Site = iota
-	Play
-	Frizz
-	Index
-	Pkg
-	Src
-	Git
+	Jsgo  = "jsgo"
+	Play  = "play"
+	Frizz = "frizz"
+	Index = "index"
+	Pkg   = "pkg"
+	Src   = "src"
+	Git   = "git"
 )
 
 const (
@@ -68,4 +66,4 @@ var ValidExtensions = []string{".go", ".jsgo.html", ".inc.js", ".md"}
 
 var Buckets = []string{Bucket[Src], Bucket[Pkg], Bucket[Index], Bucket[Git]}
 
-var Static = []Site{Src, Pkg, Index}
+var Static = []string{Src, Pkg, Index}
