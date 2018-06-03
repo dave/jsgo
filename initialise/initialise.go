@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha1"
 	"encoding/gob"
+	"encoding/json"
 	"fmt"
 	"go/build"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"strings"
 
 	"cloud.google.com/go/storage"
+	"github.com/dave/frizz/models"
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/config"
 	"github.com/dave/services"
@@ -49,10 +51,10 @@ func main() {
 		fileserver = gcsfileserver.New(client, config.Buckets)
 	}
 
-	storer := constor.New(ctx, fileserver, 20)
+	storer := constor.New(ctx, fileserver, nil, 20)
 
-	index := map[string]map[bool]string{}
 	archives := map[string]map[bool]*compiler.Archive{}
+	source := map[string]map[string]string{}
 	packages, err := getStandardLibraryPackages()
 	if err != nil {
 		log.Fatal(err)
@@ -62,7 +64,11 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := CompileAndStoreJavascript(ctx, storer, packages, root, index, archives); err != nil {
+	if err := StoreSource(ctx, storer, packages, root, source); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := CompileAndStoreJavascript(ctx, storer, packages, root, archives); err != nil {
 		log.Fatal(err)
 	}
 
@@ -75,18 +81,102 @@ func main() {
 	}
 
 	fmt.Println("Waiting for storage operations...")
-	storer.Wait()
-	fmt.Println("Storage operations finished.")
-	if storer.Err != nil {
+	if err := storer.Wait(); err != nil {
 		log.Fatal(err)
 	}
+	fmt.Println("Storage operations finished.")
 
 }
 
-func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, index map[string]map[bool]string, archives map[string]map[bool]*compiler.Archive) error {
+func StoreSource(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, source map[string]map[string]string) error {
+	index := map[string]string{}
+	for _, path := range packages {
+		source[path] = map[string]string{}
+		dir := filepath.Join("goroot", "src", path)
+		fis, err := root.ReadDir(dir)
+		if err != nil {
+			return err
+		}
+		if len(fis) == 0 {
+			panic("0 files in " + path)
+		}
+		for _, fi := range fis {
+			if !strings.HasSuffix(fi.Name(), ".go") {
+				// include all .go files
+				continue
+			}
+			err := func() error {
+				f, err := root.Open(filepath.Join(dir, fi.Name()))
+				if err != nil {
+					return err
+				}
+				defer f.Close()
+				b, err := ioutil.ReadAll(f)
+				if err != nil {
+					return err
+				}
+				source[path][fi.Name()] = string(b)
+				return nil
+			}()
+			if err != nil {
+				return err
+			}
+		}
+		if len(source[path]) == 0 {
+			panic("0 files in " + path)
+		}
+		sp := models.SourcePack{
+			Path:  path,
+			Files: source[path],
+		}
+
+		sha := sha1.New()
+		buf := &bytes.Buffer{}
+		mw := io.MultiWriter(sha, buf)
+		if err := json.NewEncoder(mw).Encode(sp); err != nil {
+			return err
+		}
+		hash := fmt.Sprintf("%x", sha.Sum(nil))
+
+		storer.Add(constor.Item{
+			Message:   path,
+			Bucket:    config.Bucket[config.Pkg],
+			Name:      fmt.Sprintf("%s.%s.json", path, hash), // Note: hash is a string
+			Contents:  buf.Bytes(),
+			Mime:      constor.MimeJson,
+			Immutable: true,
+			Count:     true,
+			Send:      true,
+		})
+
+		index[path] = hash
+	}
+
+	fmt.Println("Saving source index...")
+	/*
+		var Source = map[string]string{
+			"<path>": "<hash>",
+		},
+	*/
+	f := jen.NewFile("std")
+	f.Var().Id("Source").Op("=").Map(jen.String()).String().Values(jen.DictFunc(func(d jen.Dict) {
+		for path, hash := range index {
+			d[jen.Lit(path)] = jen.Lit(hash)
+		}
+	}))
+	if err := f.Save("./assets/std/source.go"); err != nil {
+		return err
+	}
+	fmt.Println("Done.")
+	return nil
+}
+
+func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 
 	s := session.New(nil, root, nil, nil, nil)
+
+	index := map[string]map[bool]string{}
 
 	buildAndSend := func(min bool) error {
 		b := builder.New(s, &builder.Options{Unvendor: true, Initializer: true, Minify: min})
@@ -118,7 +208,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 					Message:   path + minified,
 					Name:      fmt.Sprintf("%s.%x.js", path, hash),
 					Contents:  contents,
-					Bucket:    config.PkgBucket,
+					Bucket:    config.Bucket[config.Pkg],
 					Mime:      constor.MimeJs,
 					Count:     true,
 					Immutable: true,
@@ -144,7 +234,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 					Message:   path + " archive" + minified,
 					Name:      fmt.Sprintf("%s.%x.ax", path, hash),
 					Contents:  buf.Bytes(),
-					Bucket:    config.PkgBucket,
+					Bucket:    config.Bucket[config.Pkg],
 					Mime:      constor.MimeBin,
 					Count:     true,
 					Immutable: true,
@@ -279,7 +369,7 @@ func CreateAssetsZip(storer *constor.Storer, root billy.Filesystem, archives map
 		Message:   "assets",
 		Name:      config.AssetsFilename,
 		Contents:  buf.Bytes(),
-		Bucket:    config.PkgBucket,
+		Bucket:    config.Bucket[config.Pkg],
 		Mime:      constor.MimeZip,
 		Count:     false,
 		Immutable: false,
@@ -300,7 +390,7 @@ func Prelude(storer *constor.Storer) error {
 			Message:   "prelude" + suffix,
 			Name:      fmt.Sprintf("prelude.%x.js", hash),
 			Contents:  b,
-			Bucket:    config.PkgBucket,
+			Bucket:    config.Bucket[config.Pkg],
 			Mime:      constor.MimeJs,
 			Count:     true,
 			Immutable: true,

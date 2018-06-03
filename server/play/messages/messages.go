@@ -30,7 +30,7 @@ var payloads = []interface{}{
 	DeployComplete{},
 
 	deployermsg.Archive{},
-	deployermsg.Index{},
+	deployermsg.ArchiveIndex{},
 
 	// Commands:
 	Update{},
@@ -54,12 +54,10 @@ type Update struct {
 	Minify bool
 }
 
-// Share is sent by the client to persist the setup on the server. This will be persisted publicly as
-// json, so best to use json tags to lower-case the names.
+// Share is sent by the client to persist the setup on the server.
 type Share struct {
-	Version int                          `json:"version"`
-	Source  map[string]map[string]string `json:"source"` // Source packages for this build: map[<package>]map[<filename>]<contents>
-	Tags    []string                     `json:"tags"`   // Build tags
+	Source map[string]map[string]string
+	Tags   []string
 }
 
 type Deploy struct {

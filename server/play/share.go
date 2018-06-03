@@ -15,6 +15,7 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/play/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/play/models"
 	"github.com/dave/services"
 	"github.com/dave/services/constor"
 	"github.com/dave/services/constor/constormsg"
@@ -24,10 +25,16 @@ func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Requ
 
 	send(constormsg.Storing{Starting: true})
 
+	sp := models.SharePack{
+		Version: 0,
+		Source:  info.Source,
+		Tags:    info.Tags,
+	}
+
 	buf := &bytes.Buffer{}
 	sha := sha1.New()
 	w := io.MultiWriter(buf, sha)
-	if err := json.NewEncoder(w).Encode(info); err != nil {
+	if err := json.NewEncoder(w).Encode(sp); err != nil {
 		return err
 	}
 	hash := sha.Sum(nil)
@@ -49,7 +56,9 @@ func (h *Handler) Share(ctx context.Context, info messages.Share, req *http.Requ
 		Immutable: true,
 		Send:      true,
 	})
-	storer.Wait()
+	if err := storer.Wait(); err != nil {
+		return err
+	}
 
 	send(constormsg.Storing{Done: true})
 

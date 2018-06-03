@@ -25,6 +25,7 @@ import (
 
 var Assets = memfs.New()
 var Archives map[string]map[bool]*compiler.Archive
+var Source map[string]map[string]string
 
 func Init() {
 	if err := loadAssets(Assets); err != nil {
@@ -88,6 +89,18 @@ func loadAssetFile(zipFile *zip.File, fs billy.Filesystem) error {
 		}
 		defer decompressed.Close()
 		if err := gob.NewDecoder(decompressed).Decode(&Archives); err != nil {
+			return err
+		}
+		return nil
+	}
+	if zipFile.Name == "/source.gob" {
+		// special case for source gob file
+		decompressed, err := zipFile.Open()
+		if err != nil {
+			return err
+		}
+		defer decompressed.Close()
+		if err := gob.NewDecoder(decompressed).Decode(&Source); err != nil {
 			return err
 		}
 		return nil

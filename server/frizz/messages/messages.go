@@ -19,11 +19,13 @@ type Payload struct {
 }
 
 func init() {
-	// Data messages:
-	gob.Register(TypesComplete{})
 
 	// Commands:
-	gob.Register(Types{})
+	gob.Register(GetSource{})
+
+	// Data messages:
+	gob.Register(SourceIndex{})
+	gob.Register(Source{})
 
 	// Initialise types in gotypes
 	gotypes.RegisterTypes()
@@ -44,11 +46,27 @@ func init() {
 	gettermsg.RegisterTypes()
 }
 
-type Types struct {
-	Path string
+type GetSource struct {
+	Path  string
+	Cache map[string]string // Map of path->hash of previously downloaded dependencies to use if still in the cache
+	Tags  []string
 }
-type TypesComplete struct {
-	Types []gotypes.Named
+
+// SourceIndex is a list of the source of dependencies.
+type SourceIndex map[string]SourceIndexItem
+
+// SourceIndexItem is an item in SourceIndex. Unchanged is true if the client already has cached as
+// specified by Cache in the Source message. Unchanged dependencies are not sent as Source messages.
+type SourceIndexItem struct {
+	Hash      string // Hash of the source pack
+	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
+}
+
+// Source contains information about the source pack
+type Source struct {
+	Path     string
+	Hash     string // Hash of the source pack
+	Standard bool
 }
 
 func Marshal(in services.Message) ([]byte, int, error) {
