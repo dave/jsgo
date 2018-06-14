@@ -4,6 +4,8 @@
 
 package gotypes
 
+import "fmt"
+
 // A Type represents a type of Go.
 // All types implement the Type interface.
 type Type interface {
@@ -14,11 +16,10 @@ type Type interface {
 	String() string
 }
 
-// When a circular reference is detected, this is used as a placeholder
-type Circular struct{}
+type Reference Identifier
 
-func (c Circular) Underlying() Type { return nil }
-func (c Circular) String() string   { return "circular reference" }
+func (r Reference) Underlying() Type { return nil }
+func (r Reference) String() string   { return fmt.Sprintf("%q.%s", r.Path, r.Name) }
 
 // BasicKind describes the kind of basic type.
 type BasicKind int
@@ -153,8 +154,8 @@ type Signature struct {
 
 // An Interface represents an interface type.
 type Interface struct {
-	Methods   []Func  // ordered list of explicitly declared methods
-	Embeddeds []Named // ordered list of explicitly embedded types
+	Methods   []Func      // ordered list of explicitly declared methods
+	Embeddeds []Reference // ordered list of explicitly embedded types
 
 	AllMethods []Func // ordered list of methods declared with or embedded in this interface (TODO(gri): replace with mset)
 }
@@ -178,7 +179,7 @@ func (t Interface) NumEmbeddeds() int { return len(t.Embeddeds) }
 
 // Embedded returns the i'th embedded type of interface t for 0 <= i < t.NumEmbeddeds().
 // The types are ordered by the corresponding TypeName's unique Id.
-func (t Interface) Embedded(i int) Named { return t.Embeddeds[i] }
+func (t Interface) Embedded(i int) Type { return t.Embeddeds[i] }
 
 // NumMethods returns the total number of methods of interface t.
 func (t Interface) NumMethods() int { return len(t.AllMethods) }
@@ -214,9 +215,8 @@ const (
 
 // A Named represents a named type.
 type Named struct {
-	Obj     TypeName // corresponding declared object
-	Type    Type     // possibly a Named during setup; never a Named once set up completely
-	Methods []Func   // methods declared for this type (not the method set of this type)
+	Type    Type   // possibly a Named during setup; never a Named once set up completely
+	Methods []Func // methods declared for this type (not the method set of this type)
 }
 
 // NumMethods returns the number of explicit methods whose receiver is named type t.

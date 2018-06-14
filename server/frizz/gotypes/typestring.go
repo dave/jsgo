@@ -95,7 +95,7 @@ func writeType(buf *bytes.Buffer, typ Type, qf Qualifier, visited []Type) {
 				buf.WriteString(f.Name)
 				buf.WriteByte(' ')
 			}
-			writeType(buf, f.Typ, qf, visited)
+			writeType(buf, f.Type, qf, visited)
 			if tag := t.Tag(i); tag != "" {
 				fmt.Fprintf(buf, " %q", tag)
 			}
@@ -133,7 +133,7 @@ func writeType(buf *bytes.Buffer, typ Type, qf Qualifier, visited []Type) {
 				buf.WriteString("; ")
 			}
 			buf.WriteString(m.Name)
-			writeSignature(buf, m.Typ.(Signature), qf, visited)
+			writeSignature(buf, m.Type.(Signature), qf, visited)
 			empty = false
 		}
 		for i, typ := range t.Embeddeds {
@@ -184,16 +184,13 @@ func writeType(buf *bytes.Buffer, typ Type, qf Qualifier, visited []Type) {
 		}
 
 	case Named:
-		s := "<Named w/o object>"
-		obj := t.Obj
-		if obj.Pkg != "" {
-			writePackage(buf, obj.Pkg, qf)
+		buf.WriteString(fmt.Sprintf("<named type with %d methods>", len(t.Methods)))
+
+	case Reference:
+		if t.Path != "" {
+			writePackage(buf, t.Path, qf)
 		}
-		// TODO(gri): function-local named types should be displayed
-		// differently from named types at package level to avoid
-		// ambiguity.
-		s = obj.Name
-		buf.WriteString(s)
+		buf.WriteString(t.Name)
 
 	default:
 		// For externally defined implementations of Type.
@@ -211,7 +208,7 @@ func writeTuple(buf *bytes.Buffer, tup Tuple, variadic bool, qf Qualifier, visit
 			buf.WriteString(v.Name)
 			buf.WriteByte(' ')
 		}
-		typ := v.Typ
+		typ := v.Type
 		if variadic && i == len(tup.Vars)-1 {
 			if s, ok := typ.(Slice); ok {
 				buf.WriteString("...")
@@ -252,7 +249,7 @@ func writeSignature(buf *bytes.Buffer, sig Signature, qf Qualifier, visited []Ty
 	buf.WriteByte(' ')
 	if n == 1 && sig.Results.Vars[0].Name == "" {
 		// single unnamed result
-		writeType(buf, sig.Results.Vars[0].Typ, qf, visited)
+		writeType(buf, sig.Results.Vars[0].Type, qf, visited)
 		return
 	}
 

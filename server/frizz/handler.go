@@ -28,8 +28,8 @@ func (h *Handler) Handle(ctx context.Context, req *http.Request, send func(messa
 	case m := <-receive:
 		tj.LogMessage(m)
 		switch m := m.(type) {
-		case messages.GetSource:
-			return h.Source(ctx, m, req, send, receive)
+		case messages.GetPackages:
+			return h.Packages(ctx, m, req, send, receive)
 		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}

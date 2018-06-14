@@ -8,18 +8,25 @@ import (
 	"encoding/gob"
 	"encoding/json"
 	"fmt"
+	"go/ast"
 	"go/build"
+	"go/parser"
+	"go/token"
+	"go/types"
 	"io"
 	"io/ioutil"
 	"log"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strings"
 
 	"cloud.google.com/go/storage"
 	"github.com/dave/frizz/models"
 	"github.com/dave/jennifer/jen"
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/server/frizz/gotypes"
+	"github.com/dave/jsgo/server/frizz/gotypes/convert"
 	"github.com/dave/services"
 	"github.com/dave/services/builder"
 	"github.com/dave/services/constor"
@@ -28,12 +35,18 @@ import (
 	"github.com/dave/services/fileserver/gcsfileserver"
 	"github.com/dave/services/fileserver/localfileserver"
 	"github.com/dave/services/session"
+	"github.com/dave/services/srcimporter"
+	"github.com/dave/stablegob"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	"gopkg.in/src-d/go-billy.v4/osfs"
 )
+
+func init() {
+	gotypes.RegisterTypesStablegob()
+}
 
 func main() {
 
@@ -65,6 +78,10 @@ func main() {
 	}
 
 	if err := StoreSource(ctx, storer, packages, root, source); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := ScanAndStoreTypes(ctx, storer, packages, root, source); err != nil {
 		log.Fatal(err)
 	}
 
@@ -171,6 +188,143 @@ func StoreSource(ctx context.Context, storer *constor.Storer, packages []string,
 	return nil
 }
 
+func ScanAndStoreTypes(ctx context.Context, storer *constor.Storer, stdPackages []string, root billy.Filesystem, source map[string]map[string]string) error {
+	fmt.Println("Scanning for objects...")
+
+	s := session.New([]string{}, root, nil, nil, config.ValidExtensions)
+
+	hashes := map[string]string{}
+
+	//stdPackages = []string{"os/user"}
+
+	for _, path := range stdPackages {
+		packages := map[string]*types.Package{}
+		fset := token.NewFileSet()
+		bctx := s.BuildContext(false, "")
+		tc := &types.Config{
+			FakeImportC: true,
+			Importer:    srcimporter.New(bctx, fset, packages),
+		}
+		ti := &types.Info{
+			Types: map[ast.Expr]types.TypeAndValue{},
+			Defs:  map[*ast.Ident]types.Object{},
+		}
+
+		bp, err := bctx.Import(path, filepath.Join(bctx.GOROOT, "src", path), 0)
+		if err != nil {
+			return nil
+		}
+
+		parsed := []*ast.File{}
+
+		sort.Slice(bp.GoFiles, func(i, j int) bool { return bp.GoFiles[i] < bp.GoFiles[j] })
+
+		for _, fname := range bp.GoFiles {
+			dir := filepath.Join(bctx.GOROOT, "src", path)
+			fpath := filepath.Join(dir, fname)
+			f, err := bctx.OpenFile(fpath)
+			if err != nil {
+				return err
+			}
+			b, err := ioutil.ReadAll(f)
+			if err != nil {
+				f.Close()
+				return err
+			}
+			f.Close()
+			if !strings.HasSuffix(fname, ".go") || strings.HasSuffix(fname, "_test.go") {
+				continue
+			}
+			match, err := bctx.MatchFile(filepath.Join(bctx.GOROOT, "src", path), fname)
+			if err != nil {
+				return err
+			}
+			if !match {
+				continue
+			}
+			astfile, err := parser.ParseFile(fset, fpath, b, 0)
+			if err != nil {
+				return err
+			}
+			parsed = append(parsed, astfile)
+		}
+
+		p, err := tc.Check(path, fset, parsed, ti)
+		if err != nil {
+			return err
+		}
+
+		if p == nil {
+			continue
+		}
+
+		objects := map[string]map[string]gotypes.Object{}
+		for _, name := range p.Scope().Names() {
+			v := p.Scope().Lookup(name)
+			if v == nil {
+				continue
+			}
+			if !v.Exported() {
+				continue
+			}
+
+			object := convert.Object(v)
+			name := object.Id().Name
+			file := fset.File(v.Pos()).Name()
+
+			if objects[file] == nil {
+				objects[file] = map[string]gotypes.Object{}
+			}
+			objects[file][name] = object
+		}
+		pp := models.ObjectPack{
+			Path:    p.Path(),
+			Name:    p.Name(),
+			Objects: objects,
+		}
+		sha := sha1.New()
+		buf := &bytes.Buffer{}
+		mw := io.MultiWriter(sha, buf)
+		if err := stablegob.NewEncoder(mw).Encode(pp); err != nil {
+			return err
+		}
+		hash := fmt.Sprintf("%x", sha.Sum(nil))
+		hashes[path] = hash
+		storer.Add(constor.Item{
+			Message:   p.Path(),
+			Bucket:    config.Bucket[config.Pkg],
+			Name:      fmt.Sprintf("%s.%s.objects.gob", p.Path(), hash), // Note: hash is a string
+			Contents:  buf.Bytes(),
+			Mime:      constor.MimeBin,
+			Immutable: true,
+			Count:     true,
+			Send:      true,
+		})
+		fmt.Printf("%s: %d objects\n", path, len(objects))
+
+	}
+
+	fmt.Println("Saving index...")
+	/*
+		var Objects = map[string]string{
+			"<path>": "<hash>",
+			...
+		}
+	*/
+	f := jen.NewFile("std")
+	f.Var().Id("Objects").Op("=").Map(jen.String()).String().Values(jen.DictFunc(func(d jen.Dict) {
+		for path, hash := range hashes {
+			d[jen.Lit(path)] = jen.Lit(hash)
+		}
+	}))
+	if err := f.Save("./assets/std/objects.go"); err != nil {
+		return err
+	}
+
+	fmt.Println("Done")
+	return nil
+}
+
 func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, archives map[string]map[bool]*compiler.Archive) error {
 	fmt.Println("Loading...")
 
@@ -225,6 +379,10 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 				// need to recreate the full JS from these files. Instead we use the stripped archive
 				// files in the compile process, and we use the JS files stored on the CDN. Thus we
 				// benefit from browser caching.
+
+				// NOTE: After stripping the contents, the archives are actually binary consistent...
+				// we could change this to use separate hashes for js and archive... However that would
+				// be fiddly so I'm not going to do it now. TODO: revisit this?
 
 				buf := &bytes.Buffer{}
 				if err := compiler.WriteArchive(deployer.StripArchive(archive), buf); err != nil {

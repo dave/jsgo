@@ -36,3 +36,26 @@ const (
 	Assert
 	Trace
 )
+
+var BuiltinNames = map[string]BuiltinId{
+	"append":   Append,
+	"cap":      Cap,
+	"close":    Close,
+	"complex":  Complex,
+	"copy":     Copy,
+	"delete":   Delete,
+	"imag":     Imag,
+	"len":      Len,
+	"make":     Make,
+	"new":      New,
+	"panic":    Panic,
+	"print":    Print,
+	"println":  Println,
+	"real":     Real,
+	"recover":  Recover,
+	"Alignof":  Alignof,
+	"Offsetof": Offsetof,
+	"Sizeof":   Sizeof,
+	"assert":   Assert,
+	"trace":    Trace,
+}

@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"encoding/gob"
 
-	"github.com/dave/jsgo/server/frizz/gotypes"
 	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/services"
 	"github.com/dave/services/builder/buildermsg"
@@ -21,14 +20,12 @@ type Payload struct {
 func init() {
 
 	// Commands:
-	gob.Register(GetSource{})
+	gob.Register(GetPackages{})
 
 	// Data messages:
-	gob.Register(SourceIndex{})
+	gob.Register(PackageIndex{})
 	gob.Register(Source{})
-
-	// Initialise types in gotypes
-	gotypes.RegisterTypes()
+	gob.Register(Objects{})
 
 	// Initialise types in deployermsg
 	deployermsg.RegisterTypes()
@@ -46,19 +43,27 @@ func init() {
 	gettermsg.RegisterTypes()
 }
 
-type GetSource struct {
-	Path  string
-	Cache map[string]string // Map of path->hash of previously downloaded dependencies to use if still in the cache
-	Tags  []string
+type GetPackages struct {
+	Path    string
+	Tags    []string
+	Source  map[string]string // Map of path->hash of previously downloaded source dependencies to use if still in the cache
+	Objects map[string]string // Map of path->hash of previously downloaded objects dependencies to use if still in the cache
 }
 
-// SourceIndex is a list of the source of dependencies.
-type SourceIndex map[string]SourceIndexItem
+// PackagesIndex is returned to the client to summarize the Source and Objects messages that were also
+// sent, and to confirm which were not sent because the cache was up-to-date.
+type PackageIndex struct {
+	Path    string
+	Tags    []string
+	Source  map[string]IndexItem
+	Objects map[string]IndexItem
+}
 
-// SourceIndexItem is an item in SourceIndex. Unchanged is true if the client already has cached as
-// specified by Cache in the Source message. Unchanged dependencies are not sent as Source messages.
-type SourceIndexItem struct {
-	Hash      string // Hash of the source pack
+// IndexItem is an item in PackagesIndex. Unchanged is true if the client already has cached as
+// specified by Cache in the GetPackages message. Unchanged dependencies are not sent as Source / Objects
+// messages.
+type IndexItem struct {
+	Hash      string // Hash of the item
 	Unchanged bool   // Unchanged is true if the package already exists in the client cache.
 }
 
@@ -66,6 +71,13 @@ type SourceIndexItem struct {
 type Source struct {
 	Path     string
 	Hash     string // Hash of the source pack
+	Standard bool
+}
+
+// Objects contains information about the object pack
+type Objects struct {
+	Path     string
+	Hash     string // Hash of the object pack
 	Standard bool
 }
 
