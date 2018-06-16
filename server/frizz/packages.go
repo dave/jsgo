@@ -78,6 +78,10 @@ func (h *Handler) Packages(ctx context.Context, info messages.GetPackages, req *
 	g := get.New(s, send, gitreq)
 
 	g.Callback = func(path string, files map[string]string, standard bool) error {
+		if path != info.Path {
+			// only return source for main package (not all dependencies)
+			return nil
+		}
 		if done[path] {
 			return nil
 		}
