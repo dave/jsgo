@@ -5,6 +5,8 @@ import (
 
 	"fmt"
 
+	"sort"
+
 	"github.com/dave/jsgo/server/frizz/gotypes"
 )
 
@@ -166,6 +168,15 @@ func Type(t types.Type, definition bool) gotypes.Type {
 			}
 			allMethods = append(allMethods, Object(t.Method(i)).(gotypes.Func))
 		}
+		sort.Slice(methods, func(i, j int) bool {
+			return compareId(methods[i].Obj.Identifier, methods[j].Obj.Identifier)
+		})
+		sort.Slice(embeddeds, func(i, j int) bool {
+			return compareId(gotypes.Identifier(embeddeds[i]), gotypes.Identifier(embeddeds[j]))
+		})
+		sort.Slice(allMethods, func(i, j int) bool {
+			return compareId(allMethods[i].Obj.Identifier, allMethods[j].Obj.Identifier)
+		})
 		return gotypes.Interface{
 			Methods:    methods,
 			Embeddeds:  embeddeds,
@@ -201,10 +212,17 @@ func Type(t types.Type, definition bool) gotypes.Type {
 			}
 			methods = append(methods, Object(t.Method(i)).(gotypes.Func))
 		}
+		sort.Slice(methods, func(i, j int) bool {
+			return compareId(methods[i].Obj.Identifier, methods[j].Obj.Identifier)
+		})
 		return gotypes.Named{
 			Type:    Type(t.Underlying(), false),
 			Methods: methods,
 		}
 	}
 	panic(fmt.Sprintf("can't convert %T", t))
+}
+
+func compareId(i, j gotypes.Identifier) bool {
+	return fmt.Sprintf("%q.%s", i.Path, i.Name) > fmt.Sprintf("%q.%s", j.Path, j.Name)
 }
