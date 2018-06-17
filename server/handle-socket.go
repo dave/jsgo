@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"runtime/debug"
 	"sync"
 	"time"
 
@@ -74,8 +75,8 @@ func (h *Handler) SocketHandler(s SocketHandlerInterface) func(w http.ResponseWr
 		// Recover from any panic and log the error.
 		defer func() {
 			if r := recover(); r != nil {
-				s.StoreError(ctx, fmt.Errorf("panic recovered: %s", r), req)
-				send(servermsg.Error{Message: fmt.Sprintf("panic recovered: %s", r)})
+				s.StoreError(ctx, fmt.Errorf("panic recovered: %s\n%s", r, string(debug.Stack())), req)
+				send(servermsg.Error{Message: fmt.Sprintf("panic recovered: %s\n%s", r, string(debug.Stack()))})
 			}
 		}()
 
