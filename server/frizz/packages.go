@@ -238,7 +238,7 @@ func (h *Handler) Packages(ctx context.Context, info messages.GetPackages, req *
 				object := convert.Object(v)
 				path := p.Path()
 				name := object.Id().Name
-				file := fset.File(v.Pos()).Name()
+				_, file := filepath.Split(fset.File(v.Pos()).Name())
 
 				if objects[path] == nil {
 					objects[path] = map[string]map[string]gotypes.Object{}
