@@ -189,6 +189,9 @@ func (h *Handler) Packages(ctx context.Context, info messages.GetPackages, req *
 	packages := map[string]*types.Package{}
 	tc := types.Config{
 		Importer: srcimporter.New(bctx, fset, packages),
+		Error: func(err error) {
+			// Ignore errors here - we should be able to load broken code.
+		},
 	}
 	ti := &types.Info{
 		Types: map[ast.Expr]types.TypeAndValue{},
@@ -196,7 +199,7 @@ func (h *Handler) Packages(ctx context.Context, info messages.GetPackages, req *
 	}
 	p, err := tc.Check(info.Path, fset, parsed, ti)
 	if err != nil {
-		return err
+		// Ignore errors here - we should be able to load broken code.
 	}
 	packages[info.Path] = p
 
