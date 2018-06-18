@@ -138,21 +138,21 @@ func writePackage(buf *bytes.Buffer, pkg string, qf Qualifier) {
 	}
 }
 
-func (obj PkgName) String() string  { return obj.Imported }
-func (obj Const) String() string    { return obj.Name }
-func (obj TypeName) String() string { return obj.Path + "." + obj.Name }
-func (obj Var) String() string      { return obj.Name }
-func (obj Func) String() string     { return obj.FullName() }
-func (obj Label) String() string    { return obj.Name }
-func (obj Builtin) String() string  { return obj.Name }
-func (obj Nil) String() string      { return obj.Name }
+func (obj *PkgName) String() string  { return obj.Imported }
+func (obj *Const) String() string    { return obj.Name }
+func (obj *TypeName) String() string { return obj.Path + "." + obj.Name }
+func (obj *Var) String() string      { return obj.Name }
+func (obj *Func) String() string     { return obj.FullName() }
+func (obj *Label) String() string    { return obj.Name }
+func (obj *Builtin) String() string  { return obj.Name }
+func (obj *Nil) String() string      { return obj.Name }
 
 func writeFuncName(buf *bytes.Buffer, f Func, qf Qualifier) {
 	if f.Type != nil {
-		sig := f.Type.(Signature)
-		if recv := sig.Recv; recv != (Var{}) {
+		sig := f.Type.(*Signature)
+		if recv := sig.Recv; recv != nil {
 			buf.WriteByte('(')
-			if _, ok := recv.Type.(Interface); ok {
+			if _, ok := recv.Type.(*Interface); ok {
 				// gcimporter creates abstract methods of
 				// named interfaces using the interface type
 				// (not the named type) as the receiver.

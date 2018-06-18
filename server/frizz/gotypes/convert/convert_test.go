@@ -18,6 +18,7 @@ import (
 	"regexp"
 
 	"github.com/dave/jsgo/server/frizz/gotypes"
+	"github.com/davecgh/go-spew/spew"
 )
 
 func TestFoo(t *testing.T) {
@@ -34,6 +35,7 @@ func TestFoo(t *testing.T) {
 }
 
 func TestConvertType(t *testing.T) {
+	spew.Config = spew.ConfigState{DisablePointerAddresses: true, DisableMethods: true}
 	type spec struct {
 		code     string
 		expected string
@@ -41,32 +43,32 @@ func TestConvertType(t *testing.T) {
 	tests := map[string]spec{
 		"simple": {
 			`type Foo int`,
-			`Foo: gotypes.Named{Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"ignore non-global": {
 			`type Foo string
 			func f() {
 				type Bar string
 			}`,
-			`Foo: gotypes.Named{Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"ignore non-exported": {
 			`type Foo string
 			 type bar string`,
-			`Foo: gotypes.Named{Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"ignore non-exported methods": {
 			`type Foo string
 			 func (Foo) bar(){}
 			 func (Foo) Baz(){}`,
-			`Foo: gotypes.Named{Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}, Methods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Baz"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:false}}}}}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string} Methods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Baz} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)false}}}]}`,
 		},
 		"ignore non-exported interface methods": {
 			`type Foo interface {
 				foo()
 				Bar()
 			}`,
-			`Foo: gotypes.Named{Type:gotypes.Interface{Methods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:false}}}}, Embeddeds:[]gotypes.Reference(nil), AllMethods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:false}}}}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Interface){Methods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)false}}}] Embeddeds:([]*gotypes.Reference)<nil> AllMethods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)false}}}]} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"ignore non-exported interface embeds": {
 			`type foo interface{}
@@ -75,15 +77,15 @@ func TestConvertType(t *testing.T) {
 				foo
 				Bar
 			}`,
-			`Bar: gotypes.Named{Type:gotypes.Interface{Methods:[]gotypes.Func(nil), Embeddeds:[]gotypes.Reference(nil), AllMethods:[]gotypes.Func(nil)}, Methods:[]gotypes.Func(nil)}
-			Baz: gotypes.Named{Type:gotypes.Interface{Methods:[]gotypes.Func(nil), Embeddeds:[]gotypes.Reference{gotypes.Reference{Path:"foo", Name:"Bar"}}, AllMethods:[]gotypes.Func(nil)}, Methods:[]gotypes.Func(nil)}`,
+			`Bar: (*gotypes.Named){Type:(*gotypes.Interface){Methods:([]*gotypes.Func)<nil> Embeddeds:([]*gotypes.Reference)<nil> AllMethods:([]*gotypes.Func)<nil>} Methods:([]*gotypes.Func)<nil>}
+			Baz: (*gotypes.Named){Type:(*gotypes.Interface){Methods:([]*gotypes.Func)<nil> Embeddeds:([]*gotypes.Reference)[<*>{Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar}}] AllMethods:([]*gotypes.Func)<nil>} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"include exported alias of non-exported type": {
 			`type foo struct {
 				Bar string
 			}
 			type Baz foo`,
-			`Baz: gotypes.Named{Type:gotypes.Struct{Fields:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:true}}, Tags:[]string{""}}, Methods:[]gotypes.Func(nil)}`,
+			`Baz: (*gotypes.Named){Type:(*gotypes.Struct){Fields:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)true}] Tags:([]string)[]} Methods:([]*gotypes.Func)<nil>}`,
 		},
 
 		// TODO: Will this break things?
@@ -92,50 +94,50 @@ func TestConvertType(t *testing.T) {
 				Bar string
 			}
 			type Baz *foo`,
-			`Baz: gotypes.Named{Type:gotypes.Pointer{Elem:gotypes.Reference{Path:"foo", Name:"foo"}}, Methods:[]gotypes.Func(nil)}`,
+			`Baz: (*gotypes.Named){Type:(*gotypes.Pointer){Elem:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)foo}}} Methods:([]*gotypes.Func)<nil>}`,
 		},
 
 		"two types": {
 			`type Foo int64
 			type Bar rune`,
-			`Bar: gotypes.Named{Type:gotypes.Basic{Kind:5, Info:2, Name:"rune"}, Methods:[]gotypes.Func(nil)}
-			Foo: gotypes.Named{Type:gotypes.Basic{Kind:6, Info:2, Name:"int64"}, Methods:[]gotypes.Func(nil)}`,
+			`Bar: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)5 Info:(gotypes.BasicInfo)2 Name:(string)rune} Methods:([]*gotypes.Func)<nil>}
+			Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)6 Info:(gotypes.BasicInfo)2 Name:(string)int64} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"alias": {
 			`type Foo int
 			type Bar Foo`,
-			`Bar: gotypes.Named{Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}, Methods:[]gotypes.Func(nil)}
-			Foo: gotypes.Named{Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}, Methods:[]gotypes.Func(nil)}`,
+			`Bar: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int} Methods:([]*gotypes.Func)<nil>}
+			Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"struct": {
 			`type Foo struct {
 				Bar string
 				baz string
 			}`,
-			`Foo: gotypes.Named{Type:gotypes.Struct{Fields:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:true}}, Tags:[]string{""}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Struct){Fields:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)true}] Tags:([]string)[]} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"array": {
 			`type Foo [2]string`,
-			`Foo: gotypes.Named{Type:gotypes.Array{Len:2, Elem:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Array){Len:(int64)2 Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"slice": {
 			`type Foo []int`,
-			`Foo: gotypes.Named{Type:gotypes.Slice{Elem:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Slice){Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"pointer": {
 			`type Foo *int`,
-			`Foo: gotypes.Named{Type:gotypes.Pointer{Elem:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Pointer){Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"func type": {
 			`type Foo func(int)`,
-			`Foo: gotypes.Named{Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"", Name:""}, Type:gotypes.Type(nil)}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Anonymous:false, IsField:false}}}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:false}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Signature){Recv:(*gotypes.Var)<nil> Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Anonymous:(bool)false IsField:(bool)false}]} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)false} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"interface": {
 			`type Foo interface{
 				A() string
 				B(int, ...string)
 			}`,
-			`Foo: gotypes.Named{Type:gotypes.Interface{Methods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"A"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}, gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"B"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Anonymous:false, IsField:false}, gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Slice{Elem:gotypes.Basic{Kind:17, Info:32, Name:"string"}}}, Anonymous:false, IsField:false}}}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:true}}}}, Embeddeds:[]gotypes.Reference(nil), AllMethods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"A"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}, gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"B"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Anonymous:false, IsField:false}, gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Slice{Elem:gotypes.Basic{Kind:17, Info:32, Name:"string"}}}, Anonymous:false, IsField:false}}}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:true}}}}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Interface){Methods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)B} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Anonymous:(bool)false IsField:(bool)false} <*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Slice){Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}}} Anonymous:(bool)false IsField:(bool)false}]} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)true}}} <*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)A} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}] Embeddeds:([]*gotypes.Reference)<nil> AllMethods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)B} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Anonymous:(bool)false IsField:(bool)false} <*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Slice){Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}}} Anonymous:(bool)false IsField:(bool)false}]} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)true}}} <*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)A} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}]} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"interface with embeds": {
 			`type Foo interface{
@@ -145,39 +147,39 @@ func TestConvertType(t *testing.T) {
 				Foo
 				B() string
 			}`,
-			`Bar: gotypes.Named{Type:gotypes.Interface{Methods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"B"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Bar"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}}, Embeddeds:[]gotypes.Reference{gotypes.Reference{Path:"foo", Name:"Foo"}}, AllMethods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"A"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}, gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"B"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Bar"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}}}, Methods:[]gotypes.Func(nil)}
-			Foo: gotypes.Named{Type:gotypes.Interface{Methods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"A"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}}, Embeddeds:[]gotypes.Reference(nil), AllMethods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"A"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}}}, Methods:[]gotypes.Func(nil)}`,
+			`Bar: (*gotypes.Named){Type:(*gotypes.Interface){Methods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)B} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}] Embeddeds:([]*gotypes.Reference)[<*>{Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}] AllMethods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)B} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}} <*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)A} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}]} Methods:([]*gotypes.Func)<nil>}
+			Foo: (*gotypes.Named){Type:(*gotypes.Interface){Methods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)A} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}] Embeddeds:([]*gotypes.Reference)<nil> AllMethods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)A} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}]} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"map": {
 			`type Foo map[string]int`,
-			`Foo: gotypes.Named{Type:gotypes.Map{Key:gotypes.Basic{Kind:17, Info:32, Name:"string"}, Elem:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Map){Key:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string} Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"chan": {
 			`type Foo chan<- int`,
-			`Foo: gotypes.Named{Type:gotypes.Chan{Dir:1, Elem:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Chan){Dir:(gotypes.ChanDir)1 Elem:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"methods": {
 			`type Foo struct{}
 			func (f Foo) Bar() int { return 1 }`,
-			`Foo: gotypes.Named{Type:gotypes.Struct{Fields:[]gotypes.Var(nil), Tags:[]string(nil)}, Methods:[]gotypes.Func{gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"f"}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:""}, Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Anonymous:false, IsField:false}}}, Variadic:false}}}}}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Struct){Fields:([]*gotypes.Var)<nil> Tags:([]string)<nil>} Methods:([]*gotypes.Func)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Signature){Recv:(*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)f} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false} Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Anonymous:(bool)false IsField:(bool)false}]} Variadic:(bool)false}}}]}`,
 		},
 		"func": {
 			`func Foo() {}`,
-			`Foo: gotypes.Func{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Foo"}, Type:gotypes.Signature{Recv:gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"", Name:""}, Type:gotypes.Type(nil)}, Anonymous:false, IsField:false}, Params:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Results:gotypes.Tuple{Vars:[]gotypes.Var(nil)}, Variadic:false}}}`,
+			`Foo: (*gotypes.Func){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo} Type:(*gotypes.Signature){Recv:(*gotypes.Var)<nil> Params:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Results:(*gotypes.Tuple){Vars:([]*gotypes.Var)<nil>} Variadic:(bool)false}}}`,
 		},
 		"recursive": {
 			`type Foo struct{ *Foo }`,
-			`Foo: gotypes.Named{Type:gotypes.Struct{Fields:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Foo"}, Type:gotypes.Pointer{Elem:gotypes.Reference{Path:"foo", Name:"Foo"}}}, Anonymous:true, IsField:true}}, Tags:[]string{""}}, Methods:[]gotypes.Func(nil)}`,
+			`Foo: (*gotypes.Named){Type:(*gotypes.Struct){Fields:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo} Type:(*gotypes.Pointer){Elem:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}}} Anonymous:(bool)true IsField:(bool)true}] Tags:([]string)[]} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"var int": {
 			`var Foo = 1`,
-			`Foo: gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Foo"}, Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Anonymous:false, IsField:false}`,
+			`Foo: (*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Anonymous:(bool)false IsField:(bool)false}`,
 		},
 		"var alias": {
 			`type Foo string
 			var Bar = Foo("foo")`,
-			`Bar: gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Reference{Path:"foo", Name:"Foo"}}, Anonymous:false, IsField:false}
-			Foo: gotypes.Named{Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}, Methods:[]gotypes.Func(nil)}`,
+			`Bar: (*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Reference){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo}}} Anonymous:(bool)false IsField:(bool)false}
+			Foo: (*gotypes.Named){Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string} Methods:([]*gotypes.Func)<nil>}`,
 		},
 		"var struct": {
 			`var Foo = struct{
@@ -187,11 +189,11 @@ func TestConvertType(t *testing.T) {
 				Bar: 1, 
 				Baz: "baz",
 			}`,
-			`Foo: gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Foo"}, Type:gotypes.Struct{Fields:[]gotypes.Var{gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Bar"}, Type:gotypes.Basic{Kind:2, Info:2, Name:"int"}}, Anonymous:false, IsField:true}, gotypes.Var{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Baz"}, Type:gotypes.Basic{Kind:17, Info:32, Name:"string"}}, Anonymous:false, IsField:true}}, Tags:[]string{"", ""}}}, Anonymous:false, IsField:false}`,
+			`Foo: (*gotypes.Var){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo} Type:(*gotypes.Struct){Fields:([]*gotypes.Var)[<*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Bar} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)2 Info:(gotypes.BasicInfo)2 Name:(string)int}} Anonymous:(bool)false IsField:(bool)true} <*>{Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Baz} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)17 Info:(gotypes.BasicInfo)32 Name:(string)string}} Anonymous:(bool)false IsField:(bool)true}] Tags:([]string)[ ]}} Anonymous:(bool)false IsField:(bool)false}`,
 		},
 		"const": {
 			`const Foo = "foo"`,
-			`Foo: gotypes.Const{Obj:gotypes.Obj{Identifier:gotypes.Identifier{Path:"foo", Name:"Foo"}, Type:gotypes.Basic{Kind:24, Info:96, Name:"untyped string"}}, Kind:2}`,
+			`Foo: (*gotypes.Const){Obj:(gotypes.Obj){Identifier:(gotypes.Identifier){Path:(string)foo Name:(string)Foo} Type:(*gotypes.Basic){Kind:(gotypes.BasicKind)24 Info:(gotypes.BasicInfo)96 Name:(string)untyped string}} Kind:(gotypes.ConstKind)2}`,
 		},
 	}
 	const single = ""
@@ -232,10 +234,10 @@ func TestConvertType(t *testing.T) {
 		sort.Slice(defs, func(i, j int) bool { return defs[i].Id().Name < defs[j].Id().Name })
 		buf := &bytes.Buffer{}
 		for _, o := range defs {
-			if tn, ok := o.(gotypes.TypeName); ok {
-				fmt.Fprintf(buf, "%s: %#v\n", o.Id().Name, tn.Type)
+			if tn, ok := o.(*gotypes.TypeName); ok {
+				fmt.Fprintf(buf, "%s: %s\n", o.Id().Name, spew.Sprintf("%#v", tn.Type))
 			} else {
-				fmt.Fprintf(buf, "%s: %#v\n", o.Id().Name, o)
+				fmt.Fprintf(buf, "%s: %s\n", o.Id().Name, spew.Sprintf("%#v", o))
 			}
 		}
 		if strings.TrimSpace(buf.String()) != indent.ReplaceAllString(test.expected, "") {
