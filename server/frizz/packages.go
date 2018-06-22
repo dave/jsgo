@@ -240,7 +240,7 @@ func (h *Handler) Packages(ctx context.Context, info messages.GetPackages, req *
 
 				object := convert.Object(v)
 				path := p.Path()
-				name := object.Id().Name
+				name := object.Object().Name
 				_, file := filepath.Split(fset.File(v.Pos()).Name())
 
 				if objects[path] == nil {

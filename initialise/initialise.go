@@ -269,7 +269,7 @@ func ScanAndStoreTypes(ctx context.Context, storer *constor.Storer, stdPackages 
 			}
 
 			object := convert.Object(v)
-			name := object.Id().Name
+			name := object.Object().Name
 			_, file := filepath.Split(fset.File(v.Pos()).Name())
 
 			if objects[file] == nil {

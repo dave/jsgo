@@ -10,7 +10,7 @@ import (
 )
 
 type Object interface {
-	Id() Identifier
+	Object() Obj
 }
 
 type Identifier struct {
@@ -50,6 +50,10 @@ type Obj struct {
 
 func (obj Obj) Id() Identifier {
 	return obj.Identifier
+}
+
+func (obj Obj) Object() Obj {
+	return obj
 }
 
 // A PkgName represents an imported Go package.

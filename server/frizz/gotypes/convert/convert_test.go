@@ -231,13 +231,13 @@ func TestConvertType(t *testing.T) {
 			o := Object(v)
 			defs = append(defs, o)
 		}
-		sort.Slice(defs, func(i, j int) bool { return defs[i].Id().Name < defs[j].Id().Name })
+		sort.Slice(defs, func(i, j int) bool { return defs[i].Object().Name < defs[j].Object().Name })
 		buf := &bytes.Buffer{}
 		for _, o := range defs {
 			if tn, ok := o.(*gotypes.TypeName); ok {
-				fmt.Fprintf(buf, "%s: %s\n", o.Id().Name, spew.Sprintf("%#v", tn.Type))
+				fmt.Fprintf(buf, "%s: %s\n", o.Object().Name, spew.Sprintf("%#v", tn.Type))
 			} else {
-				fmt.Fprintf(buf, "%s: %s\n", o.Id().Name, spew.Sprintf("%#v", o))
+				fmt.Fprintf(buf, "%s: %s\n", o.Object().Name, spew.Sprintf("%#v", o))
 			}
 		}
 		if strings.TrimSpace(buf.String()) != indent.ReplaceAllString(test.expected, "") {
