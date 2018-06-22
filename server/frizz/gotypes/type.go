@@ -110,9 +110,17 @@ type Array struct {
 	Elem Type  // Elem returns element type of array a.
 }
 
+func (a Array) Element() Type {
+	return a.Elem
+}
+
 // A Slice represents a slice type.
 type Slice struct {
 	Elem Type // Elem returns the element type of slice s.
+}
+
+func (s Slice) Element() Type {
+	return s.Elem
 }
 
 // A Struct represents a struct type.
@@ -138,6 +146,10 @@ func (s Struct) Tag(i int) string {
 // A Pointer represents a pointer type.
 type Pointer struct {
 	Elem Type // Elem returns the element type for the given pointer p.
+}
+
+func (p Pointer) Element() Type {
+	return p.Elem
 }
 
 // A Tuple represents an ordered list of variables; a nil *Tuple is a valid (empty) tuple.
@@ -215,10 +227,18 @@ type Map struct {
 	Elem Type // Elem returns the element type of map m.
 }
 
+func (m Map) Element() Type {
+	return m.Elem
+}
+
 // A Chan represents a channel type.
 type Chan struct {
 	Dir  ChanDir // Dir returns the direction of channel c.
 	Elem Type    // Elem returns the element type of channel c.
+}
+
+func (c Chan) Element() Type {
+	return c.Elem
 }
 
 // A ChanDir value indicates a channel direction.
