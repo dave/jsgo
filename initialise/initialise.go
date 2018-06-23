@@ -200,7 +200,7 @@ func ScanAndStoreTypes(ctx context.Context, storer *constor.Storer, stdPackages 
 	for _, path := range stdPackages {
 		packages := map[string]*types.Package{}
 		fset := token.NewFileSet()
-		bctx := s.BuildContext(false, "")
+		bctx := s.BuildContext(session.DefaultType, "")
 		tc := &types.Config{
 			FakeImportC: true,
 			Importer:    srcimporter.New(bctx, fset, packages),

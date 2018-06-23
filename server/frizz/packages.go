@@ -158,7 +158,7 @@ func (h *Handler) Packages(ctx context.Context, info messages.GetPackages, req *
 
 	// Parse for types
 	fset := token.NewFileSet()
-	bctx := s.BuildContext(false, "")
+	bctx := s.BuildContext(session.DefaultType, "")
 	parsed := []*ast.File{}
 
 	// Files must be in the same order each time
