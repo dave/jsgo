@@ -30,10 +30,10 @@ import (
 	"github.com/dave/services"
 	"github.com/dave/services/builder"
 	"github.com/dave/services/constor"
-	"github.com/dave/services/copier"
 	"github.com/dave/services/deployer"
 	"github.com/dave/services/fileserver/gcsfileserver"
 	"github.com/dave/services/fileserver/localfileserver"
+	"github.com/dave/services/fsutil"
 	"github.com/dave/services/session"
 	"github.com/dave/services/srcimporter"
 	"github.com/dave/stablegob"
@@ -589,13 +589,13 @@ const jsGoPrelude = `$load.prelude=function(){};`
 
 func getRootFilesystem() (billy.Filesystem, error) {
 	root := memfs.New()
-	if err := copier.Copy("/src", "/goroot/src", osfs.New(build.Default.GOROOT), root); err != nil {
+	if err := fsutil.Copy(root, "/goroot/src", osfs.New(build.Default.GOROOT), "/src"); err != nil {
 		return nil, err
 	}
-	if err := copier.Copy("/src/github.com/gopherjs/gopherjs/js", "/goroot/src/github.com/gopherjs/gopherjs/js", osfs.New(build.Default.GOPATH), root); err != nil {
+	if err := fsutil.Copy(root, "/goroot/src/github.com/gopherjs/gopherjs/js", osfs.New(build.Default.GOPATH), "/src/github.com/gopherjs/gopherjs/js"); err != nil {
 		return nil, err
 	}
-	if err := copier.Copy("/src/github.com/gopherjs/gopherjs/nosync", "/goroot/src/github.com/gopherjs/gopherjs/nosync", osfs.New(build.Default.GOPATH), root); err != nil {
+	if err := fsutil.Copy(root, "/goroot/src/github.com/gopherjs/gopherjs/nosync", osfs.New(build.Default.GOPATH), "/src/github.com/gopherjs/gopherjs/nosync"); err != nil {
 		return nil, err
 	}
 	return root, nil
