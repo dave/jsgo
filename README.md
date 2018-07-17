@@ -85,8 +85,8 @@ If a function `window.jsgoProgress` exists, it will be called repeatedly as pack
 are supplied: `count` (the number of packages loaded so far) and `total` (the total number of packages).
 
 The default index page on `jsgo.io` is to display a simple `count / total` message in a span. However, 
-by supplying a custom `index.jsgo.html`, more complex effects may be created - see the [2048 
-example](https://jsgo.io/hajimehoshi/ebiten/examples/2048) for a [bootstrap progress bar](https://github.com/hajimehoshi/ebiten/blob/master/examples/2048/index.jsgo.html).
+by supplying a custom `index.jsgo.html`, more complex effects may be created - see the [html2vecty 
+example](https://jsgo.io/dave/html2vecty) for a [bootstrap progress bar](https://github.com/dave/html2vecty/blob/master/index.jsgo.html).
 
 ### Limitations
 
