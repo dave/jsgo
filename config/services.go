@@ -11,8 +11,8 @@ import (
 
 var GitFetcherConfig = gitfetcher.Config{
 	GitSaveTimeout:  time.Second * 300,
-	GitCloneTimeout: time.Second * 120,
-	GitMaxObjects:   30000,
+	GitCloneTimeout: time.Second * 300,
+	GitMaxObjects:   250000,
 	GitBucket:       Bucket[Git],
 }
 
