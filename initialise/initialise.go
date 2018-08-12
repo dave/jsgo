@@ -16,6 +16,7 @@ import (
 	"io"
 	"io/ioutil"
 	"log"
+	"os"
 	"os/exec"
 	"path/filepath"
 	"sort"
@@ -94,6 +95,10 @@ func main() {
 	}
 
 	if err := CreateAssetsZip(storer, root, archives); err != nil {
+		log.Fatal(err)
+	}
+
+	if err := Wasm(storer); err != nil {
 		log.Fatal(err)
 	}
 
@@ -181,7 +186,7 @@ func StoreSource(ctx context.Context, storer *constor.Storer, packages []string,
 			d[jen.Lit(path)] = jen.Lit(hash)
 		}
 	}))
-	if err := f.Save("./assets/std/source.go"); err != nil {
+	if err := f.Save("../assets/std/source.go"); err != nil {
 		return err
 	}
 	fmt.Println("Done.")
@@ -317,7 +322,7 @@ func ScanAndStoreTypes(ctx context.Context, storer *constor.Storer, stdPackages 
 			d[jen.Lit(path)] = jen.Lit(hash)
 		}
 	}))
-	if err := f.Save("./assets/std/objects.go"); err != nil {
+	if err := f.Save("../assets/std/objects.go"); err != nil {
 		return err
 	}
 
@@ -441,7 +446,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 			})
 		}
 	}))
-	if err := f.Save("./assets/std/index.go"); err != nil {
+	if err := f.Save("../assets/std/index.go"); err != nil {
 		return err
 	}
 	fmt.Println("Done.")
@@ -501,7 +506,7 @@ func CreateAssetsZip(storer *constor.Storer, root billy.Filesystem, archives map
 	if err := compress(root, "/"); err != nil {
 		return err
 	}
-	if err := compress(osfs.New("./assets/static"), "/"); err != nil {
+	if err := compress(osfs.New("../assets/static"), "/"); err != nil {
 		return err
 	}
 
@@ -519,7 +524,7 @@ func CreateAssetsZip(storer *constor.Storer, root billy.Filesystem, archives map
 	if err := w.Close(); err != nil {
 		return err
 	}
-	if err := ioutil.WriteFile(filepath.Join("./assets/", config.AssetsFilename), buf.Bytes(), 0777); err != nil {
+	if err := ioutil.WriteFile(filepath.Join("../assets/", config.AssetsFilename), buf.Bytes(), 0777); err != nil {
 		return err
 	}
 
@@ -533,6 +538,57 @@ func CreateAssetsZip(storer *constor.Storer, root billy.Filesystem, archives map
 		Immutable: false,
 	})
 
+	return nil
+}
+
+func Wasm(storer *constor.Storer) error {
+	store := func(message, fpath string) ([]byte, error) {
+		buf := &bytes.Buffer{}
+		sha := sha1.New()
+		w := io.MultiWriter(buf, sha)
+		f, err := os.Open(fpath)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+		if _, err := io.Copy(w, f); err != nil {
+			return nil, err
+		}
+		hash := sha.Sum(nil)
+		storer.Add(constor.Item{
+			Message:   message,
+			Name:      fmt.Sprintf("wasm_exec.%x.js", hash),
+			Contents:  buf.Bytes(),
+			Bucket:    config.Bucket[config.Pkg],
+			Mime:      constor.MimeJs,
+			Count:     true,
+			Immutable: true,
+		})
+		return hash, nil
+	}
+	hashMax, err := store("wasm", "../assets/static/wasm/wasm_exec.js")
+	if err != nil {
+		return err
+	}
+	hashMin, err := store("wasm (minified)", "../assets/static/wasm/wasm_exec.min.js")
+	if err != nil {
+		return err
+	}
+
+	/*
+		var Wasm = map[bool]string{
+			false: "...",
+			true: "...",
+		}
+	*/
+	f := jen.NewFile("std")
+	f.Var().Id("Wasm").Op("=").Map(jen.Bool()).String().Values(jen.Dict{
+		jen.Lit(false): jen.Lit(fmt.Sprintf("%x", hashMax)),
+		jen.Lit(true):  jen.Lit(fmt.Sprintf("%x", hashMin)),
+	})
+	if err := f.Save("../assets/std/wasm.go"); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -575,7 +631,7 @@ func Prelude(storer *constor.Storer) error {
 		jen.Lit(false): jen.Lit(fmt.Sprintf("%x", hashMax)),
 		jen.Lit(true):  jen.Lit(fmt.Sprintf("%x", hashMin)),
 	})
-	if err := f.Save("./assets/std/prelude.go"); err != nil {
+	if err := f.Save("../assets/std/prelude.go"); err != nil {
 		return err
 	}
 	return nil

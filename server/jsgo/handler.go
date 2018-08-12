@@ -32,6 +32,8 @@ func (h *Handler) Handle(ctx context.Context, req *http.Request, send func(messa
 		switch m := m.(type) {
 		case messages.Compile:
 			return h.Compile(ctx, m, req, send, receive)
+		case messages.CommandDeploy:
+			return h.CommandDeploy(ctx, m, req, send, receive)
 		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}
