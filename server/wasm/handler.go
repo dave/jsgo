@@ -1,18 +1,16 @@
-package jsgo
+package wasm
 
 import (
 	"context"
 	"errors"
 	"fmt"
 	"net/http"
-
-	"cloud.google.com/go/datastore"
-
 	"time"
 
+	"cloud.google.com/go/datastore"
 	"github.com/dave/jsgo/config"
-	"github.com/dave/jsgo/server/jsgo/messages"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/jsgo/server/wasm/messages"
 	"github.com/dave/services"
 	"github.com/dave/services/getter/cache"
 	"github.com/dave/services/queue"
@@ -30,8 +28,8 @@ func (h *Handler) Handle(ctx context.Context, req *http.Request, send func(messa
 	case m := <-receive:
 		tj.LogMessage(m)
 		switch m := m.(type) {
-		case messages.Compile:
-			return h.Compile(ctx, m, req, send, receive)
+		case messages.DeployQuery:
+			return h.DeployQuery(ctx, m, req, send, receive)
 		default:
 			return fmt.Errorf("invalid init message %T", m)
 		}

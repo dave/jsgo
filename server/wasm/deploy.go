@@ -1,14 +1,14 @@
-package jsgo
+package wasm
 
 import (
 	"context"
 	"net/http"
 
-	"github.com/dave/jsgo/server/jsgo/messages"
+	"github.com/dave/jsgo/server/wasm/messages"
 	"github.com/dave/services"
 )
 
-func (h *Handler) CommandDeploy(ctx context.Context, info messages.CommandDeploy, req *http.Request, send func(services.Message), receive chan services.Message) error {
+func (h *Handler) DeployQuery(ctx context.Context, info messages.DeployQuery, req *http.Request, send func(services.Message), receive chan services.Message) error {
 
 	// TODO
 	//h.Fileserver.Exists()

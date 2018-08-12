@@ -16,7 +16,7 @@ import (
 
 func main() {
 
-	var mainServer, dev1Server, dev2Server *http.Server
+	var mainServer, dev1Server, dev2Server, dev3Server *http.Server
 
 	shutdown := make(chan struct{})
 	handler := server.New(shutdown)
@@ -25,6 +25,7 @@ func main() {
 		mainServer = &http.Server{Addr: ":8080", Handler: handler}
 		dev1Server = &http.Server{Addr: ":8081", Handler: handler}
 		dev2Server = &http.Server{Addr: ":8082", Handler: handler}
+		dev3Server = &http.Server{Addr: ":8083", Handler: handler}
 	} else {
 		port := "8080"
 		if fromEnv := os.Getenv("PORT"); fromEnv != "" {
@@ -51,6 +52,13 @@ func main() {
 		go func() {
 			log.Print("Listening on " + dev2Server.Addr)
 			if err := dev2Server.ListenAndServe(); err != http.ErrServerClosed {
+				log.Fatal(err)
+			}
+		}()
+
+		go func() {
+			log.Print("Listening on " + dev3Server.Addr)
+			if err := dev3Server.ListenAndServe(); err != http.ErrServerClosed {
 				log.Fatal(err)
 			}
 		}()
@@ -89,6 +97,12 @@ func main() {
 			log.Printf("Error: %v\n", err)
 		} else {
 			log.Println("Dev 2 server stopped")
+		}
+
+		if err := dev3Server.Shutdown(ctx); err != nil {
+			log.Printf("Error: %v\n", err)
+		} else {
+			log.Println("Dev 3 server stopped")
 		}
 	}
 

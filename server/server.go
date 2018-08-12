@@ -26,6 +26,7 @@ import (
 	"github.com/dave/jsgo/server/jsgo"
 	"github.com/dave/jsgo/server/play"
 	"github.com/dave/jsgo/server/store"
+	"github.com/dave/jsgo/server/wasm"
 	"github.com/dave/patsy"
 	"github.com/dave/patsy/vos"
 	"github.com/dave/services"
@@ -103,6 +104,7 @@ func New(shutdown chan struct{}) *Handler {
 	h.mux.HandleFunc("/_jsgo/", h.SocketHandler(&jsgo.Handler{h.Cache, h.Fileserver, h.Database}))
 	h.mux.HandleFunc("/_play/", h.SocketHandler(&play.Handler{h.Cache, h.Fileserver, h.Database}))
 	h.mux.HandleFunc("/_frizz/", h.SocketHandler(&frizz.Handler{h.Cache, h.Fileserver, h.Database}))
+	h.mux.HandleFunc("/_wasm/", h.SocketHandler(&wasm.Handler{h.Cache, h.Fileserver, h.Database}))
 
 	//h.mux.HandleFunc("/_ws/", h.SocketHandler)
 	//h.mux.HandleFunc("/_pg/", h.SocketHandler)

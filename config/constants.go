@@ -6,6 +6,7 @@ import (
 
 const (
 	Jsgo  = "jsgo"
+	Wasm  = "wasm"
 	Play  = "play"
 	Frizz = "frizz"
 	Index = "index"

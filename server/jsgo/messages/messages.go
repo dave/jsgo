@@ -12,10 +12,6 @@ type Compile struct {
 	Path string
 }
 
-type CommandDeploy struct {
-	HashPage, HashLoader, HashWasm string
-}
-
 type Complete struct {
 	Path    string
 	Short   string
