@@ -2,7 +2,7 @@ package deployer
 
 import "text/template"
 
-var indexTemplate = template.Must(template.New("main").Parse(`<html>
+var defaultIndexTemplate = template.Must(template.New("main").Parse(`<html>
 <head><meta charset="utf-8"></head>
 <body>
 	<script src="{{ .Script }}"></script>

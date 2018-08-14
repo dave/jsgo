@@ -19,6 +19,8 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/jsgo/server/wasm/messages"
+	"github.com/dave/patsy"
+	"github.com/dave/patsy/vos"
 	"github.com/dave/services/constor/constormsg"
 	"github.com/gorilla/websocket"
 	"github.com/pkg/browser"
@@ -109,6 +111,27 @@ func Start(cfg *cmdconfig.Config) error {
 	indexVars := struct{ Script, Loader string }{
 		Script: fmt.Sprintf("%s://%s/wasm_exec.%s.js", config.Protocol[config.Pkg], config.Host[config.Pkg], std.Wasm[true]),
 		Loader: loaderUrl,
+	}
+	indexTemplate := defaultIndexTemplate
+	if cfg.Index != "" {
+		indexFilename := cfg.Index
+		if cfg.Path != "" {
+			dir, err := patsy.Dir(vos.Os(), cfg.Path)
+			if err != nil {
+				return err
+			}
+			indexFilename = filepath.Join(dir, cfg.Index)
+		}
+		indexTemplateBytes, err := ioutil.ReadFile(indexFilename)
+		if err != nil && !os.IsNotExist(err) {
+			return err
+		}
+		if err == nil {
+			indexTemplate, err = template.New("main").Parse(string(indexTemplateBytes))
+			if err != nil {
+				return err
+			}
+		}
 	}
 	if err := indexTemplate.Execute(io.MultiWriter(indexBuf, indexSha), indexVars); err != nil {
 		return err
