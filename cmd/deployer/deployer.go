@@ -12,6 +12,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"text/template"
 
 	"github.com/dave/jsgo/assets/std"
@@ -46,7 +47,10 @@ func Start(cfg *cmdconfig.Config) error {
 
 	args := []string{"build", "-o", fpath}
 
-	// TODO: more args?
+	extraFlags := strings.Fields(cfg.Flags)
+	for _, f := range extraFlags {
+		args = append(args, f)
+	}
 
 	path := "."
 	if cfg.Path != "" {

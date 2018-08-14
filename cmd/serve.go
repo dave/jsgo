@@ -17,6 +17,6 @@ var serveCmd = &cobra.Command{
 	Long:  "Starts a webserver locally, and recompiles the WASM on every page refresh, for testing and development.",
 	Args:  cobra.RangeArgs(0, 1),
 	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("serve!")
+		fmt.Println("Serve mode coming soon...")
 	},
 }
