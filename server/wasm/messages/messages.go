@@ -26,6 +26,7 @@ func init() {
 	gob.Register(DeployFile{})
 	gob.Register(DeployPayload{})
 	gob.Register(DeployDone{})
+	gob.Register(DeployClientVersionNotSupported{})
 
 	// Initialise types in servermsg
 	servermsg.RegisterTypes()
@@ -39,7 +40,8 @@ func init() {
 // Client sends a DeployFile for each required file.
 
 type DeployQuery struct {
-	Files []DeployFileKey
+	Version string
+	Files   []DeployFileKey
 }
 
 type DeployQueryResponse struct {
@@ -49,6 +51,8 @@ type DeployQueryResponse struct {
 type DeployPayload struct {
 	Files []DeployFile
 }
+
+type DeployClientVersionNotSupported struct{}
 
 type DeployFileKey struct {
 	Type DeployFileType

@@ -27,6 +27,8 @@ import (
 	"github.com/pkg/browser"
 )
 
+const CLIENT_VERSION = "1.0.0"
+
 func Start(cfg *cmdconfig.Config) error {
 
 	var debug io.Writer
@@ -152,6 +154,7 @@ func Start(cfg *cmdconfig.Config) error {
 	indexUrl := fmt.Sprintf("%s://%s/%x", config.Protocol[config.Index], config.Host[config.Index], indexSha.Sum(nil))
 
 	message := messages.DeployQuery{
+		Version: CLIENT_VERSION,
 		Files: []messages.DeployFileKey{
 			files[messages.DeployFileTypeWasm].DeployFileKey,
 			files[messages.DeployFileTypeIndex].DeployFileKey,
@@ -198,6 +201,10 @@ func Start(cfg *cmdconfig.Config) error {
 			done = true
 		case servermsg.Queueing:
 			// don't print
+		case servermsg.Error:
+			return errors.New(message.Message)
+		case messages.DeployClientVersionNotSupported:
+			return errors.New("this client version is not supported - try `go get -u github.com/dave/jsgo`")
 		default:
 			// unexpected
 			fmt.Fprintf(debug, "Unexpected message from server: %#v\n", message)
@@ -244,6 +251,8 @@ func Start(cfg *cmdconfig.Config) error {
 				done = true
 			case servermsg.Queueing:
 				// don't print
+			case servermsg.Error:
+				return errors.New(message.Message)
 			case constormsg.Storing:
 				if message.Remain > 0 || message.Finished > 0 {
 					fmt.Fprintf(debug, "Storing, %d to go.\n", message.Remain)
