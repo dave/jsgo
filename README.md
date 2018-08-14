@@ -1,3 +1,5 @@
+<a href="https://patreon.com/davebrophy" title="Help with my hosting bills using Patreon"><img src="https://img.shields.io/badge/patreon-donate-yellow.svg" style="max-width:100%;"></a>
+
 # jsgo.io
 
 [GopherJS](https://github.com/gopherjs/gopherjs) is an amazing tool, but I've always been frustrated 
