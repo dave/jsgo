@@ -8,8 +8,11 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/dave/jsgo/config"
+	"github.com/dave/jsgo/server/servermsg"
+	"github.com/dave/jsgo/server/store"
 	"github.com/dave/jsgo/server/wasm/messages"
 	"github.com/dave/services"
 	"github.com/dave/services/constor"
@@ -45,6 +48,10 @@ func (h *Handler) DeployQuery(ctx context.Context, info messages.DeployQuery, re
 
 	send(messages.DeployQueryResponse{Required: required})
 
+	if len(required) == 0 {
+		return nil
+	}
+
 	var payload messages.DeployPayload
 	select {
 	case message := <-receive:
@@ -56,7 +63,9 @@ func (h *Handler) DeployQuery(ctx context.Context, info messages.DeployQuery, re
 	storer := constor.New(ctx, h.Fileserver, send, config.ConcurrentStorageUploads)
 	defer storer.Close()
 
+	var files []store.WasmDeployFile
 	for _, f := range payload.Files {
+		files = append(files, store.WasmDeployFile{Type: string(f.Type), Hash: f.Hash})
 		// check the hash is correct
 		sha := sha1.New()
 		if _, err := io.Copy(sha, bytes.NewBuffer(f.Contents)); err != nil {
@@ -85,9 +94,24 @@ func (h *Handler) DeployQuery(ctx context.Context, info messages.DeployQuery, re
 
 	send(constormsg.Storing{Done: true})
 
+	h.storeWasmDeploy(ctx, send, req, files)
+
 	send(messages.DeployDone{})
 
 	return nil
+}
+
+func (h *Handler) storeWasmDeploy(ctx context.Context, send func(services.Message), req *http.Request, files []store.WasmDeployFile) {
+	data := store.WasmDeploy{
+		Time:  time.Now(),
+		Ip:    req.Header.Get("X-Forwarded-For"),
+		Files: files,
+	}
+	if err := store.StoreWasmDeploy(ctx, h.Database, data); err != nil {
+		// don't save this one to the datastore because it's an error from the datastore.
+		send(servermsg.Error{Message: err.Error()})
+		return
+	}
 }
 
 func details(typ messages.DeployFileType, hash string) (bucket, name, mime string) {

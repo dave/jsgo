@@ -57,6 +57,17 @@ type CompilePackage struct {
 	Standard bool
 }
 
+type WasmDeploy struct {
+	Time  time.Time
+	Ip    string
+	Files []WasmDeployFile
+}
+
+type WasmDeployFile struct {
+	Type string
+	Hash string
+}
+
 func StoreError(ctx context.Context, database services.Database, data Error) error {
 	if _, err := database.Put(ctx, errorKey(), &data); err != nil {
 		return err
@@ -88,6 +99,13 @@ func StoreCompile(ctx context.Context, database services.Database, path string, 
 	return nil
 }
 
+func StoreWasmDeploy(ctx context.Context, database services.Database, data WasmDeploy) error {
+	if _, err := database.Put(ctx, wasmDeployKey(), &data); err != nil {
+		return err
+	}
+	return nil
+}
+
 func Package(ctx context.Context, database services.Database, path string) (bool, CompileData, error) {
 	var data CompileData
 	if err := database.Get(ctx, packageKey(path), &data); err != nil {
@@ -105,6 +123,10 @@ func errorKey() *datastore.Key {
 
 func compileKey() *datastore.Key {
 	return datastore.IncompleteKey(config.CompileKind, nil)
+}
+
+func wasmDeployKey() *datastore.Key {
+	return datastore.IncompleteKey(config.WasmDeployKind, nil)
 }
 
 func deployKey() *datastore.Key {

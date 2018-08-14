@@ -5,12 +5,13 @@ package config
 const (
 	DEV = true
 
-	ErrorKind   = "ErrorDev"
-	CompileKind = "CompileDev"
-	PackageKind = "PackageDev"
-	DeployKind  = "DeployDev"
-	ShareKind   = "ShareDev"
-	HintsKind   = "HintsDev"
+	ErrorKind      = "ErrorDev"
+	CompileKind    = "CompileDev"
+	PackageKind    = "PackageDev"
+	DeployKind     = "DeployDev"
+	ShareKind      = "ShareDev"
+	HintsKind      = "HintsDev"
+	WasmDeployKind = "WasmDeployDev"
 )
 
 var Bucket = map[string]string{
