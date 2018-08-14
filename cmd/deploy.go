@@ -1,8 +1,10 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"text/template"
 
 	"github.com/dave/jsgo/cmd/deployer"
 	"github.com/spf13/cobra"
@@ -24,7 +26,31 @@ var deployCmd = &cobra.Command{
 			global.Path = args[0]
 		}
 		if err := deployer.Start(global); err != nil {
-			fmt.Println(err)
+
+			outputVars := struct {
+				Page    string
+				Loader  string
+				Error   bool
+				Message string
+			}{
+				Error:   true,
+				Message: err.Error(),
+			}
+
+			if global.Json {
+				out, err := json.Marshal(outputVars)
+				if err != nil {
+					panic(err)
+				}
+				fmt.Println(string(out))
+			} else {
+				tpl, err := template.New("main").Parse(global.Template)
+				if err != nil {
+					panic(err)
+				}
+				tpl.Execute(os.Stdout, outputVars)
+				fmt.Println("")
+			}
 			os.Exit(1)
 		}
 	},

@@ -2,6 +2,7 @@ package messages
 
 import (
 	"bytes"
+	"compress/gzip"
 	"encoding/gob"
 
 	"github.com/dave/jsgo/server/servermsg"
@@ -23,6 +24,8 @@ func init() {
 	gob.Register(DeployQueryResponse{})
 	gob.Register(DeployFileKey{})
 	gob.Register(DeployFile{})
+	gob.Register(DeployPayload{})
+	gob.Register(DeployDone{})
 
 	// Initialise types in servermsg
 	servermsg.RegisterTypes()
@@ -43,6 +46,10 @@ type DeployQueryResponse struct {
 	Required []DeployFileKey
 }
 
+type DeployPayload struct {
+	Files []DeployFile
+}
+
 type DeployFileKey struct {
 	Type DeployFileType
 	Hash string // sha1 hash of contents
@@ -52,6 +59,8 @@ type DeployFile struct {
 	DeployFileKey
 	Contents []byte // in the initial CommandDeploy, this is nil
 }
+
+type DeployDone struct{}
 
 type DeployFileType string
 
@@ -64,7 +73,11 @@ const (
 func Marshal(in services.Message) ([]byte, int, error) {
 	p := Payload{in}
 	buf := &bytes.Buffer{}
-	if err := gob.NewEncoder(buf).Encode(p); err != nil {
+	gzw := gzip.NewWriter(buf)
+	if err := gob.NewEncoder(gzw).Encode(p); err != nil {
+		return nil, 0, err
+	}
+	if err := gzw.Close(); err != nil {
 		return nil, 0, err
 	}
 	return buf.Bytes(), websocket.BinaryMessage, nil
@@ -72,7 +85,14 @@ func Marshal(in services.Message) ([]byte, int, error) {
 
 func Unmarshal(in []byte) (services.Message, error) {
 	var p Payload
-	if err := gob.NewDecoder(bytes.NewBuffer(in)).Decode(&p); err != nil {
+	gzr, err := gzip.NewReader(bytes.NewBuffer(in))
+	if err != nil {
+		return nil, err
+	}
+	if err := gob.NewDecoder(gzr).Decode(&p); err != nil {
+		return nil, err
+	}
+	if err := gzr.Close(); err != nil {
 		return nil, err
 	}
 	return p.Message, nil

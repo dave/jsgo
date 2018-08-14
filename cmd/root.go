@@ -4,11 +4,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/dave/jsgo/cmd/config"
+	"github.com/dave/jsgo/cmd/cmdconfig"
 	"github.com/spf13/cobra"
 )
 
-var global = &config.Config{}
+var global = &cmdconfig.Config{}
 
 func init() {
 	rootCmd.PersistentFlags().StringVarP(&global.Index, "index", "i", "index.jsgo.html", "Specify the index page. If omitted, use `index.jsgo.html` if it exists.")

@@ -1,4 +1,4 @@
-package config
+package cmdconfig
 
 type Config struct {
 	Port     int
