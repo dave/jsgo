@@ -19,10 +19,19 @@ import (
 	"github.com/dave/jsgo/config"
 	"github.com/dave/jsgo/server/servermsg"
 	"github.com/dave/jsgo/server/wasm/messages"
+	"github.com/dave/services/constor/constormsg"
 	"github.com/gorilla/websocket"
+	"github.com/pkg/browser"
 )
 
 func Start(cfg *cmdconfig.Config) error {
+
+	var debug io.Writer
+	if cfg.Verbose {
+		debug = os.Stdout
+	} else {
+		debug = ioutil.Discard
+	}
 
 	// create a temp dir
 	dir, err := ioutil.TempDir("", "")
@@ -42,6 +51,8 @@ func Start(cfg *cmdconfig.Config) error {
 		path = cfg.Path
 	}
 	args = append(args, path)
+
+	fmt.Fprintln(debug, "Compiling...")
 
 	cmd := exec.Command(cfg.Command, args...)
 	cmd.Env = os.Environ()
@@ -76,7 +87,7 @@ func Start(cfg *cmdconfig.Config) error {
 
 	loaderBuf := &bytes.Buffer{}
 	loaderSha := sha1.New()
-	wasmUrl := fmt.Sprintf("%s://%s/%x.wasm", config.Protocol[config.Pkg], config.Host[config.Pkg], fmt.Sprintf("%x", binarySha.Sum(nil)))
+	wasmUrl := fmt.Sprintf("%s://%s/%x.wasm", config.Protocol[config.Pkg], config.Host[config.Pkg], binarySha.Sum(nil))
 	loaderVars := struct{ Binary string }{
 		Binary: wasmUrl,
 	}
@@ -94,7 +105,7 @@ func Start(cfg *cmdconfig.Config) error {
 
 	indexBuf := &bytes.Buffer{}
 	indexSha := sha1.New()
-	loaderUrl := fmt.Sprintf("%s://%s/%s.js", config.Protocol[config.Pkg], config.Host[config.Pkg], std.Wasm[true])
+	loaderUrl := fmt.Sprintf("%s://%s/%x.js", config.Protocol[config.Pkg], config.Host[config.Pkg], loaderSha.Sum(nil))
 	indexVars := struct{ Script, Loader string }{
 		Script: fmt.Sprintf("%s://%s/wasm_exec.%s.js", config.Protocol[config.Pkg], config.Host[config.Pkg], std.Wasm[true]),
 		Loader: loaderUrl,
@@ -120,6 +131,8 @@ func Start(cfg *cmdconfig.Config) error {
 			files[messages.DeployFileTypeLoader].DeployFileKey,
 		},
 	}
+
+	fmt.Fprintln(debug, "Querying server...")
 
 	protocol := "wss"
 	if config.Protocol[config.Wasm] == "http" {
@@ -155,60 +168,74 @@ func Start(cfg *cmdconfig.Config) error {
 		switch message := message.(type) {
 		case messages.DeployQueryResponse:
 			response = message
-			fmt.Printf("%#v\n", message)
 			done = true
 		case servermsg.Queueing:
 			// don't print
 		default:
 			// unexpected
-			fmt.Printf("%#v\n", message)
+			fmt.Fprintf(debug, "Unexpected message from server: %#v\n", message)
 		}
 	}
 
-	var required []messages.DeployFile
-	for _, k := range response.Required {
-		file := files[k.Type]
-		if file.Hash == "" {
-			return errors.New("server requested file not found")
+	if len(response.Required) > 0 {
+
+		fmt.Fprintf(debug, "Files required: %d.\n", len(response.Required))
+		fmt.Fprintln(debug, "Bundling required files...")
+
+		var required []messages.DeployFile
+		for _, k := range response.Required {
+			file := files[k.Type]
+			if file.Hash == "" {
+				return errors.New("server requested file not found")
+			}
+			required = append(required, file)
 		}
-		required = append(required, file)
-	}
 
-	payload := messages.DeployPayload{Files: required}
-	payloadBytes, payloadType, err := messages.Marshal(payload)
-	if err != nil {
-		return err
-	}
-	if err := conn.WriteMessage(payloadType, payloadBytes); err != nil {
-		return err
-	}
-
-	done = false
-	for !done {
-		_, replyBytes, err := conn.ReadMessage()
+		payload := messages.DeployPayload{Files: required}
+		payloadBytes, payloadType, err := messages.Marshal(payload)
 		if err != nil {
 			return err
 		}
-		message, err := messages.Unmarshal(replyBytes)
-		if err != nil {
+		if err := conn.WriteMessage(payloadType, payloadBytes); err != nil {
 			return err
 		}
-		switch message := message.(type) {
-		case messages.DeployDone:
-			done = true
-		case servermsg.Queueing:
-			// don't print
-		default:
-			// storing messages
-			fmt.Printf("%#v\n", message)
+
+		fmt.Fprintf(debug, "Sending payload: %dKB.\n", len(payloadBytes)/1024)
+
+		done = false
+		for !done {
+			_, replyBytes, err := conn.ReadMessage()
+			if err != nil {
+				return err
+			}
+			message, err := messages.Unmarshal(replyBytes)
+			if err != nil {
+				return err
+			}
+			switch message := message.(type) {
+			case messages.DeployDone:
+				done = true
+			case servermsg.Queueing:
+				// don't print
+			case constormsg.Storing:
+				if message.Remain > 0 || message.Finished > 0 {
+					fmt.Fprintf(debug, "Storing, %d to go.\n", message.Remain)
+				}
+			default:
+				// unexpected
+				fmt.Fprintf(debug, "Unexpected message from server: %#v\n", message)
+			}
 		}
+
+		fmt.Fprintln(debug, "Sending done.")
+
+	} else {
+		fmt.Fprintln(debug, "No files required.")
 	}
 
 	outputVars := struct {
-		Page    string
-		Loader  string
-		Error   bool
-		Message string
+		Page   string
+		Loader string
 	}{
 		Page:   indexUrl,
 		Loader: loaderUrl,
@@ -228,5 +255,10 @@ func Start(cfg *cmdconfig.Config) error {
 		tpl.Execute(os.Stdout, outputVars)
 		fmt.Println("")
 	}
+
+	if cfg.Open {
+		browser.OpenURL(indexUrl)
+	}
+
 	return nil
 }

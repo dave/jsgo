@@ -1,17 +1,15 @@
 package cmd
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"text/template"
 
 	"github.com/dave/jsgo/cmd/deployer"
 	"github.com/spf13/cobra"
 )
 
 func init() {
-	deployCmd.PersistentFlags().StringVarP(&global.Template, "template", "t", "{{ if .Error }}Error: {{ .Message }}{{ else }}Page:   {{ .Page }}\nLoader: {{ .Loader }}{{ end }}", "Template defining the output returned by the deploy command. Variables: Page (string), Loader (string), Error (bool), Message (string).")
+	deployCmd.PersistentFlags().StringVarP(&global.Template, "template", "t", "{{ .Page }}", "Template defining the output returned by the deploy command. Variables: Page (string), Loader (string).")
 	deployCmd.PersistentFlags().BoolVarP(&global.Json, "json", "j", false, "Return all template variables as a json blob from the deploy command.")
 	rootCmd.AddCommand(deployCmd)
 }
@@ -26,31 +24,7 @@ var deployCmd = &cobra.Command{
 			global.Path = args[0]
 		}
 		if err := deployer.Start(global); err != nil {
-
-			outputVars := struct {
-				Page    string
-				Loader  string
-				Error   bool
-				Message string
-			}{
-				Error:   true,
-				Message: err.Error(),
-			}
-
-			if global.Json {
-				out, err := json.Marshal(outputVars)
-				if err != nil {
-					panic(err)
-				}
-				fmt.Println(string(out))
-			} else {
-				tpl, err := template.New("main").Parse(global.Template)
-				if err != nil {
-					panic(err)
-				}
-				tpl.Execute(os.Stdout, outputVars)
-				fmt.Println("")
-			}
+			fmt.Fprintf(os.Stderr, err.Error())
 			os.Exit(1)
 		}
 	},

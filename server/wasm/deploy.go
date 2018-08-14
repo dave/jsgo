@@ -23,6 +23,7 @@ func (h *Handler) DeployQuery(ctx context.Context, info messages.DeployQuery, re
 	wg := &sync.WaitGroup{}
 
 	for _, file := range info.Files {
+		file := file
 		var outer error
 		wg.Add(1)
 		go func() {

@@ -5,7 +5,7 @@ type Config struct {
 	Index    string
 	Template string
 	Json     bool
-	Quiet    bool
+	Verbose  bool
 	Open     bool
 	Command  string
 	Flags    string
