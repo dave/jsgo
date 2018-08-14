@@ -45,7 +45,13 @@ func (h *Handler) DeployQuery(ctx context.Context, info messages.DeployQuery, re
 
 	send(messages.DeployQueryResponse{Required: required})
 
-	payload := (<-receive).(messages.DeployPayload)
+	var payload messages.DeployPayload
+	select {
+	case message := <-receive:
+		payload = message.(messages.DeployPayload)
+	case <-ctx.Done():
+		return nil
+	}
 
 	storer := constor.New(ctx, h.Fileserver, send, config.ConcurrentStorageUploads)
 	defer storer.Close()
