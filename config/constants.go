@@ -16,7 +16,7 @@ const (
 )
 
 const (
-	LocalFileserverTempDir = "/Users/dave/.jsgo-local"
+	LocalFileserverTempDir = "~/.jsgo-local"
 
 	// ProjectId is the ID of the GCS project
 	ProjectID = "jsgo-192815"

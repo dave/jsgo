@@ -101,3 +101,6 @@ If you'd like to chat more about the project, feel free to [add an issue](https:
 mention [@dave](https://github.com/dave/) in your PR, email me or post in the #gopherjs channel of the 
 Gophers Slack. I'm happy to help!
 
+### Run locally?
+
+If you'd like to run jsgo locally, take a look at [these instructions](LOCAL.md).

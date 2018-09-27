@@ -2,24 +2,18 @@ package main
 
 import (
 	"context"
-	"errors"
-	"log"
-
-	"fmt"
-
-	"os"
-
 	"encoding/json"
-
-	"strings"
-
+	"errors"
+	"fmt"
 	"io"
-
+	"log"
 	"math/rand"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/dave/blast/blaster"
-	"github.com/dave/jsgo/server/messages"
+	"github.com/dave/jsgo/server/play/messages"
 	"github.com/mitchellh/mapstructure"
 	"golang.org/x/net/websocket"
 )
@@ -88,7 +82,7 @@ func (w *Worker) Send(ctx context.Context, raw map[string]interface{}) (out map[
 		return // insert error
 	}
 
-	b, _ := messages.Marshal(messages.Initialise{Path: p.Path, Minify: true})
+	b, _, _ := messages.Marshal(messages.Initialise{Path: p.Path, Minify: true})
 	if err != nil {
 		return map[string]interface{}{"status": "error encoding: " + err.Error()}, err
 	}

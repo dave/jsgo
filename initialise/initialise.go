@@ -7,6 +7,7 @@ import (
 	"crypto/sha1"
 	"encoding/gob"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -65,10 +66,13 @@ func main() {
 		fileserver = gcsfileserver.New(client, config.Buckets)
 	}
 
+	var frizzEnabled bool
+	flag.BoolVar(&frizzEnabled, "frizz", false, "Enable frizz mode")
+	flag.Parse()
+
 	storer := constor.New(ctx, fileserver, nil, 20)
 
 	archives := map[string]map[bool]*compiler.Archive{}
-	source := map[string]map[string]string{}
 	packages, err := getStandardLibraryPackages()
 	if err != nil {
 		log.Fatal(err)
@@ -78,26 +82,34 @@ func main() {
 		log.Fatal(err)
 	}
 
-	if err := StoreSource(ctx, storer, packages, root, source); err != nil {
-		log.Fatal(err)
+	if frizzEnabled {
+		// Creates .json files for the source code of all standard library packages (FRIZZ ONLY)
+		if err := StoreSource(ctx, storer, packages, root); err != nil {
+			log.Fatal(err)
+		}
+
+		// Creates .objects.gob files for the types of all standard library packages (FRIZZ ONLY)
+		if err := ScanAndStoreTypes(ctx, storer, packages, root); err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	if err := ScanAndStoreTypes(ctx, storer, packages, root, source); err != nil {
-		log.Fatal(err)
-	}
-
+	// Creates .js (compiled JS) and .ax (stripped GopherJS archive) files for all standard library package.
 	if err := CompileAndStoreJavascript(ctx, storer, packages, root, archives); err != nil {
 		log.Fatal(err)
 	}
 
+	// Creates the GopherJS prelude.
 	if err := Prelude(storer); err != nil {
 		log.Fatal(err)
 	}
 
+	// Bundles the server-side run-time assets (standard library source, /assets/static, archives.gob) into a single compressed file.
 	if err := CreateAssetsZip(storer, root, archives); err != nil {
 		log.Fatal(err)
 	}
 
+	// Creates the wasm_exec file (WASMGO ONLY)
 	if err := Wasm(storer); err != nil {
 		log.Fatal(err)
 	}
@@ -110,7 +122,8 @@ func main() {
 
 }
 
-func StoreSource(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem, source map[string]map[string]string) error {
+func StoreSource(ctx context.Context, storer *constor.Storer, packages []string, root billy.Filesystem) error {
+	source := map[string]map[string]string{}
 	index := map[string]string{}
 	for _, path := range packages {
 		source[path] = map[string]string{}
@@ -193,7 +206,7 @@ func StoreSource(ctx context.Context, storer *constor.Storer, packages []string,
 	return nil
 }
 
-func ScanAndStoreTypes(ctx context.Context, storer *constor.Storer, stdPackages []string, root billy.Filesystem, source map[string]map[string]string) error {
+func ScanAndStoreTypes(ctx context.Context, storer *constor.Storer, stdPackages []string, root billy.Filesystem) error {
 	fmt.Println("Scanning for objects...")
 
 	s := session.New([]string{}, root, nil, nil, config.ValidExtensions)
@@ -676,6 +689,8 @@ func getStandardLibraryPackages() ([]string, error) {
 		"plugin":                 true,
 		"runtime/cgo":            true,
 		"os/signal/internal/pty": true,
+		"cmd/pprof":              true,
+		"cmd/trace":              true,
 	}
 	var filtered []string
 	for _, p := range all {

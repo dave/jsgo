@@ -1,6 +1,6 @@
 package std
 
 var Prelude = map[bool]string{
-	false: "2f55d1e8cd60b3405002e438e9fbfd71293e089f",
-	true:  "9fa5354baf5360cd05ba2ef218170de88191c7ee",
+	false: "f5ba55f92e3ca7931e188c3ad3a37d77efe16fc4",
+	true:  "157dde98f7d79d4d93872fe9c9189c7296ccac3e",
 }
