@@ -13,6 +13,7 @@ import (
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	"gopkg.in/src-d/go-git.v4"
 	"gopkg.in/src-d/go-git.v4/config"
+	"gopkg.in/src-d/go-git.v4/plumbing/cache"
 	"gopkg.in/src-d/go-git.v4/storage/filesystem"
 )
 
@@ -35,10 +36,7 @@ func clone() {
 	//	fmt.Println(err.Error())
 	//}
 	//_, err = git.Clone(store, memfs.New(), &git.CloneOptions{URL: "https://github.com/dave/jsgo"})
-	store, err := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), 50*1024*1024))
-	if err != nil {
-		log.Fatal(err.Error())
-	}
+	store := filesystem.NewStorage(NewWriteLimitedFilesystem(memfs.New(), 50*1024*1024), cache.NewObjectLRUDefault())
 
 	repo, err := git.Init(store, memfs.New())
 	if err != nil {
