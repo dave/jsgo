@@ -15,7 +15,7 @@ import (
 	"github.com/dave/services/getter/get"
 	"github.com/dave/services/getter/gettermsg"
 	"github.com/dave/services/session"
-	"github.com/shurcooL/go/ctxhttp"
+	"golang.org/x/net/context/ctxhttp"
 	"gopkg.in/src-d/go-billy.v4"
 )
 
