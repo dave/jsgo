@@ -2,14 +2,14 @@ module github.com/dave/jsgo
 
 require (
 	cloud.google.com/go v0.34.0
-	git.apache.org/thrift.git v0.0.0-20181220031232-7ac9e43ebcc4 // indirect
+	git.apache.org/thrift.git v0.0.0-20181225175352-087d88108d34 // indirect
 	github.com/apex/log v1.1.0
 	github.com/dave/blast v0.0.0-20180301095328-f3afebf2d24c
 	github.com/dave/frizz v0.0.0-20181022080000-c1df23557613
 	github.com/dave/jennifer v1.2.0
 	github.com/dave/patsy v0.0.0-20170606133301-2245ba804d71
 	github.com/dave/play v0.0.0-20180927083150-0d1bd3827742
-	github.com/dave/services v0.0.0-20181017184551-42464ea8a9dc
+	github.com/dave/services v0.0.1
 	github.com/dave/stablegob v1.0.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/emirpasic/gods v1.12.0 // indirect
@@ -30,6 +30,7 @@ require (
 	github.com/shurcooL/httpfs v0.0.0-20181222201310-74dc9339e414 // indirect
 	github.com/shurcooL/httpgzip v0.0.0-20180522190206-b1c53ac65af9
 	github.com/spf13/afero v1.2.0 // indirect
+	github.com/spf13/cobra v0.0.3 // indirect
 	github.com/spf13/viper v1.3.1 // indirect
 	github.com/ugorji/go/codec v0.0.0-20181209151446-772ced7fd4c2 // indirect
 	go.opencensus.io v0.18.0 // indirect
