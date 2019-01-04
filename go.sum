@@ -28,6 +28,7 @@ github.com/dave/services v0.0.0-20181017184551-42464ea8a9dc h1:ts6yVZqiz9Fqcp4oI
 github.com/dave/services v0.0.0-20181017184551-42464ea8a9dc/go.mod h1:H/RSVtLEC67SK6QAevsdWJgKMcE0fRhJmgXxEqBA/IA=
 github.com/dave/services v0.0.1 h1:XrOlJiLk99OxlO+sTjhUYn/nEaBfIGrdfI/+b6JwmMM=
 github.com/dave/services v0.0.1/go.mod h1:H/RSVtLEC67SK6QAevsdWJgKMcE0fRhJmgXxEqBA/IA=
+github.com/dave/services v0.1.0/go.mod h1:H/RSVtLEC67SK6QAevsdWJgKMcE0fRhJmgXxEqBA/IA=
 github.com/dave/stablegob v1.0.0 h1:m5g3f1z2DnBxHH/DzWVmrlI7nGrZ/kuPe4RyFT2G5nE=
 github.com/dave/stablegob v1.0.0/go.mod h1:YSkxg4P8gwXEcrk/LN4tj9379lOKCKgj+j5TNV7jRG8=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=

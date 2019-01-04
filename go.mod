@@ -9,7 +9,7 @@ require (
 	github.com/dave/jennifer v1.2.0
 	github.com/dave/patsy v0.0.0-20170606133301-2245ba804d71
 	github.com/dave/play v0.0.0-20180927083150-0d1bd3827742
-	github.com/dave/services v0.0.1
+	github.com/dave/services v0.1.0
 	github.com/dave/stablegob v1.0.0
 	github.com/dustin/go-humanize v1.0.0
 	github.com/emirpasic/gods v1.12.0 // indirect

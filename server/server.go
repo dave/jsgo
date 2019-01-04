@@ -56,7 +56,10 @@ func New(shutdown chan struct{}) *Handler {
 	if config.LOCAL {
 		fileserver = localfileserver.New(config.LocalFileserverTempDir, config.Static, config.Host, config.Bucket)
 		database = localdatabase.New(config.LocalFileserverTempDir)
-		fetcherResolver := localfetcher.New()
+		fetcherResolver, err := localfetcher.New()
+		if err != nil {
+			panic(err)
+		}
 		c = cache.New(
 			database,
 			fetcherResolver,
