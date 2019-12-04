@@ -680,14 +680,16 @@ func getStandardLibraryPackages() ([]string, error) {
 		all = append(all, pkg.PkgPath)
 	}
 	excluded := map[string]bool{
-		"builtin":                true,
-		"internal/cpu":           true,
-		"net/http/pprof":         true,
-		"plugin":                 true,
-		"runtime/cgo":            true,
-		"os/signal/internal/pty": true,
-		"cmd/pprof":              true,
-		"cmd/trace":              true,
+		"builtin":                         true,
+		"internal/cpu":                    true,
+		"net/http/pprof":                  true,
+		"plugin":                          true,
+		"runtime/cgo":                     true,
+		"os/signal/internal/pty":          true,
+		"cmd/pprof":                       true,
+		"cmd/trace":                       true,
+		"internal/x/net/internal/nettest": true,
+		"runtime/internal/math":           true,
 	}
 	var filtered []string
 	for _, p := range all {
