@@ -18,7 +18,6 @@ import (
 	"io/ioutil"
 	"log"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sort"
 	"strings"
@@ -41,6 +40,7 @@ import (
 	"github.com/dave/stablegob"
 	"github.com/gopherjs/gopherjs/compiler"
 	"github.com/gopherjs/gopherjs/compiler/prelude"
+	"golang.org/x/tools/go/packages"
 	"gopkg.in/src-d/go-billy.v4"
 	"gopkg.in/src-d/go-billy.v4/memfs"
 	"gopkg.in/src-d/go-billy.v4/osfs"
@@ -671,17 +671,14 @@ func getRootFilesystem() (billy.Filesystem, error) {
 }
 
 func getStandardLibraryPackages() ([]string, error) {
-	cmd := exec.Command("go", "list", "./...")
-	cmd.Env = []string{
-		fmt.Sprintf("GOPATH=%s", build.Default.GOPATH),
-		fmt.Sprintf("GOROOT=%s", build.Default.GOROOT),
-	}
-	cmd.Dir = filepath.Join(build.Default.GOROOT, "src")
-	b, err := cmd.CombinedOutput()
+	pkgs, err := packages.Load(nil, "std")
 	if err != nil {
 		return nil, err
 	}
-	all := strings.Split(strings.TrimSpace(string(b)), "\n")
+	var all []string
+	for _, pkg := range pkgs {
+		all = append(all, pkg.PkgPath)
+	}
 	excluded := map[string]bool{
 		"builtin":                true,
 		"internal/cpu":           true,
