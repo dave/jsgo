@@ -31,6 +31,7 @@ import (
 	"github.com/dave/services"
 	"github.com/dave/services/builder"
 	"github.com/dave/services/constor"
+	"github.com/dave/services/constor/constormsg"
 	"github.com/dave/services/deployer"
 	"github.com/dave/services/fileserver/gcsfileserver"
 	"github.com/dave/services/fileserver/localfileserver"
@@ -70,13 +71,27 @@ func main() {
 	flag.BoolVar(&frizzEnabled, "frizz", false, "Enable frizz mode")
 	flag.Parse()
 
-	storer := constor.New(ctx, fileserver, nil, 20)
+	var waiting bool
+	storer := constor.New(ctx, fileserver, func(msg services.Message) {
+		if !waiting {
+			return
+		}
+		switch msg := msg.(type) {
+		case constormsg.Storing:
+			fmt.Printf("\rRemain: %d   ", msg.Remain)
+		default:
+			fmt.Printf("\r%#v\n", msg)
+		}
+	}, 20)
 
 	archives := map[string]map[bool]*compiler.Archive{}
-	packages, err := getStandardLibraryPackages()
+	pkgs, err := getStandardLibraryPackages()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	pkgs = append(pkgs, "syscall/js") // special package
+
 	root, err := getRootFilesystem()
 	if err != nil {
 		log.Fatal(err)
@@ -84,18 +99,18 @@ func main() {
 
 	if frizzEnabled {
 		// Creates .json files for the source code of all standard library packages (FRIZZ ONLY)
-		if err := StoreSource(ctx, storer, packages, root); err != nil {
+		if err := StoreSource(ctx, storer, pkgs, root); err != nil {
 			log.Fatal(err)
 		}
 
 		// Creates .objects.gob files for the types of all standard library packages (FRIZZ ONLY)
-		if err := ScanAndStoreTypes(ctx, storer, packages, root); err != nil {
+		if err := ScanAndStoreTypes(ctx, storer, pkgs, root); err != nil {
 			log.Fatal(err)
 		}
 	}
 
 	// Creates .js (compiled JS) and .ax (stripped GopherJS archive) files for all standard library package.
-	if err := CompileAndStoreJavascript(ctx, storer, packages, root, archives); err != nil {
+	if err := CompileAndStoreJavascript(ctx, storer, pkgs, root, archives); err != nil {
 		log.Fatal(err)
 	}
 
@@ -115,6 +130,7 @@ func main() {
 	}
 
 	fmt.Println("Waiting for storage operations...")
+	waiting = true
 	if err := storer.Wait(); err != nil {
 		log.Fatal(err)
 	}
@@ -384,6 +400,7 @@ func CompileAndStoreJavascript(ctx context.Context, storer *constor.Storer, pack
 					Mime:      constor.MimeJs,
 					Count:     true,
 					Immutable: true,
+					Send:      true,
 				})
 
 				// NOTE: Archive binaries can change across compiles, so we can't take the hash of the
