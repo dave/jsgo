@@ -2,7 +2,7 @@
 # Avoid dynamic linking by disabling cgo (CGO_ENABLED=0)
 # Reduce binary size by omitting dwarf information (-ldflags '-w')
 
-VER=v169
+VER=v170
 CLUSTER=jsgo-cluster
 PROJECT=jsgo-192815
 IMAGE=back-image
@@ -15,7 +15,10 @@ all:
 	make undeploy
 	make deploy
 	make roll
-	
+
+no-scale:
+	kubectl delete hpa ${DEPLOYMENT} --ignore-not-found=true
+		
 scale:
 	kubectl delete hpa ${DEPLOYMENT} --ignore-not-found=true
 	kubectl autoscale deployment ${DEPLOYMENT} --min=2 --max=12 --cpu-percent=75
@@ -31,7 +34,7 @@ build:
 	CGO_ENABLED=0 GOOS=linux go build -o out/server-bin -a -tags="netgo norwfs" -ldflags '-w' .
 	docker build -t gcr.io/${PROJECT}/${IMAGE}:${VER} .
 	rm -rf out
-	gcloud docker -- push gcr.io/${PROJECT}/${IMAGE}:${VER}
+	docker push gcr.io/${PROJECT}/${IMAGE}:${VER}
 
 # Run dockerfile on localhost:8080:
 run:
@@ -81,3 +84,6 @@ cors:
 	
 cache:
 	gsutil -m setmeta -h "Cache-Control:public,max-age=31536000,immutable" gs://${BUCKET}/**
+
+docker:
+	gcloud auth configure-docker
