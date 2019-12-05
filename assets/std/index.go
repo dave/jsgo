@@ -2,476 +2,20 @@ package std
 
 var Index = map[string]map[bool]string{
 	"archive/tar": {
-		false: "7ebd6eeda17814b3a6d38f919a52d4cafe6c8934",
-		true:  "7d559ed2ba1f889d4ec7c83d1224bf02fb619e4c",
+		false: "416959833cfae2ea63aefcf216d2ec8084a3e206",
+		true:  "b91c3b4ad7466423d1e23ef2e64a787f4f369861",
 	},
 	"archive/zip": {
-		false: "9b7ab78ec0965f8dc205593bd1db2ad68a7fff00",
-		true:  "d2be0b4a1b2000d6bcd8b67e4b51279d19d9a210",
+		false: "3a79a2979840492b39e6a22d6409a67e2e50f709",
+		true:  "50abd3623c7356b842dbeb32ee7a93579c3a5284",
 	},
 	"bufio": {
-		false: "4c3bd0d8617b2d4b516d5fdfef5e7ef8f30f08f0",
-		true:  "55bc5eecd73afca6bb141dc8984048b112a35e80",
+		false: "332e570ddb57cd19bb25c89ab5e4a7ef709d2e50",
+		true:  "33605915ec81f9e43c6c05d7bbdce97b217b7124",
 	},
 	"bytes": {
-		false: "c805ab4a10eb0d3ab961f122024d3b0f2e11a032",
-		true:  "b23aa2c2bcfc597083ad49cfe19ffa8035aa6032",
-	},
-	"cmd/addr2line": {
-		false: "91c40567ddcba04cff4c2ca7786eaaca449c4718",
-		true:  "3821ba2214aca49dfef3367f8a6d6dcb7ec0d91e",
-	},
-	"cmd/api": {
-		false: "e2e454261feb811baccbe2a4bec3959143969ded",
-		true:  "9476588e9ff0fb7870ffe52fe26ddc0ebfecb43d",
-	},
-	"cmd/asm": {
-		false: "d911e09fd67a3cd0c84e77aee2897e020f01a192",
-		true:  "c4a2caa28c041581f02ff086df9f6759f2578926",
-	},
-	"cmd/asm/internal/arch": {
-		false: "bcbff719b50cf6112bb54657f44f04af9a68e5f8",
-		true:  "cd4618a87f470dd66f48ce5380f838648c42e853",
-	},
-	"cmd/asm/internal/asm": {
-		false: "e6f37898c8a962cffa0ddaefe2fb38d5b55b2e90",
-		true:  "83a027ea6aafdbc3757e8276bc9a46a881efd55a",
-	},
-	"cmd/asm/internal/flags": {
-		false: "e790ddc9106bfb4f07278c7299f84e53b821d4d9",
-		true:  "5d8f857df28780100821cbe5bbdf700198a4351c",
-	},
-	"cmd/asm/internal/lex": {
-		false: "dcedec2e61976c84ea49e31a3d13b278c7a75651",
-		true:  "535d9543f011c77d01f55bd881f05f3faef73aa2",
-	},
-	"cmd/buildid": {
-		false: "29ab9aedcfa59d2106aea704d448f34ca795aa00",
-		true:  "73d558f25bd5b1c3e27736473c892d2ce3089d33",
-	},
-	"cmd/cgo": {
-		false: "cdb83bf4d19dcbe20240bc53c76a8a4a467a876a",
-		true:  "d9ba2110adff9d27eedc58a471433628e49351da",
-	},
-	"cmd/compile": {
-		false: "71b71d3801679866fc9a814b6857c37da38e19d8",
-		true:  "0dc6fff87f3c7d2eac085c7b76bb2bbb14a8a4d4",
-	},
-	"cmd/compile/internal/amd64": {
-		false: "adb82ce89425dfe288418fcdb42de86e1f503b99",
-		true:  "285440c3a232f419d300dd1195f6b5b78dbcb6ef",
-	},
-	"cmd/compile/internal/arm": {
-		false: "64879564fcdeb5fad9c2274ab2a15f877c779ae8",
-		true:  "86f0fab4b97e538ebe9508967ec3977e90f1d9b6",
-	},
-	"cmd/compile/internal/arm64": {
-		false: "fab6fb7a018ac003ad46fdd1a65d22f608cc3eac",
-		true:  "7e5db167fb108c02e865f40532107c41d9cc4e1d",
-	},
-	"cmd/compile/internal/gc": {
-		false: "a617a0b62d23be10756a10fc7d46331d87344bc5",
-		true:  "ed2e3a0553dac1e898b669e0566933b8d99fed08",
-	},
-	"cmd/compile/internal/mips": {
-		false: "f4c5652e1124ce0d8f85215a1c5af807b3bddd88",
-		true:  "f60a736e8b9499fa5f6d83ac88dcdb3bf0b0f5be",
-	},
-	"cmd/compile/internal/mips64": {
-		false: "80ea2f121bea9e57fad06d2631ff6563a0b38dc2",
-		true:  "4fc668ef6a526264b572f3ba84d4c7b600d8ede3",
-	},
-	"cmd/compile/internal/ppc64": {
-		false: "d24892b1b0fac04610ee1c5308940ace9f2b742b",
-		true:  "9acf506701ee01bb1e388ec27c0920eb7e563166",
-	},
-	"cmd/compile/internal/s390x": {
-		false: "9680b5e232bcee75ae6fb92e960403b238b6803f",
-		true:  "1bebb4ab33c4167756e77e7ce16f6cb321b3f2e8",
-	},
-	"cmd/compile/internal/ssa": {
-		false: "0836ff78f2ba550d54d3af21ea702e77a3a010e6",
-		true:  "ab2d43f91d37257a7f0b4fa068609f2dca449ef5",
-	},
-	"cmd/compile/internal/syntax": {
-		false: "45b3d23b14d2a4654661828c16b9ef20ff225b06",
-		true:  "3d9d430c12166ff63ec48b23a6a3d02cf5f364b1",
-	},
-	"cmd/compile/internal/test": {
-		false: "be26a33f6ed4d090305c83dd2a722e1800926377",
-		true:  "749a915e9b0b386ef0717c0d95f79ad415ebe0e2",
-	},
-	"cmd/compile/internal/types": {
-		false: "387aa6e3b2435c4eb636824172fd72d2fa02816a",
-		true:  "9d216c60d725e2cfb648312b478f4b4e1abce9e3",
-	},
-	"cmd/compile/internal/wasm": {
-		false: "4adf90df7f863c0dc686e34953a4dcef60653434",
-		true:  "e14b589634b4342b281717ac538fc4667e7a30db",
-	},
-	"cmd/compile/internal/x86": {
-		false: "06246e4b3a2a8f4a71fafaeceed6e8a3af53ac75",
-		true:  "a3be5e800db02fc4cc310e80a1e4ee41e52d7e1b",
-	},
-	"cmd/cover": {
-		false: "cbc02252c025c9e93bf0c842fe23c339b31ce487",
-		true:  "38b59c259b5c624c9752d27c9cb85b933accbe1a",
-	},
-	"cmd/dist": {
-		false: "e0c4466a78d61b1e4d235e80c8ab8f61e3f84925",
-		true:  "8a14b776b72f0577fea3ca221f0722bfbc2d3c40",
-	},
-	"cmd/doc": {
-		false: "355a85fdf89176cc84f61cb9998d1a039fab2d28",
-		true:  "b0ac78eb4df913136353fa74e35483b790391e13",
-	},
-	"cmd/fix": {
-		false: "0b06be31372c0db13300c3dd7800ebb877f04251",
-		true:  "bd8f435ea2a1680e124299ac73c42a850ae9916e",
-	},
-	"cmd/go": {
-		false: "94cb31f53152866e299e6c3b4ecb2a3e21bdf0b7",
-		true:  "23b7aa2ea0d3ec94ebfd7904570cb869a24debae",
-	},
-	"cmd/go/internal/base": {
-		false: "f51af7a2a04610ca26f7d5feccb282bd9c002cd8",
-		true:  "851f7dafd6ebb75eddbcf9b43f721e460734d2af",
-	},
-	"cmd/go/internal/bug": {
-		false: "4de6c5f32aba842407e012aac4a4a4cb72437984",
-		true:  "cf790d1b08412eb80a0c5bfdb3d1f6bf3f7939de",
-	},
-	"cmd/go/internal/cache": {
-		false: "cb6dea3c5914b8e316442e003c93e030f2335d5f",
-		true:  "5ea75a614cb8bb5cab6a7862d45f366680bc7244",
-	},
-	"cmd/go/internal/cfg": {
-		false: "06b318714c9f8d2ba0ed540d921c2fc187444f8b",
-		true:  "b538141b7e10778612d36f7cdc6557769ee43282",
-	},
-	"cmd/go/internal/clean": {
-		false: "b3ef3b99c9ea71c9f7b7d86ed084341a9dd95c6e",
-		true:  "974c026dab95492affab4fc47dfd171a05a6557e",
-	},
-	"cmd/go/internal/cmdflag": {
-		false: "cb1b56e6d9555534e0d311f08adf3782f0692330",
-		true:  "8b273dd0e1a9025efe4088e5a058a1227af0745a",
-	},
-	"cmd/go/internal/dirhash": {
-		false: "2d79935cb29978aea0d3592c925f19a58e7a39ba",
-		true:  "bb07fe316b400ad5d7bd6721149a2fa1e49f1f54",
-	},
-	"cmd/go/internal/doc": {
-		false: "0865fd9593d573a77de9d75256830397a2fdab5c",
-		true:  "78d5ee6672242797300341720b678323646a282f",
-	},
-	"cmd/go/internal/envcmd": {
-		false: "12765cae10279c98b4af17412bf458e2ca8a9f3f",
-		true:  "4eaf11937f70113c91ecc99825b2363f809c12e8",
-	},
-	"cmd/go/internal/fix": {
-		false: "3dbca31797531cbf9e58fdf1e1b3ab710fb4ef49",
-		true:  "8c36ed20b6857c02215c3b715c6f95e791b8e526",
-	},
-	"cmd/go/internal/fmtcmd": {
-		false: "7c343469e53c4272fde515ab35dc3c283fe11972",
-		true:  "3314d0ac4622f664371d7d4cc722e914900724ea",
-	},
-	"cmd/go/internal/generate": {
-		false: "8eb59aad8b254d4ea8b4b4039791e7c98bf3364d",
-		true:  "e7c2589836dca0db71468499920fd57cec6b0be7",
-	},
-	"cmd/go/internal/get": {
-		false: "fa8a07908b74bedb35b6d8ba6c44a06ccf47e76f",
-		true:  "4ab044fd25569e98d93d1da2b1d72a38de3e8087",
-	},
-	"cmd/go/internal/help": {
-		false: "7ecfae7cf765bb556ba1db702cefd79fa7da6599",
-		true:  "48096d26fb387a700dfa5d1191b66c2892bf5bd4",
-	},
-	"cmd/go/internal/imports": {
-		false: "056c60faf32d17c4ade3b3ba3373c56a05a416e8",
-		true:  "72006691a9c532f37ae7e6131f53c57dddac57cf",
-	},
-	"cmd/go/internal/list": {
-		false: "06e6567299fcc4e21b2585f604337bac02f3acb1",
-		true:  "f8c4b921d588c5a6f74ae21f97d8e49b33869fe6",
-	},
-	"cmd/go/internal/load": {
-		false: "24e765a8d48367f2a9cb615d66074c8a5d09bf95",
-		true:  "53279cdd0f3b5fe8af270bdc46e2667e890607e5",
-	},
-	"cmd/go/internal/modcmd": {
-		false: "5e629fda782939e9584b8e894141ee79a2527aab",
-		true:  "8ae4566f43f19643c0aef1d6cb4f3c49e9844047",
-	},
-	"cmd/go/internal/modconv": {
-		false: "8705e8a1cdb7a59c9218472bb6d910fc969bac8c",
-		true:  "b9806182f0b36999b85df8ffbe64f48f14a3781c",
-	},
-	"cmd/go/internal/modfetch": {
-		false: "3729664c5697957e951746dc655c3e29da89a062",
-		true:  "4b443e03e1af73423a2b1560a611afd614b7df14",
-	},
-	"cmd/go/internal/modfetch/codehost": {
-		false: "ae10ebd13532a2d487a75e4c6bbdf1eb4a42074c",
-		true:  "7d71934dbed554ecff3856e11a2a1d2423146b83",
-	},
-	"cmd/go/internal/modfile": {
-		false: "7344c6de73c93e7dfae68f4df4b2f8489cb1a5a9",
-		true:  "9a00171b14406c277932f8d78c09afa281ef735f",
-	},
-	"cmd/go/internal/modget": {
-		false: "13a90b73e212020c45616bec023e99bd09d00c22",
-		true:  "e6b6466c90067a3bd2ec268f958be857b15fcad5",
-	},
-	"cmd/go/internal/modinfo": {
-		false: "bd79e24b5ed34c2d16e5b4d401a36ba2b9855d52",
-		true:  "dbf94fb7eed553ea9995530a8ef72b17c326fe4d",
-	},
-	"cmd/go/internal/modload": {
-		false: "708946c6c5ac3980a5e2aa308d305210447121b2",
-		true:  "95b0c2cc68610e3451db96f2c23f66a2dfe15a41",
-	},
-	"cmd/go/internal/module": {
-		false: "3cedee124f33705b331db568ab71cf39863b0544",
-		true:  "c51098d36c4bd2b82b5582fe791e26d99c447851",
-	},
-	"cmd/go/internal/mvs": {
-		false: "e28749e29dcab27bac5670a56b7e7edd7b67db9c",
-		true:  "f6d1845a4631c2847b4684c5d94c1105896febe8",
-	},
-	"cmd/go/internal/par": {
-		false: "2fa83e8b5b542b117eeb92d22477dc3a51c73f7c",
-		true:  "5b2184935e2975cd4a8086139f65888ab421723d",
-	},
-	"cmd/go/internal/run": {
-		false: "8f92a6e6cffe95b9e67c449d5b348a0bf8b3f680",
-		true:  "24192973df948acb86a3f1f79cde381c05143539",
-	},
-	"cmd/go/internal/search": {
-		false: "4e3cf3f85187fc5b3d314d9f0b87b81d5f545b9b",
-		true:  "25adefee880caca2d6376c27c2fc929a5358bd7d",
-	},
-	"cmd/go/internal/semver": {
-		false: "1ad38d568ef3d7ae51bde60c9cac5cdfad2790fa",
-		true:  "81af404acdfee57976ac29f3798e2b18eb6942d1",
-	},
-	"cmd/go/internal/str": {
-		false: "1dbfd7a9569be6e515fdee4ef6c9d48c13a11b6a",
-		true:  "73cfcffe8e358b0c7816d54ab95aff9a5a15117f",
-	},
-	"cmd/go/internal/test": {
-		false: "9c2faaea022831999177f33788557275f28640d1",
-		true:  "bc7913672614607636390beb268cee8f5f2c0977",
-	},
-	"cmd/go/internal/tool": {
-		false: "af0de88139c5da6a66f5b062bba89f3a88a8d180",
-		true:  "004b2d49b1c57cea91d979de1004f43ec4cccffd",
-	},
-	"cmd/go/internal/txtar": {
-		false: "956f57454cfec51ded7121efcfbab70c8f0fa443",
-		true:  "c64dd7bd8fb5f1d405792e131fc334f678d0a9f4",
-	},
-	"cmd/go/internal/version": {
-		false: "bd5aa7057df02abf7d2d14604f0616512b20ddc8",
-		true:  "a01c4d1ebc8b671fca2041b60adff507d381681e",
-	},
-	"cmd/go/internal/vet": {
-		false: "8284f5c7e07d42ec0b4dc2f5b08e577eaf200f9f",
-		true:  "9798a1ac4e9c373770a29071a98f59695b5aebff",
-	},
-	"cmd/go/internal/web": {
-		false: "911e904a3bf7accc4bc688f990cf8b433a408fef",
-		true:  "eca413255108667ca99a7db4290c7e63db8ea936",
-	},
-	"cmd/go/internal/web2": {
-		false: "e9e2ffb6653e60bd5e15827b0cba4547d8248ca1",
-		true:  "bd4fd4d1f32f585293b2ce7785dfae7168fb1902",
-	},
-	"cmd/go/internal/webtest": {
-		false: "ff5d39a640851876717d5118d971e31650e3f821",
-		true:  "68f77f0d160e28fb5f6c093f279eb24580284645",
-	},
-	"cmd/go/internal/work": {
-		false: "842d6f6bf0632909e19569aac1101d2e69a1d6d9",
-		true:  "7500dde7ab054ead44e2833a9acda1b6aeb49841",
-	},
-	"cmd/gofmt": {
-		false: "bd67f43d11481e5a7150d349f472d1be6ffe9eb9",
-		true:  "5c7577383899629125454e3812936ee81c39bebb",
-	},
-	"cmd/internal/bio": {
-		false: "e26c873813889e2ab1ace6fa69a61e63feb843a0",
-		true:  "39f73652ef115883f15921c301b3021f07141cbf",
-	},
-	"cmd/internal/browser": {
-		false: "ac27a042442bc6267dbfc258c2b7f2ed8cf875e1",
-		true:  "00d4a4e95fe55b1d9a15709e85adbf4feedf5c40",
-	},
-	"cmd/internal/buildid": {
-		false: "cd6a2c50ac93b9d994a5240c2b85d3e19fde7cbc",
-		true:  "c2ad4f5aca99a5884afdb912b949473e68dbaa5c",
-	},
-	"cmd/internal/dwarf": {
-		false: "ef5967b739ac4cb050c2af09263fec900163215e",
-		true:  "6ef640aa61a88dffa69c4cf628e2dd5e8c62eb8c",
-	},
-	"cmd/internal/edit": {
-		false: "d6bb8b62ef699e7d313bae0b23039ca4a2da1c9e",
-		true:  "3cea609e705669ca410c0f78b8984b3d98d28ede",
-	},
-	"cmd/internal/gcprog": {
-		false: "660a03069a1c829b09c4c6b41db88c6c0b1e058a",
-		true:  "6375014afa0fef654f4d24d91dafab6b4ae13948",
-	},
-	"cmd/internal/goobj": {
-		false: "c568c8f0bb96205b422c8128d39f0aedd8608f7d",
-		true:  "8a43ff82d53d114ec1fb716663f4b8414123633f",
-	},
-	"cmd/internal/obj": {
-		false: "be321066ee693b856d060b3d7d2691e4acdbdac5",
-		true:  "f6c0f8a86cc64db49e796b1ea460eb59a0a042ea",
-	},
-	"cmd/internal/obj/arm": {
-		false: "f29e58b6904f9f39ab4e704d6df4f87256937378",
-		true:  "c8f05b89a84fb0e9d3b2fa4eadaa695cd662ff38",
-	},
-	"cmd/internal/obj/arm64": {
-		false: "e08b1e015e022d51d8666e1cd31591ce5ebb281e",
-		true:  "153138f64eef95867d75b04f59d2e9903c0c95ac",
-	},
-	"cmd/internal/obj/mips": {
-		false: "128caf1324fcef0a9552b71821eb3756cfbfeccc",
-		true:  "776033eaa052de417ccc61bfe99ce93b00294a2c",
-	},
-	"cmd/internal/obj/ppc64": {
-		false: "58be25f7def9c26288b8221866cef91a99cff84f",
-		true:  "44115548baefe60e3691e1a26e4c27bb109db7da",
-	},
-	"cmd/internal/obj/s390x": {
-		false: "2538a4b0655d3574de2d18a0d45e53378e922192",
-		true:  "ef37d2d630d0aba1957014177ea00ea2dc686b3b",
-	},
-	"cmd/internal/obj/wasm": {
-		false: "7c4ffc099417d724073df2c34f98cacb89317669",
-		true:  "688d5f050cc8bdba21de30c9efefb01ef03d8216",
-	},
-	"cmd/internal/obj/x86": {
-		false: "7b41592f9328a8edb3affa9264f055a295e41cdf",
-		true:  "9be745e5f5e26e788cc1e5bccd7324a24cb716fd",
-	},
-	"cmd/internal/objabi": {
-		false: "fef350c6a4423f5bb2347e2966f27899b4f0b79a",
-		true:  "b696ecfb15c1706dd3da00548b6ee09abc32036c",
-	},
-	"cmd/internal/objfile": {
-		false: "6102e6c56a851caa9bc9c7b621ed535d80b4f305",
-		true:  "70ce3d885e5bfe6772c30724a545104beff9c877",
-	},
-	"cmd/internal/src": {
-		false: "bdc6e2f303a44dd04142cb573ccddd90363aaae4",
-		true:  "8bc5d38d88bc2bfba72d1545768e0014081fa6fe",
-	},
-	"cmd/internal/sys": {
-		false: "d2c3b839d631ca67f0be3988b5ee18aa496d952a",
-		true:  "e9b4c6b5fd2113012b43d4c96871c960d094a8d5",
-	},
-	"cmd/internal/test2json": {
-		false: "a0924ff30f75f7b0fc3f5932101d49b1fcee918c",
-		true:  "44dd227f3a76db84125307738facdff91d84ba7a",
-	},
-	"cmd/link": {
-		false: "bd596d28f810dbbb65d96e8ec6789f0ccd2f61de",
-		true:  "2ba2d34a8ac7e2ab0fa8dfe15f3f3e459bc2c560",
-	},
-	"cmd/link/internal/amd64": {
-		false: "ac6bba27907d12d5e03bbc53bf2b400a2e8385ff",
-		true:  "293f2e12441275da5551209eb45fbf7a13da5c90",
-	},
-	"cmd/link/internal/arm": {
-		false: "440fae8673178f68b0bc29fdc936829cef13c434",
-		true:  "2310b1cd35a19c2f734a7bc5e830cb6170cf1138",
-	},
-	"cmd/link/internal/arm64": {
-		false: "6f3f0a63d3768b2086a3c8202d4712343af7d813",
-		true:  "e6af9f8b9a6005d9e3911a2db0dd26a4a3d6d2ea",
-	},
-	"cmd/link/internal/ld": {
-		false: "cd97e546e4d061c108888f848fe4394ecb3e385b",
-		true:  "ffcb45fe23c72f17dd1548567cf34f8f87646938",
-	},
-	"cmd/link/internal/loadelf": {
-		false: "1fc7f1af5cffae1f414f4e2086627327420add01",
-		true:  "fab4f5fa34c80d4e677dc1d1726883b5d0fa0313",
-	},
-	"cmd/link/internal/loadmacho": {
-		false: "6df5df7753f4cf13bbfba09ae82dcc6fc859208f",
-		true:  "cc5ede93eeb754bc4be7687dfb47dda0fa19025b",
-	},
-	"cmd/link/internal/loadpe": {
-		false: "c13bcc34d933f183e6e220954ac533d04be6c605",
-		true:  "4738136094dcb453952da04fe21b9b02c06dc48a",
-	},
-	"cmd/link/internal/mips": {
-		false: "45562e5eb48163782084aca8b9c1f9e78263a499",
-		true:  "84da552e349e36c29774ab95af930beb35454553",
-	},
-	"cmd/link/internal/mips64": {
-		false: "6fe3d9d1160b569914379bc5594a5426565cdcb8",
-		true:  "36655f79226744ba4f99aec8de33014bc9636872",
-	},
-	"cmd/link/internal/objfile": {
-		false: "2ee60236086130e3ec4b9a228d01fd7673fd2a93",
-		true:  "c146d88b9b2952c5801686c2a403fc4b4916f3e8",
-	},
-	"cmd/link/internal/ppc64": {
-		false: "c87af21fb09c641cc39e46cfe1fd3c0671fc92b0",
-		true:  "86f5d9077905ff4a06e9dc1f51321f84eff78b3e",
-	},
-	"cmd/link/internal/s390x": {
-		false: "b54d707cf57c3e039e4cd813daa47a38d7c67a79",
-		true:  "72b22a210fa4af0037ee23fcb63b2e2539f30f3f",
-	},
-	"cmd/link/internal/sym": {
-		false: "ee9015f31f6aee6503925c163b1360a03e86ebf7",
-		true:  "1d8241f04d7966dfe6f1bea2d375e23a72d35e50",
-	},
-	"cmd/link/internal/wasm": {
-		false: "434b24718cd97794ea9275a73e7d86e3a9fd6211",
-		true:  "314a8ca9db77d76e2e982d482d4446514e0fd747",
-	},
-	"cmd/link/internal/x86": {
-		false: "50b62c867cdf12d6071f8e142a9a848315033987",
-		true:  "ba3b302678db1fc2707baf6bc734939a5a47b418",
-	},
-	"cmd/nm": {
-		false: "80322fdff4f6ada5219bf19e1614886a83537547",
-		true:  "c01ab6c3ae5787e5bb96b98b3734a096d71a6ce0",
-	},
-	"cmd/objdump": {
-		false: "8103d81a20d20edb6e69663d3150d018bc9d24a5",
-		true:  "b24a59ffcffe339e96d3a52a75eedaf78bab0bc4",
-	},
-	"cmd/pack": {
-		false: "8b1b4aef7b68c9d0ccd3c07b0c78b5918043fc5a",
-		true:  "8e1f5ea0f7cbf595eb955144405803e02cc28b56",
-	},
-	"cmd/test2json": {
-		false: "ada828e52402bd894ccae3f15bdabd571c6cd1e5",
-		true:  "3b8ce9aa9fe7188695e2850ec6226fa2b93caea5",
-	},
-	"cmd/vet": {
-		false: "7bd05355a52343660f15bee7d2467653ca3bc664",
-		true:  "d25a252433cd1e88885452424758dd31dac9552c",
-	},
-	"cmd/vet/internal/cfg": {
-		false: "9439ff03f68378b3eae43c5515e696246ab1c48c",
-		true:  "41cfec4cc9e1fbe7d953649023808f799f34e11c",
-	},
-	"cmd/vet/internal/whitelist": {
-		false: "8af1db6daebb049e13b4d0da5aee68140acfed2c",
-		true:  "0dc2cc8ffaa78b093571f8954c75a1bbb5ad8441",
+		false: "5b63f2437f385164e37969de64bfa0faf16a60f6",
+		true:  "6322e9a69bfda7932e411f93aa2c59f54681ff6d",
 	},
 	"compress/bzip2": {
 		false: "87db027b1f8538c90c1a05591d756536ef42be58",
@@ -490,52 +34,52 @@ var Index = map[string]map[bool]string{
 		true:  "2869812a736c3d631190f6b1a05d884a7cd15522",
 	},
 	"compress/zlib": {
-		false: "c25755035e4d454b1e6e1f823f8ca5354153cced",
-		true:  "207de985c6ee13476e71ee7e3bb81c64b31aca3f",
+		false: "5cfce58b9b97e36eb9c3faf87205cc5c1687bdac",
+		true:  "46009218c95c222d31d819b94cf88faf9fcf5ab8",
 	},
 	"container/heap": {
 		false: "b5646de4e8225d9cdccfcafd0eda27aeec021966",
 		true:  "755cd855e3be7261dc30bd349c73d8f128a4252b",
 	},
 	"container/list": {
-		false: "f7f312479564750c9dfb1c1f8f3389460f4c2afb",
-		true:  "2fecd34d187d924db2a515a1ca3fcee4886cec57",
+		false: "d1256c8c59183cdf0ecb1eba65cbae4f469a2729",
+		true:  "3a93318f5fd0b22a9f02108fa01f2a6dc755b3da",
 	},
 	"container/ring": {
 		false: "2455e5075ba9cf7b7f1e2b78119ded56a502039a",
 		true:  "1d0dfdae6654a8dd3fea51ac5bece6404b42154c",
 	},
 	"context": {
-		false: "ca041b02c357196c9706f14d8e118f536bc3d9bd",
-		true:  "83ac71c63e6f9cb792b91a7f7b6888f996dd6097",
+		false: "01e5f866456a0e219c7cd969b2b38ed3d36d05c0",
+		true:  "0d08aef6da8d3e2d3ee176c5ebd09bc143657bb8",
 	},
 	"crypto": {
 		false: "6cdfdbfd7d60f1da29da166a15b4d8eea7c69bce",
 		true:  "e8d64fac6dd9eddc09c83f9f7df90a444f46f397",
 	},
 	"crypto/aes": {
-		false: "51d7c72faa392d9ea24477216bf90662a6917a51",
-		true:  "5ca268832735d186f1cffac74ee35362bcaffb86",
+		false: "4c9bd8c0c6e385d37b8d2e7b6c7668ca63562723",
+		true:  "f74281c5433eb26975876b8ccd7c66863f3f4abc",
 	},
 	"crypto/cipher": {
-		false: "2b216e4324f9b1dd0ed4f595a399086ec24b9c69",
-		true:  "ce73478ebd84850719128ac939fa0934ceb9100e",
+		false: "e2883b45a8923c9500f3fcb9c23f418db492dcd1",
+		true:  "2423e655b24b2ed54a8bad64f1fb9b9a0d0d9e23",
 	},
 	"crypto/des": {
 		false: "8c1aca43fb0a24d97ad7bbaae1c15f665a4f5b14",
 		true:  "8cb7cae3b8c1f18cb673729edbbcb61e3565a57d",
 	},
 	"crypto/dsa": {
-		false: "27237deb6d71e6964704cbb75970902d2a52dc4e",
-		true:  "7fffc42b72b36f2c7ab8837011475b428c44613c",
+		false: "ee2841330ff2e7bed39b030f0b1332f54bdb151c",
+		true:  "117443e29c9eec7621fc0b9d5feae67feaf25d98",
 	},
 	"crypto/ecdsa": {
 		false: "21d796ddc65f3ffb28e9526a2922eacf5f2eac53",
 		true:  "01fdacc54e1c513ebc272aac6e827586bb6802aa",
 	},
 	"crypto/elliptic": {
-		false: "dc8e691cb06479017c3be0d748adfaa2e5851ed9",
-		true:  "9a9011f037b757c798903737bbc46fa56f74dcc5",
+		false: "03189e72e0efe2acfa64da48ca328711b852ec63",
+		true:  "03dc9e26cada2f2cdb19f2f4a715efd6880341d1",
 	},
 	"crypto/hmac": {
 		false: "9b24f746d0da46c7ebd09c4055606266e1caeb4d",
@@ -550,64 +94,64 @@ var Index = map[string]map[bool]string{
 		true:  "33e6f094023a8764159ee792e7ca5c866683a562",
 	},
 	"crypto/md5": {
-		false: "a210e74bef5b9e54ab8ae62735a013c50a9033e3",
-		true:  "3b91acacf81ad59fcfb41732a1eec44960cc13ea",
+		false: "e17a0fddd1bab04c615cd0211c21201cadc9eecf",
+		true:  "de76176c3e8ddb66b005911154ed6f4c86d010ec",
 	},
 	"crypto/rand": {
-		false: "e652ec236832f7174d3f2b4f98f76cdc3912d063",
-		true:  "4399eb66fad2018b75cc52abff7efdba64f3cc3f",
+		false: "696696a0d1e326c09d90ffe6ab4ef64a48319f75",
+		true:  "e0e0ef9f1d453074f5741e10a5296f8e77863ef8",
 	},
 	"crypto/rc4": {
-		false: "fef4349e946927d5cff4b7de15ce6ae9c5ca5f6b",
-		true:  "386d093dcf7c2a5c9473ef0dc1af753878a36800",
+		false: "83a0b900a093e8e378f42ae031ffaebde3b8d3fb",
+		true:  "45e0112ef8da66b0250dc27376ca8951ed0a938c",
 	},
 	"crypto/rsa": {
 		false: "c6b8cc8050f1f04688944730eb6280a93ae217bc",
 		true:  "c0063721b4422af455bd5b8f69377cfce4466cb1",
 	},
 	"crypto/sha1": {
-		false: "119ee4f0a0c02885159aced3b64b1d73d2c6fd3b",
-		true:  "86f171adbe555dafa0d640279f18e3ec89b5e0d2",
+		false: "a23430797757a20f3799456dc127520f122921b8",
+		true:  "12d752926a1fec9992efd8d088c3efe9601e973b",
 	},
 	"crypto/sha256": {
-		false: "a8f15f27220f412696ab9a298c20de076ea5b14f",
-		true:  "c50d3dfdc10e23b3e70b20b22cb07cbc70bd3c48",
+		false: "37f574168dbe542cf6cdb55016349da0f6a7a959",
+		true:  "cb342f5d83cce1de0f0e665cb3ef35da261e1061",
 	},
 	"crypto/sha512": {
-		false: "c621d4e22736aa865baa9d3df87f65cd7cba79cb",
-		true:  "0092815894b6c526533dff50c60ad5c39efdef26",
+		false: "165d408885a1c9ad0e1cf0a4cf4099270e330528",
+		true:  "ca15fc836ca8ed681b879c36b7f4e68ce0b2651e",
 	},
 	"crypto/subtle": {
 		false: "c137226c4a247e0fff98d723e29001417a3342a9",
 		true:  "e5a41904d471f25595a5b5eb5b92a41b762d93f7",
 	},
 	"crypto/tls": {
-		false: "5f688fc48536b44bc19ffd18c025e0a3fe7f4ca7",
-		true:  "9cd779f06ee33c6eedf9aaaee974f1794037671f",
+		false: "7bec7d472be736e0b58d4a28dc4289303a7f8458",
+		true:  "80bc9686200c07329014d49ded8840c3086f3d26",
 	},
 	"crypto/x509": {
-		false: "4c3322efb1990175ab8b27c44314edeb7f65ca2d",
-		true:  "4bc99bef1e1eb2b4da3dcd5c76db806cb7b791c9",
+		false: "c0e18d6a2c884677e7386b7f6b3c6a03c0013b06",
+		true:  "60df7b1a874e68d15f857099cf63be0b181e92a6",
 	},
 	"crypto/x509/pkix": {
 		false: "bf9854c7f965bba1d3e808822560962cb12fd745",
 		true:  "ec8141aaab3fca2dc2820b3afbac9e2fe3c813d2",
 	},
 	"database/sql": {
-		false: "281e77e434549f81a61126e0af13b988d0877f44",
-		true:  "9d2c74f647bc5ef1d0210ce43bf799a98e95756f",
+		false: "a21a00cc01c94e86e1e44165c5df25d45891858a",
+		true:  "4d7c1860eb0e9c035531ad3a6157cf02488ff79b",
 	},
 	"database/sql/driver": {
-		false: "9d83aeb5ed1affcb99188e33d352472aa8fbc37a",
-		true:  "1b5ec90573f648f10c856770e25b7f4af582d5bb",
+		false: "7c8274b87a5ae8ae3ebb99a49e9c45a3becec2be",
+		true:  "aeb3b37af48b62798c29a6c081e391e4f35e4ce5",
 	},
 	"debug/dwarf": {
 		false: "769090c36096412140761356757de257af504e4c",
 		true:  "345fcf7e8a3cb21107f65cd52917442cc5de6d3a",
 	},
 	"debug/elf": {
-		false: "0b2bd05665330dec02837896c841d40e07d2812b",
-		true:  "62cecdfef1a36297041d4560fba1980ce9f521d9",
+		false: "69ca84e1ce9e92d87621f2b7519f1b6ff6f91e05",
+		true:  "9ac384bf03b8b56ef6d7bb025ed1ee38c4d92294",
 	},
 	"debug/gosym": {
 		false: "49d12dcf3f3093de6bdf04da036a0ca9d9c22f44",
@@ -618,8 +162,8 @@ var Index = map[string]map[bool]string{
 		true:  "8bf6a82f471bc2bd28ce84e02c76744b53c9f0ed",
 	},
 	"debug/pe": {
-		false: "2adb9160e88769176a8f902aabc58a388ce56752",
-		true:  "4b7454b0128f52dc70488e62931e671102b26155",
+		false: "e94ea2b60c3f56e3d5ecc0dc95b831ccf16e56df",
+		true:  "a5cbaedbfb123af324f26b51ae4e5e49c0d6862d",
 	},
 	"debug/plan9obj": {
 		false: "1835dc68097fd29a081fff33284d76ad2ad17b34",
@@ -642,12 +186,12 @@ var Index = map[string]map[bool]string{
 		true:  "dd15998550ff1e7672d6127d56c05fbb15167431",
 	},
 	"encoding/base64": {
-		false: "4c19158b3808b11828243534cf49d4b21ab602ae",
-		true:  "7500dc96e009bd0727dc3d2ba9879d459a9abce8",
+		false: "e838c0d6fef1337c5ebcf1ef879b9f598f4209df",
+		true:  "36a73ee92468727f3c739c39a146da709c8aeb7d",
 	},
 	"encoding/binary": {
-		false: "47f43288961feb614838c9f7e1dedeb7a886c218",
-		true:  "097a1d1e53f75519cbfa10092701a58c9d3f2ae8",
+		false: "9ceeb6ee2d6f9ba75da8b821e3f8eea9563bc0a7",
+		true:  "bf808797401e0d29728a58cf6ad6d70fd1d1d8a3",
 	},
 	"encoding/csv": {
 		false: "cccba99ff66781f05e531cdb97757c6238e96ff5",
@@ -658,36 +202,36 @@ var Index = map[string]map[bool]string{
 		true:  "556ac82a396e16dac6605eedf85638a30de3fe46",
 	},
 	"encoding/hex": {
-		false: "8463b712cf75a1884fe4bd069cdf0f2676c722fc",
-		true:  "61c898c7f8fcfd4f54439581309142624def204c",
+		false: "f6a00ec996e80b5b3e4149b5e2d629fee7229f52",
+		true:  "ec1d8133695f5f2bc79d2c2d119246988289c2b3",
 	},
 	"encoding/json": {
-		false: "7a4a6032104764b2b45826e42d66a081003b9a82",
-		true:  "3d87bdfb11b8bb86883659ca90f848caba6485ee",
+		false: "4491cb1cf42dd4fe0c66f3bb3a36b41c8a604ba7",
+		true:  "19122dc4668fdc2d830707c777fdf6ac52144bd3",
 	},
 	"encoding/pem": {
-		false: "52e3cccadfefd8227c8c3fa448f18a80596aa055",
-		true:  "a634ae28c5effde08b72b519d5866adccfe0b91e",
+		false: "407f4852b314cfa70f60dfcf35be030b28338ee0",
+		true:  "cc1667ccc6d99cc8d4dcd96dbf13b9aced2a1e72",
 	},
 	"encoding/xml": {
-		false: "e3ea2eb604e467a14f57ab6073eab70904e2d008",
-		true:  "28056dadca38b676335a2b1d995b7ed5e2045388",
+		false: "c97599d86cb825c620eac0f67b364b661c1cbc38",
+		true:  "5d01d540b36c160be4229a39abc31617194fc31d",
 	},
 	"errors": {
 		false: "a1b5569a36d1646ef3cff62c6b27315c3a68da50",
 		true:  "92509deefa51b9d6ded6a744ffbdb76da00c2349",
 	},
 	"expvar": {
-		false: "93916af1ed976d35d51aed2c182f23ae89f53451",
-		true:  "181df31f4fe38a42d503b2be43085dbb8c16b7e3",
+		false: "b6c7080f6d676e3c016fa74397897a83e381bf28",
+		true:  "eb0b316d9d4279c3766fca38f02d26c90d6e6f5d",
 	},
 	"flag": {
-		false: "c53f01ce9f6d468aa2002f59d51554ea29d1eb60",
-		true:  "be9fd954ddc1daaed658c967bf40a0f3aebb0800",
+		false: "3d4eecfa80456d176a1e72f4ced4a66a914135d8",
+		true:  "91da53fff938571b7b1d43161bd991d7dfca6b5d",
 	},
 	"fmt": {
-		false: "751675a382b5cf10034b3291ab198f34c125fbbe",
-		true:  "983288ecf3d6bdc5e9424fafc95253c6255ed019",
+		false: "5e94d30120c9f10fd371c39979c088fe75a0aee5",
+		true:  "685af06cb78594cd1aacd429912b98d8d21ef755",
 	},
 	"github.com/gopherjs/gopherjs/js": {
 		false: "f1fb495bf70cb9cde9b612ce7f695199d78f7cf6",
@@ -698,36 +242,36 @@ var Index = map[string]map[bool]string{
 		true:  "8dc6b1af74253ec326cf1ec604c03b6ab2e8c606",
 	},
 	"go/ast": {
-		false: "7684393280ce9971876abeb0e47f1b887019196f",
-		true:  "cb6f3958d65d51d2052718657013885c87669d92",
+		false: "027ff05f17e2f7c8e13332958d2761a4b0e0593b",
+		true:  "a1be695406d3e5a61ba7f977fc1d621cc8e1b745",
 	},
 	"go/build": {
-		false: "d4415c7ee189a4209021892c326eef6089b2c99b",
-		true:  "ef3adbd08bc6b9a28a013c0b4c8ec2b75d021d79",
+		false: "ead21850d6b8701e750c8331fd77693324b4b666",
+		true:  "206bed0f100b891f672b768929ed12921cc9d0bd",
 	},
 	"go/constant": {
 		false: "ce9b9d6da2bb05a15cfd93be47fb83b0fbe3ae7a",
 		true:  "fd7cf14ab095917d0b97785087c1d69950a6baab",
 	},
 	"go/doc": {
-		false: "15035b1528ef8bf95afd0ac5891e2fe7c0555dba",
-		true:  "2e3a8c61859234e67b4d953a953b177b6875a3cc",
+		false: "bdac68697dcc9d746c27914b36fbb1c0a8a024a7",
+		true:  "1b890e8bddb05eecfe27a9533c18e4c5cb6f0caf",
 	},
 	"go/format": {
-		false: "27e4c3411a7598fc643b7babb462ddf915465e92",
-		true:  "61064bd49fdd97af4412fae5b07fd99e01f4597d",
+		false: "12cd8c79eceb87c1cf1438e5ea8dea963b039bf9",
+		true:  "d0291ddc90469a3b4a8d0f4091983328602f1fb6",
 	},
 	"go/importer": {
-		false: "0b47986c3794166987cb55fb3f9b792517f248da",
-		true:  "96b1b9ccbe70754b65143f9289a3038f0f50ac03",
+		false: "8b35e8cac5739fef7793b2f4ccaf29fe959e38be",
+		true:  "0b3e36655c95699647dd9317c634a7efae73b389",
 	},
 	"go/internal/gccgoimporter": {
-		false: "2e254db79c4aa4b8787bf2b4797a9dba951c20f5",
-		true:  "da208fbc2894f56f091fbed086d005b81b84f5c0",
+		false: "91221d519b42c6bc566bc9e1be5cf365316bbe51",
+		true:  "e1dbb4e2de90dc61738ed1ae30c133cb1696b8bb",
 	},
 	"go/internal/gcimporter": {
-		false: "ffadc2952fb5a032102f8ed44fd84135531a9880",
-		true:  "f6b0ddcf167c436c4475947a631779fa7bf6c155",
+		false: "8f0e9d1745920dacf29dceea302d09d5846c6d1f",
+		true:  "dc77bbc7a132f5845e0f38ecaa040642b47033e8",
 	},
 	"go/internal/srcimporter": {
 		false: "5a27577fe193480156b31a35cdc8d843c8570d41",
@@ -738,100 +282,20 @@ var Index = map[string]map[bool]string{
 		true:  "e744c4f68488fb88e8e9d4c70aa842ca9bd86c8b",
 	},
 	"go/printer": {
-		false: "b700386d36307e0660b3a4af9450d096c8157231",
-		true:  "c898930f42588d3dbb1405b0f562396740874e18",
+		false: "9d7acbb193d820b58253c5a05650f4507d91d8c4",
+		true:  "0c7b63939dc73289d947286953a73eb04274c378",
 	},
 	"go/scanner": {
-		false: "efb45f7cc751d68a2d7f6ae3b2807d04439f2e39",
-		true:  "3618e0e81e6f52bb145e0aeba603ccce4574e853",
+		false: "0ff216ed0265be78624e0c96123af22b7be9c876",
+		true:  "e2edb6127ce6bb7c31ef13cba358d6452196afd0",
 	},
 	"go/token": {
-		false: "3ce7cc6247809830d2e51e585bd3ff2aa4b455c7",
-		true:  "3d114a16d30de9f5b2b8d13ffe0e332b2f66f3fc",
+		false: "dab75612272314b96f9decfe4c1d2fb54dfd4af9",
+		true:  "091949d332b7e9fc5b9a6c5749cbdb0f30a662c6",
 	},
 	"go/types": {
-		false: "d5cc2a47fb0cd3a80df50044fce5f7e8b8dcf00d",
-		true:  "4b47e87b14a0400e4f87fc5bd49e65bcc56d3b4a",
-	},
-	"golang.org/x/arch/arm/armasm": {
-		false: "dfe77fd6be107beb56daa3961f6b84597c364ff3",
-		true:  "aabceacee0d8d8c301aa81c5b157eea6b9f3de0b",
-	},
-	"golang.org/x/arch/arm64/arm64asm": {
-		false: "f2b6f9618a1af5093e16a1b8f298f906fae168b8",
-		true:  "3a1b3956d60d002692edaee77375cef26eb443fb",
-	},
-	"golang.org/x/arch/ppc64/ppc64asm": {
-		false: "8a07e015bc04ef0b96ee4871cdcab41646c9baec",
-		true:  "364ad02032f14c3658eaf0d003edcdcc21dfdf52",
-	},
-	"golang.org/x/arch/x86/x86asm": {
-		false: "7132f0df90fd0caf59c468719a20278f51687715",
-		true:  "90980513e1d2f0f845435418aaf42a6adf7fae7a",
-	},
-	"golang_org/x/crypto/chacha20poly1305": {
-		false: "5098188f5b3a3d3b510bbfd63ce0a8f63e39dacd",
-		true:  "8a0b7f1f1b93ca4f6b88f53290d990ee01399db1",
-	},
-	"golang_org/x/crypto/cryptobyte": {
-		false: "feac811d23c7eb0520e7339708acc89bf9931d8a",
-		true:  "4179f3c91359c4b0e717d78c5eab1ee877fe8396",
-	},
-	"golang_org/x/crypto/cryptobyte/asn1": {
-		false: "a16b47e642d65590be2a9a5c755ac1e34ec3ae6a",
-		true:  "43121b68eb3c23a9ec6422df8036e9125b6b9680",
-	},
-	"golang_org/x/crypto/curve25519": {
-		false: "7b22d0d3d747a040eba189d543637e87a396c280",
-		true:  "b76fd0cd8bd3495d9269c468536fd47dfb8a3f4d",
-	},
-	"golang_org/x/crypto/internal/chacha20": {
-		false: "90b81a05ee4be08ab280d38999920c79738238a2",
-		true:  "d6bbc6c919cb95967fe6ac5963d920a43f620a6d",
-	},
-	"golang_org/x/crypto/poly1305": {
-		false: "685cd2ce2a9b1121d71372ce5011ffcc4f846641",
-		true:  "9a9fe85f8d5626d50c60f0b516c14f1c9b60175b",
-	},
-	"golang_org/x/net/dns/dnsmessage": {
-		false: "0529cbec1fafc90ce24eb071b938dd210fd09de0",
-		true:  "92f458d863372af1c7c104ec3df41d8b7ba2c9a7",
-	},
-	"golang_org/x/net/http/httpguts": {
-		false: "039655953adc13e445a88a2711259696c5581af9",
-		true:  "e8af8d556f6a34041006661bcf04bb922bc57c14",
-	},
-	"golang_org/x/net/http/httpproxy": {
-		false: "c1e550bd757797df2bc40c54c83d1068e7b26dad",
-		true:  "68b5430bbc66f6136b5474b134ab8079823ea6c7",
-	},
-	"golang_org/x/net/http2/hpack": {
-		false: "42564fda4e2c5badc60125c4edce735a6da49452",
-		true:  "25ceaea3f8868b0546cd03e1eff60bb357f6777d",
-	},
-	"golang_org/x/net/idna": {
-		false: "3b638ae63493d6d6c73026fe13d3b7ae1e7c752c",
-		true:  "1beb9074336d0afabd867aaececf35264022723e",
-	},
-	"golang_org/x/net/route": {
-		false: "d34fecdd88fcf79bdba624441e68da0b5b5dfdfd",
-		true:  "9f790b9a77bd8fe6fc42f009ece7467c80bcc08d",
-	},
-	"golang_org/x/text/secure/bidirule": {
-		false: "9275463d09eb2b7019dd3f74030a2cc83b5e62a8",
-		true:  "372a59192ea6d9d197387c2bf34517054902e154",
-	},
-	"golang_org/x/text/transform": {
-		false: "033ee662121b236e032ad724c761cde25819e49e",
-		true:  "bd166ef3f3e1030e00d85673e77152794dee55a4",
-	},
-	"golang_org/x/text/unicode/bidi": {
-		false: "1addf2b07d4fef34a2fdeafe5b4cdc17df64f62c",
-		true:  "cb9a8f4466beea358e358d16bcbcee99b7fce039",
-	},
-	"golang_org/x/text/unicode/norm": {
-		false: "27fcbb9906990d7ba31df15c4e15b8ed498f19e9",
-		true:  "254caad5290e57a90d7f2c99c64baabe262a4eac",
+		false: "1c3b8720ec1823d7550673e189fc74759c3f7b2b",
+		true:  "83f13430edfad1cbb246e0472b5f762095921460",
 	},
 	"hash": {
 		false: "80b0231b3390254958dda05bdeed05c4b47d32a8",
@@ -846,24 +310,24 @@ var Index = map[string]map[bool]string{
 		true:  "56532d3e379da5948282d8041eb55b95b422b767",
 	},
 	"hash/crc64": {
-		false: "fb829249297382bf964de760f649974e0084133b",
-		true:  "722ffcee9e6afe8f70b0d779cee9b85bef08591b",
+		false: "e901162fa72f6f54e777c18b66e794cffab14ab1",
+		true:  "8f789db54df1218079f3768299f7fec363309cc7",
 	},
 	"hash/fnv": {
-		false: "0e5919fc5919be0072c8eb738de6a86a4b6cad29",
-		true:  "c83fed9409822d99e3044c9fe09cf64ed0a92c09",
+		false: "c2b3dab414158c64ba1d1031d6605b66581116fa",
+		true:  "14de8e204f08fa75c8793972ab24fe7321d249c5",
 	},
 	"html": {
 		false: "0c909aa3681fe426d85d829f19f3cde0f9876895",
 		true:  "9d496473422f76e636331886b3c6cc8406c32195",
 	},
 	"html/template": {
-		false: "c2e9c3a911dbe7f5070c85afd80e94521d0afb31",
-		true:  "5c565f292b200b77ee2d86522156dd104b9a225c",
+		false: "d149ca52b131d0dfedc177cbd13b8e3d60215e42",
+		true:  "6c1a6235f8ba633552917aecad8571647d4f70a5",
 	},
 	"image": {
-		false: "e2ba82e5ae1f01cb8b22744c591ac73960d75693",
-		true:  "6a17635cf81d5c1e4adc192472197cbf4703ae67",
+		false: "4b1fe8dd15f7ef4dc8134a46a689a7954e0b1175",
+		true:  "fbd7746d85f37383bc2d1fc815ed6ffe34cf417e",
 	},
 	"image/color": {
 		false: "a61efdd8a61a120df81ea019e4717d0f03c1b718",
@@ -874,44 +338,52 @@ var Index = map[string]map[bool]string{
 		true:  "7aab632263fa1417bff9fb9298112ed323e2db8b",
 	},
 	"image/draw": {
-		false: "d704d14fc3a832ef15c709a0f9a2f98b26687641",
-		true:  "49e69aec0d62474506959d85188ae8d923f45a73",
+		false: "e24a6e68b62aabf761f9a97a6031ecf5abedc1ef",
+		true:  "4bf300154e0057ac788a402c59ae7cce6d57da89",
 	},
 	"image/gif": {
-		false: "5771a66d61935d0bc1128aa94a4cad165faf965f",
-		true:  "69619a8f31a0af6c2403d3a02f1998e57b9bac9b",
+		false: "9855df351ba6f1300c74e7bc4feebef2a5cfc3ff",
+		true:  "bb55085a5e22652a44eb9e383d2d5bbf3b24cae8",
 	},
 	"image/internal/imageutil": {
 		false: "add9aa8370a986cd896e89ab5a105079065e6b70",
 		true:  "afbbdf3ef0eb72a57d4b564b81b93d1f1de72bc8",
 	},
 	"image/jpeg": {
-		false: "fe53ed4a9ed5bf7965d6206f078ab2577fb7fffd",
-		true:  "ec38279374a4e582d7777803fbcc50ff9173a966",
+		false: "c7ef97b3262b2d56d06c1e30c357051d0e521d55",
+		true:  "e1455e103dc2abac28c5f19790a0275922eade87",
 	},
 	"image/png": {
-		false: "0e70ec49564e50d4f7c657b87c054fff0f596445",
-		true:  "dc17b54f7a9ac9cab104444f7f600f6c0a88edd1",
+		false: "bba49658750a0131ce1884744bd3649ff6db7b18",
+		true:  "50c111478346a44023f13c74e029e67572e41d60",
 	},
 	"index/suffixarray": {
 		false: "b265a80f8b62cc4e773a8534e5ba7ad8ccf84dca",
 		true:  "53cc10d13018c6150fc76298b72d8940cf0fb4e4",
 	},
 	"internal/bytealg": {
-		false: "95522e37fe0f5185cb0390ad3b03e45a2a1e8fb2",
-		true:  "7b0097da94458f900c3f593199b228134e4da300",
+		false: "fa1d78c1a213ae90e76a1d72fb43329406770b6a",
+		true:  "9713546d11af7f90dc64a08aac6eed735edb3624",
 	},
 	"internal/cpu": {
-		false: "89618a40519e296355556c43e249f63f4d892979",
-		true:  "b5b31e679dd3cfb6dc787f481dccfaa5c191e967",
+		false: "abce95c6e8eedf55fb5c67a834f7076565f8cce5",
+		true:  "78a39384f5af975f91e7d512ad931f89b7899921",
+	},
+	"internal/fmtsort": {
+		false: "d926dca4909e71f19dcd409db855a0989bf88cb2",
+		true:  "cc73445fcb4af9a35d01b3917a463653f9efa77b",
+	},
+	"internal/goroot": {
+		false: "1c2019a06e4814b7860dcb79acdafdcd6f924f5e",
+		true:  "a524f22e9ed894546a8406420c1fdd60b95698b3",
 	},
 	"internal/nettrace": {
 		false: "f8c80388ddc4b3771fff69dbd9c748937a4b2e79",
 		true:  "f3523768c2158dafb37224733fad761d67fe4016",
 	},
 	"internal/poll": {
-		false: "410102c649718e20f07cee8cedf195c768ac288a",
-		true:  "c4fc8031fdeb4b930310a780b480d7fb6bef57c5",
+		false: "0ed737c1d3564a871b13ecab9d9072071ecdffcf",
+		true:  "916bb5656e530f4af9628675ce4bf1d80f6d184b",
 	},
 	"internal/race": {
 		false: "3997cbbe4d58b6311a3f979f419a080bb4bd3b2a",
@@ -922,8 +394,8 @@ var Index = map[string]map[bool]string{
 		true:  "780922bf96d7d0cf98a0ed483bd1d0df3f4f6187",
 	},
 	"internal/syscall/unix": {
-		false: "53291119118797401dfd05b1db831aa36bad27a2",
-		true:  "08bfb320e811001dbe2738c98f394fe158a94151",
+		false: "af088f1bd5a11ff95ac46a83c81c17598a358a44",
+		true:  "1b0e1442e16e7b4d027a7b51199b4eb8010964a3",
 	},
 	"internal/syscall/windows": {
 		false: "916a0803c40bb3274db634885f6e139dc3bb0097",
@@ -938,44 +410,128 @@ var Index = map[string]map[bool]string{
 		true:  "b64e9831dc330d546a1f896edbab99588d9b5582",
 	},
 	"internal/testenv": {
-		false: "1a8a6dc96c6f8bca085b75f196948c00519908cb",
-		true:  "550f159f07a661fed73d9a37c22089cb83130dc8",
+		false: "b704654dc2e6058ed335b34f64577ed2c858c05f",
+		true:  "35d41d8273bc3d01bba702a35f5c1d75406dad92",
 	},
 	"internal/testlog": {
 		false: "ecd33ec5fe7b61a8c0a942bd234634ac45d783b6",
 		true:  "cf3431b2ce69cd1e27d2a87a47eae6b89f594635",
 	},
 	"internal/trace": {
-		false: "3afeee1debce8352fce9c501eb3c75fc54fbb209",
-		true:  "7f1f6b2b44e318507ae3f29e1a767bbb43e1db54",
+		false: "c31fc79e33ae48b3c141a1276c3e5e0304311ed0",
+		true:  "a45baf6ac7ce37df5162a368f7442b5f23c728b2",
+	},
+	"internal/x/crypto/chacha20poly1305": {
+		false: "5c31657d9521de541f6a1399572a4e349e0979ab",
+		true:  "52f359263e1d6c9c2148bded96ba29c46f86299a",
+	},
+	"internal/x/crypto/cryptobyte": {
+		false: "b5a03eed116cb0edb61b0fdfcac72c6f1af64a08",
+		true:  "7b467cd65714386b38ebc7933e707993de7fd19f",
+	},
+	"internal/x/crypto/cryptobyte/asn1": {
+		false: "656c734ad36494bef8dde98759dc3b077784c752",
+		true:  "98590c292b8836ae1ead10be4db27d5b6ddfce0a",
+	},
+	"internal/x/crypto/curve25519": {
+		false: "785ddc13659424f29d5dac6f856eeef3fbd04260",
+		true:  "1576f84d041cb91b1f8f38a17cca7cbc2ea1659c",
+	},
+	"internal/x/crypto/hkdf": {
+		false: "0e8472f0a38ba25d27451a7470856517ae1e4c52",
+		true:  "ee40990f090f0c491c0832cd0ddc4d752b7bf4d3",
+	},
+	"internal/x/crypto/internal/chacha20": {
+		false: "105982d1c24d17aa00ce94ab3fb62152bb42da51",
+		true:  "2cb3fed5d2a5faf37bd653c81ec0dfcfe61c748c",
+	},
+	"internal/x/crypto/poly1305": {
+		false: "d88c86e1a0305d2022e530cf37691860777dd368",
+		true:  "137fcf64a855cbb8fe9ce038c7ed26720a15507c",
+	},
+	"internal/x/net/dns/dnsmessage": {
+		false: "e640b7a6e85a0093c7cbed11e24c38dccc012c16",
+		true:  "58a9ca4041712b5111048dbd4efcf94b3ebd8e08",
+	},
+	"internal/x/net/http/httpguts": {
+		false: "525a26658964db1f4f84268d824297e9e3b0cef2",
+		true:  "f9b5086981a35706616a854f0aedc8dc6a4dfa23",
+	},
+	"internal/x/net/http/httpproxy": {
+		false: "cf58ac466266ed81c4cf82c93537c7618915f86b",
+		true:  "dcf98864bf5ac13ff7844a27e60ac2272668902c",
+	},
+	"internal/x/net/http2/hpack": {
+		false: "9c9b212e31d87f90bf2b9acbc6939b96468f30be",
+		true:  "064112a1b56c88a52a81026149058279b31c94fe",
+	},
+	"internal/x/net/idna": {
+		false: "eb9534a7c3ac82e18957d2ac69b750581e7ec5fe",
+		true:  "01894029e1396e7db03c7adb8a9533f1d133bb31",
+	},
+	"internal/x/net/nettest": {
+		false: "41a6714973cb3ba5b290da7d5ba4719ca431a7fd",
+		true:  "a31910fc54ef92bea32b997c0f3b7307153c2969",
+	},
+	"internal/x/net/route": {
+		false: "9ff20ccd62656eb1e91c9ef318b69cbb43b4e94d",
+		true:  "e25586fe61d264c6261075cf9e2de387bf0e75bc",
+	},
+	"internal/x/text/secure": {
+		false: "919b9c39546fa39908c5c1c3e7dc137c1c867344",
+		true:  "df15f022dd39c4fc768d4e6557f745faee5bc284",
+	},
+	"internal/x/text/secure/bidirule": {
+		false: "70c1e8ed379160dcc2009aa8517eed15e2b4be46",
+		true:  "159de9b028fcabe9b6c667702ca645d80c348e94",
+	},
+	"internal/x/text/transform": {
+		false: "ef311813dbdc44a8b2bdea7505fc4935d64eb545",
+		true:  "500ea0527f8107adc720d41b939e63391e968eab",
+	},
+	"internal/x/text/unicode": {
+		false: "b8a33c3d1a49b2b8bab7a74fc9eb4bcacab0cac7",
+		true:  "5ce0b2f0e254dcbcf76d16c66674b9c1e241e6ab",
+	},
+	"internal/x/text/unicode/bidi": {
+		false: "c70da1c9ce5ea80a9fd62e67044511b0518e7648",
+		true:  "8d50419d098976e0687435e0087b9f7f0573bc2f",
+	},
+	"internal/x/text/unicode/norm": {
+		false: "605427b12ad0fc04eed991e8fb09158fc20a25f6",
+		true:  "0a8c91cf24dfd99b7f5cd034fd2e0a01134ba654",
+	},
+	"internal/xcoff": {
+		false: "351c94bf3d0a3f804831b87e8e45f543e002d486",
+		true:  "25d4b165411e91e07c9af3d512defd079e04ac6c",
 	},
 	"io": {
-		false: "b77f841534a18e9d29e8ea3ca2b07d77412cd599",
-		true:  "347b6e6e815e50ab600fa50dc9980914124e3af8",
+		false: "7d4e38bcaf19be4920b50a927c549ff4f00906b1",
+		true:  "04c845ec5900939dbc39f9e6f0cd4ae957d259d3",
 	},
 	"io/ioutil": {
-		false: "b3cc1bfe1be7c8e21a0c8a0a8659e5677b754236",
-		true:  "ef0e4416ca42f4e9b864c5cad22f2565f29a508a",
+		false: "4fa28ace44a1e9f6597dea4ed54e5d616147b375",
+		true:  "653aa120c7a2a1428fbe67c21d842713941c1913",
 	},
 	"log": {
-		false: "2fde6092a1a2b3eb995d267dd8fbd803064c6771",
-		true:  "72a5750d64e0e0ad83f9237d21fc57a7ea031811",
+		false: "dd51c64bd20b81a3103bea1811e2142249c5684c",
+		true:  "9ed0e03f6a9657c64b14ea9a4da8547a7e84a8d2",
 	},
 	"log/syslog": {
-		false: "66ad7348b7b533367f39d0f9a940d6c092fb8a0b",
-		true:  "fcd2824d989fb16e473ab8683cdc310f9217a855",
+		false: "8cc3879221d833e1f61d10146065e47bb7500427",
+		true:  "02f9f61350957109a5156eac0e33db8fa314f03c",
 	},
 	"math": {
-		false: "1ed1dbdcce1d71c5a733266902e9b79eb110e294",
-		true:  "3c34e5698995754d3e057a9553c4a47cb0b7e03e",
+		false: "29d1947d0595d120db4d7c8f316ce595728a897d",
+		true:  "d661fcff2dfb7e402dfba5859e15296fe19d4b52",
 	},
 	"math/big": {
-		false: "bb0d95c36d349e4cc58da88ea0c8e3b063cc8ab0",
-		true:  "7ebbe45ca04bfcb13be67aab0d360262bea0c05b",
+		false: "f7d9edbb044ceff39a0e9512ad35aaa0e2209f92",
+		true:  "ac95cb959bf07a0359276b44f7fccdaac40db443",
 	},
 	"math/bits": {
-		false: "5dacaffc1209b9c574f15f0b16b376c1c52045d9",
-		true:  "17081cf6e74fd306210d9ed4d4ac28466a64581e",
+		false: "7587086badeccb676274bd6c309809a801b3d149",
+		true:  "08373197b0ac93ec18bd279c47af501ce049caa1",
 	},
 	"math/cmplx": {
 		false: "3df419fdc7ef37c6e2b45df840bf3d91ca41443d",
@@ -986,60 +542,60 @@ var Index = map[string]map[bool]string{
 		true:  "1c7b04835516df24a928fdc07c7a6612e41dd94d",
 	},
 	"mime": {
-		false: "e3f01a45db22ca2e1479a473d692cde3b4e15291",
-		true:  "20ffdf1d8fad0c28fece7e0ebf87d26c6275f474",
+		false: "fee8d525202d45ac1a5b419b806b93c12fec0b8a",
+		true:  "429224cd6a4537345902619d8d4e18ca53fc639b",
 	},
 	"mime/multipart": {
-		false: "7e727d9808527d30f332c00e265772c15c79e32a",
-		true:  "ca213322221f83e7800f22043f9589af431eac62",
+		false: "e5a2296f678bcb3640621bcb2808e310e723265e",
+		true:  "1144054de709f0233fa475fd77bc9b1599165283",
 	},
 	"mime/quotedprintable": {
 		false: "e3685a51138af33635b2339c81b9d34bc273ce36",
 		true:  "f8d1186a1f0420e73077c4812afddfb21ff0d4ae",
 	},
 	"net": {
-		false: "e78b7be7a58dccb5536fc0db03ea293cd3dc21c7",
-		true:  "8ece59bc23ca06e3182184064457bab873b5441f",
+		false: "2d1760e9ec355b7e8a11f86558ada01778d2c1d3",
+		true:  "efad26039355c6020b288e265bc477e4f28577db",
 	},
 	"net/http": {
-		false: "92f9faee6383d37cff7f66ce6f7d09fb51064dbe",
-		true:  "3725e4f1ea84250e0bb5bfb2a7f38406a64ec06e",
+		false: "c2a5047cb8567803a34e4085406d172588d4a025",
+		true:  "bd633a2ef70b84bf386318c698c5aa0d2eae5e35",
 	},
 	"net/http/cgi": {
-		false: "2a3e0c742f77bda57d9a46844c85b03333c24027",
-		true:  "b350f63ca5fe62cc9d4b8782fa6520e4a0e8158b",
+		false: "9f65ec5833c8a11bda2327762116328056a6fd67",
+		true:  "7c899bd23510dcc84ff30297de5ecb664bcabb19",
 	},
 	"net/http/cookiejar": {
 		false: "ca13d0e102b7a9d2450e8e93ab63475ecd00d328",
 		true:  "fe183830bfc1e4b29eafd77998e1195df4e9bc08",
 	},
 	"net/http/fcgi": {
-		false: "cd9dffee37f780d46f60c594d27e97f2c28d0036",
-		true:  "80ebc58b5d1978e58da2b3925665192ba883c86d",
+		false: "c79f7fd8b86912c1f9d74c3fa6f579604f624e8d",
+		true:  "fa9b27a9f547f7b0f0864da32b78bb890aa8d6c2",
 	},
 	"net/http/httptest": {
-		false: "a467705793c61f6b09717ee54bc8805b106cd385",
-		true:  "2a8865736df76d5b3b54f5249c69c34cffc779a8",
+		false: "ed15c2344e2f1037434c129e76b2da1a3b5e95d8",
+		true:  "96dd24f8db6c6b07ce24d5b67ad47c35e02a1a4f",
 	},
 	"net/http/httptrace": {
 		false: "37e4789741851bf0784366977e17b876f78a1a1e",
 		true:  "92400c0a4e3334ba56583856cd5e394acf9e9fb2",
 	},
 	"net/http/httputil": {
-		false: "693ff4bc1d704a7a58c16725977f237a6a7ac790",
-		true:  "e5796077bb3017baa2a16cd3daa0c0dc9d61e9e1",
+		false: "b7060fd2bc7cee8090a3347cbabf1f167fde992d",
+		true:  "553d669296c0f11156b885e8411f1b721d87d3ec",
 	},
 	"net/http/internal": {
 		false: "516ae98a31e230d0fe6474706ef7aa628f951635",
 		true:  "4bc2cbf9fc37ee01f38bd3e136e0f5a2aaf365b4",
 	},
 	"net/internal/socktest": {
-		false: "c0a636e834ab9f880bb8fee4b7e89a125cb628cd",
-		true:  "0d7c7d56d1b6be9cfae758f2555c6e04fea6f2ed",
+		false: "aee397bd903e2b03b78c9a751bfb829bdbd3f933",
+		true:  "3ac5138acc1b4724cd8e8812566bcceb7df89cb1",
 	},
 	"net/mail": {
-		false: "7f86cfc72d5af57ba3e35d11eee5bceb40b54965",
-		true:  "9d2f3492dbe72983dc1b57e417e829827b8c459b",
+		false: "cd78dba0714e51c3f2ff47fca1a614b610e99e0e",
+		true:  "0ba4cc0d302dd3b6ab9403bf0f6a4f3059083149",
 	},
 	"net/rpc": {
 		false: "cef5a50f975800552a4962c66fa99fd7b88135e1",
@@ -1054,56 +610,56 @@ var Index = map[string]map[bool]string{
 		true:  "7bb1a08671fd481e6b0584db2dbe108a7f53fa96",
 	},
 	"net/textproto": {
-		false: "7b5c0a5d14ef197502ea7cc046080b1a8a0667c7",
-		true:  "158f9657a78034f5bc5facc5648537cb4b843e35",
+		false: "9d91723f9335316732d388f019faebac61505b08",
+		true:  "bfc88dee72450bd9b89d0454a862653a45274fc3",
 	},
 	"net/url": {
-		false: "f66e084465d70c8dbaf2a0078492ed91814d75d5",
-		true:  "2e64f8ca344498fc06153454c23ed3151f449094",
+		false: "ade22628b3a2e298ceb78c83b9e261bac20e0d39",
+		true:  "fead5401832f8a2541e581d0160b98c33c8f2093",
 	},
 	"os": {
-		false: "6df6f6f4fc73ea93de49ffcdc5737dd0f3987432",
-		true:  "8540fe8b944db5c0f329305a6710a4170125e2a0",
+		false: "5b1aa61f7ddb8d87395c8b5790e9da028c22d0a5",
+		true:  "937fa5ca61b1da1095e2c67ccd58635d2df7cf4f",
 	},
 	"os/exec": {
-		false: "c678f2955c9464581878fa2ab7511570946b54b5",
-		true:  "4644539373a241545b6f4e2d805c65903e54a73e",
+		false: "ac726fef410fd3a8af021cf20ea35f8967b77b0a",
+		true:  "f79bce9dc6464535da27c32171680bb40ce0749e",
 	},
 	"os/signal": {
 		false: "721951c3a8998e10261b47c936a8fe1de8f8e1aa",
 		true:  "fd689929a778552eb16b1167d608205bd8be2c24",
 	},
 	"os/user": {
-		false: "c088331e5a2ff0cc94469519119ff1c5dfb37265",
-		true:  "48b2b595e76b131d677bdc1c7a83fbf250b2f57c",
+		false: "e4110b0a4d13cb55584e05b6bbf71a25aff5d408",
+		true:  "9d89f804080a26f690c7e1da3e033471d3fa47b7",
 	},
 	"path": {
 		false: "a6130ed900e7236817fc886913b26e005bd107ae",
 		true:  "8d8ebdbad1048a04fa5415f967f40cea588f98bc",
 	},
 	"path/filepath": {
-		false: "627d31e20ca5dbcb553e9da00216e589fcd63403",
-		true:  "9d1650eca84e8c2caff7db568c641f1bb5a3d03a",
+		false: "044c0f7486e225104af7efb1fc8d41bb7cf7341b",
+		true:  "bdd06259a32d19115ca026fa4054bcde070a7d6d",
 	},
 	"reflect": {
-		false: "5f33530d9cdc11354d3e5fb0c8d01413ebce3b3b",
-		true:  "f34e3a5ad9c1c23fbc5a0b345c7d1412c6459644",
+		false: "6099f9c6164021e11d8516cb95287fd7ff201a27",
+		true:  "db6e7faf367e02d4e71ab18e1c079cdb1f987740",
 	},
 	"regexp": {
-		false: "1a8000f4a4141e30f682d66a9963fc0e0a1bdc63",
-		true:  "2c111de93cdec6b6397aeea0e00a91d8db260109",
+		false: "25380e7e2b8dd27416fb382df93b33d5a3846a1f",
+		true:  "2cb4e62be8c6db9c6c9325bd8ad5afdc559b5b31",
 	},
 	"regexp/syntax": {
-		false: "298917241df079f00a1df25c8a6797e10b983fec",
-		true:  "31225f61651f2ad8467e8fb70cfee4e6b78c5f7d",
+		false: "e3f8d2cfaa093b7b80490024aa22abbc1579f26f",
+		true:  "b4e8de667cd7133916c09d1f57a2ab57b2a33d09",
 	},
 	"runtime": {
-		false: "a9e17f5e56e11985ac4be14ce99b77eb2e115b36",
-		true:  "2d657268b5e6b21ea671e5a50437f6511122a671",
+		false: "fd86cbbd48c0627f80d49d439c4d9dc7c4317831",
+		true:  "b245243dfa752c0df75ae135e827c434de39e833",
 	},
 	"runtime/debug": {
-		false: "cee5b042e610ae4508257a0b85c936daea33bb89",
-		true:  "86b985802b813aed999ee9b8fea373c12602c420",
+		false: "6d1f2fa6f5a90b7b3b2fb3c01a46522026d86fd5",
+		true:  "4c35716e671163af6d7fa1b4a5fe74d40d1a3c2f",
 	},
 	"runtime/internal/atomic": {
 		false: "3bf8e78df01797421108f87f29305ccdb4ebc402",
@@ -1118,8 +674,8 @@ var Index = map[string]map[bool]string{
 		true:  "474a67a3282aa540f82bedcdd2870710b0b680e5",
 	},
 	"runtime/pprof/internal/profile": {
-		false: "2c2e538a4ebe320a4fcddd91d2f4bac234abd5cb",
-		true:  "5a51f189af31b3a148d047c49b53aa3207d88eeb",
+		false: "482463e560c2ab60c6844eebeb3fc23ae9c0cf6d",
+		true:  "fbf657a42dbc14cf6e85066539f9b94d43aa36aa",
 	},
 	"runtime/race": {
 		false: "86a22d76d9d9f4f177ede59bb0e71d2c0af37406",
@@ -1134,28 +690,32 @@ var Index = map[string]map[bool]string{
 		true:  "1a8eddcbf7f1a1be551552ff46a33dde64d9996c",
 	},
 	"strconv": {
-		false: "789449e3cbecf20584bc0e58869d8e455cf802e0",
-		true:  "6a4accd68bbaa3cbffbeabaf583b13067fb5b6c0",
+		false: "9e62f29d6ddaf9cc793470c7b19fcfa4c5c97f5c",
+		true:  "89c8311f0c3f88bc9266e682988b0ab94a7e37c2",
 	},
 	"strings": {
-		false: "26ebf7e7f199b21c95973ebbb9e743ff815c6970",
-		true:  "da36c9388403366cc805755f7ac03911aa9f4273",
+		false: "4bbbc49b51d05a0c8599794b8d5a91411c192af6",
+		true:  "9e1ea7cb5de6d558da73df0bc3198dd37fb204ee",
 	},
 	"sync": {
-		false: "892cb2088ba686785ed0ab1c6551502b42d80ded",
-		true:  "797e7c045f341736adf97257cd9f4199de701c47",
+		false: "3cae08ac240b008e80ac6c192d53418f0e30c4af",
+		true:  "43193aecade48ab8fe1df005c0c98991b6ac585b",
 	},
 	"sync/atomic": {
 		false: "c1fe1f8eec79118b7264162d6df063b28f6fa6b2",
 		true:  "03c2b4d4a1a61c0cde76907772e28510c845ecad",
 	},
 	"syscall": {
-		false: "2eeba11720de25574857ef343c285ec585855715",
-		true:  "cb166b41d21830de41d2f5f699ad10421e4f9cd4",
+		false: "2a412e6bf13e8d53f50d63b4b3c2b9a90be14e73",
+		true:  "12e02fb2d8f1dde744527869eeb347e08bc6789b",
+	},
+	"syscall/js": {
+		false: "221c74d3b43296699f195bb84e37b96e57a1ea28",
+		true:  "bbd3309cd578ac5d627f3d89c8774719d8c9af34",
 	},
 	"testing": {
-		false: "ab4309f907842ba8f3d9260f0207dd6020bc07fe",
-		true:  "087d7b1eb5fe2aa2e74c5c54abf12db32e4ab7b3",
+		false: "7221993f9ea0a588062e706db5cb981ba2553650",
+		true:  "3fa3657f9a9985f56f3f8853b86bdf9e90f9fa72",
 	},
 	"testing/internal/testdeps": {
 		false: "42c54e52d789528021de531ec59804d55c84c038",
@@ -1170,24 +730,24 @@ var Index = map[string]map[bool]string{
 		true:  "73292efe6f033eaea11bf612a299d183af633450",
 	},
 	"text/scanner": {
-		false: "b16f8b90ee13ccd12bdaf852f8ad081619bcbac6",
-		true:  "51953000202d6bc29674062050e732c97df266ca",
+		false: "a3a94c971ee1b7bc1c6d6d7b658650bdfdfcad40",
+		true:  "02463c21263a0b22875b256deb4b6aa0fa939d46",
 	},
 	"text/tabwriter": {
 		false: "5b5b5d99df0445a17a9ab0367e8e417e33ad6c2d",
 		true:  "1b0b9e06e9c3ff8caa632c9b6ab7b41fbee885d9",
 	},
 	"text/template": {
-		false: "1b9044e9b9bb5123098bc396968d6b433d82dd0d",
-		true:  "9b1573c3e336665b3b8f6fcc852fb11c422976d9",
+		false: "b177827c69a92d1b6ee3fd437598b39455c14797",
+		true:  "1ea85ef962c0d3d4efd3b5d857727fb38de5f63e",
 	},
 	"text/template/parse": {
-		false: "ced5758c1a6ff4e3953c2418ef53169cdf110e27",
-		true:  "748d4a3ae86bb6c661c861cd587b6b25cd121098",
+		false: "906aed058b4ca064ca07f6cb4fe6e2f8bf77f6d3",
+		true:  "2218d6f39d3589ef4fffb6dfd73336781308e84c",
 	},
 	"time": {
-		false: "bfd008ff46646849894e7aa727c1ddaf3edd247c",
-		true:  "fd7c9ec7695cf6a1b803e329df7fa8cba1c9e83a",
+		false: "f2d0ce444f955bed0af7fecb861934654f4463f9",
+		true:  "af95b7602420109e3db0ef0b17dfbce8a1ffb31b",
 	},
 	"unicode": {
 		false: "07274c1b038bb789428d7346396f080052efe884",
