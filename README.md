@@ -1,5 +1,20 @@
 <a href="https://patreon.com/davebrophy" title="Help with my hosting bills using Patreon"><img src="https://img.shields.io/badge/patreon-donate-yellow.svg" style="max-width:100%;"></a>
 
+# 2020 Update
+
+* The compile.jsgo.io and play.jsgo.io services have been shut down.   
+* Anything deployed to jsgo.io or pkg.jsgo.io will continue to work fine.  
+
+I created the jsgo.io system several years ago, and it costs about $150/month to host which I pay 
+personally. I'm tightening up my finances right now, so this outgoing had to stop.
+
+If anyone would like to host it for me (it runs on a single GKE `n1-standard-2` instance), please 
+let me know and we can get it back online!
+
+I had a plan for a big rewrite that would make is possible to run on App Engine, thus reduce the 
+cost to almost zero. Unfortunately this is something I'm hesitant to start, because it seems that 
+Go on the client is moving away from GopherJS and towards WASM.  
+
 # jsgo.io
 
 [GopherJS](https://github.com/gopherjs/gopherjs) is an amazing tool, but I've always been frustrated 
